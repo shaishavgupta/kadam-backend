@@ -33,7 +33,7 @@ fastifyInstance.register(swagger, {
         },
         servers: [
             {
-                url: `${process.env.DOMAIN}:${process.env.PORT}`,
+                url: `${process.env.DOMAIN}`,
                 description: 'Development server'
             }
         ],
@@ -66,8 +66,7 @@ fastifyInstance.register(cors, {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Kadam-Path'],
     preflightContinue: false,
-    exposedHeaders: ['X-Kadam-Path'],
-    hideOptionsRoute: false
+    exposedHeaders: ['X-Kadam-Path']
 });
 
 // Register error handler
