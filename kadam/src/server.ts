@@ -19,7 +19,7 @@ dotenv.config();
 
 const fastifyInstance = Fastify({
     logger: {
-        level: 'info'
+        level: process.env.LOG_LEVEL || 'info'
     }
 }).withTypeProvider<TypeBoxTypeProvider>();
 
@@ -33,7 +33,7 @@ fastifyInstance.register(swagger, {
         },
         servers: [
             {
-                url: 'http://localhost:3000',
+                url: `${process.env.DOMAIN}:${process.env.PORT}`,
                 description: 'Development server'
             }
         ],
@@ -61,10 +61,13 @@ fastifyInstance.register(swaggerUi, {
 });
 
 fastifyInstance.register(cors, {
-    origin: true, // Allow all origins for development
+    origin: true,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Kadam-Path'],
+    preflightContinue: false,
+    exposedHeaders: ['X-Kadam-Path'],
+    hideOptionsRoute: false
 });
 
 // Register error handler
@@ -121,9 +124,10 @@ const start = async () => {
     try {
         const port = parseInt(process.env.PORT || '3000');
         await fastifyInstance.listen({ port, host: '0.0.0.0' });
+        const domain = process.env.DOMAIN
         console.log(`🚀 Server running on port ${port}`);
-        console.log(`📊 Health check: http://localhost:${port}/health`);
-        console.log(`📚 Swagger UI: http://localhost:${port}/documentation`);
+        console.log(`📊 Health check: ${domain}:${port}/health`);
+        console.log(`📚 Swagger UI: ${domain}:${port}/documentation`);
     } catch (err) {
         fastifyInstance.log.error(err);
         process.exit(1);

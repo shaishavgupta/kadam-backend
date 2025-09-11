@@ -44,7 +44,7 @@ export async function startTelemetry(): Promise<void> {
                 ignoreIncomingRequestHook: ignoreEndpoints,
                 requestHook: (span: Span, req) => {
                     const method = (req as any).method;
-                    const url = new URL((req as any).url, 'http://localhost').pathname;
+                    const url = new URL((req as any).url, process.env.DOMAIN).pathname;
                     span.updateName(`${method} ${url}`);
                 }
             }),
