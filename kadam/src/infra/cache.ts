@@ -4,10 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const redisConfig: any = {
-    host: process.env.REDIS_HOST || 'redis',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    username: process.env.REDIS_USERNAME || 'default',
-    password: process.env.REDIS_PASSWORD || '',
+    url: `redis://${process.env.REDIS_USERNAME}:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
     retryDelayOnFailover: 100,
     enableReadyCheck: false,
     maxRetriesPerRequest: null,
@@ -15,7 +12,7 @@ const redisConfig: any = {
     connectTimeout: 10000,
     commandTimeout: 5000,
 };
-console.log(redisConfig);
+
 const redis = createClient(redisConfig);
 
 redis.on('connect', () => {
