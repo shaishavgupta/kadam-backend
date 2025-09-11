@@ -15,7 +15,7 @@ const redisConfig: any = {
     connectTimeout: 10000,
     commandTimeout: 5000,
 };
-
+console.log(redisConfig);
 const redis = createClient(redisConfig);
 
 redis.on('connect', () => {
