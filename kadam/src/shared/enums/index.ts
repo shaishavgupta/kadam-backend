@@ -1,0 +1,47 @@
+// Content Types
+export enum ContentType {
+    VIDEO = 'video',
+    QUIZ = 'quiz',
+    NOTES = 'notes'
+}
+
+// Qualification Types
+export enum QualificationType {
+    DEGREE = 'degree',
+    DIPLOMA = 'diploma',
+    CERTIFICATION = 'certification'
+}
+
+// Achievement Types
+export enum AchievementType {
+    ACADEMIC = 'academic',
+    SPORTS = 'sports',
+    PROFESSIONAL = 'professional'
+}
+
+// Parent Types (for interactions)
+export enum ParentType {
+    CONTENT = 'content',
+    COURSE = 'course',
+    COMMENT = 'comment'
+}
+
+// Languages
+export enum Language {
+    ENGLISH = 'en',
+    HINDI = 'hi'
+}
+
+// Gender
+export enum Gender {
+    MALE = 'male',
+    FEMALE = 'female',
+    OTHERS = 'others'
+}
+
+// Plan Types
+export enum PlanType {
+    FREE = 'free',
+    PREMIUM = 'premium',
+    PRO = 'pro'
+}

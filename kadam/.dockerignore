@@ -115,6 +115,3 @@ Thumbs.db
 Dockerfile
 .dockerignore
 
-# Encore specific
-.encore/
-encore.gen/
