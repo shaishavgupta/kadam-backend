@@ -99,7 +99,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 200: VerifyOtpResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Body: VerifyOtpRequest }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest<{ Body: VerifyOtpRequest }>, reply: FastifyReply): Promise<VerifyOtpResponse | void> => {
         try {
             const result = await userService.verifyOtpAndGetOrCreateUser(request.body);
 
@@ -108,12 +108,17 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 process.env.JWT_SECRET || 'fallback-secret',
                 { expiresIn: '24h' }
             );
-
-            return {
-                ...result,
+            const refreshToken = jwt.sign(
+                { sub: result.userId, userType: 'user' },
+                process.env.JWT_SECRET || 'fallback-secret',
+                { expiresIn: '7d' }
+            );
+            reply.send({
                 accessToken: token,
-                refreshToken: '' // Placeholder for refresh token
-            };
+                refreshToken: refreshToken,
+                isNewUser: result.isNewUser,
+                userId: result.userId
+            });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
             reply.code(500).send({ success: false, message: errorMessage });
