@@ -3,7 +3,7 @@ services:
     build: .
     ports:
       - "3000:3000"
-    environment:
+    env_file:
       - .env
     depends_on:
       - db
@@ -13,7 +13,9 @@ services:
   db:
     image: pgvector/pgvector:pg15
     environment:
-      - .env
+      POSTGRES_DB: ${DB_NAME:-kadam_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
