@@ -92,9 +92,17 @@ export class UserService {
                     isNewUser: false,
                     userId: existingUser.id
                 };
+            } else {
+                const newUser = await this.createUser({
+                    phone: phone
+                })
+                return {
+                    accessToken: "",
+                    refreshToken: "",
+                    isNewUser: true,
+                    userId: newUser.id
+                };
             }
-
-            throw new Error("User registration required.");
 
         } catch (error) {
             console.error("Error verifying OTP:", error);
