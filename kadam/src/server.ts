@@ -4,7 +4,7 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import dotenv from 'dotenv';
-import { db } from './infra/db/db';
+import { db } from './infra/db';
 import { redis } from './infra/cache';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { requestLogger } from './shared/middleware/logging';

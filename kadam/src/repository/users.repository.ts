@@ -1,12 +1,12 @@
-import { db } from "../infra/db/db";
-import { 
-  User, 
-  CreateUserRequest, 
-  UpdateUserRequest, 
-  Language, 
-  Gender, 
-  PlanType, 
-  PaginatedUsersResponse 
+import { db } from "../infra/db";
+import {
+    User,
+    CreateUserRequest,
+    UpdateUserRequest,
+    Language,
+    Gender,
+    PlanType,
+    PaginatedUsersResponse
 } from "../shared/types/users.types";
 
 export class UserRepository {

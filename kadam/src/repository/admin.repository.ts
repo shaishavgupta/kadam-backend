@@ -1,5 +1,5 @@
 import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse } from "../shared/types/admin.types";
-import { db } from "../infra/db/db";
+import { db } from "../infra/db";
 
 export class AdminRepository {
     async getAdminConfigurations(key: keyof typeof AdminConfigurations): Promise<AdminConfigurationResponse | null> {

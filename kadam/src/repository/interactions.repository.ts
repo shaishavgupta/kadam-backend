@@ -1,4 +1,4 @@
-import { db } from "../infra/db/db";
+import { db } from "../infra/db";
 import {
     Like, CreateLikeDTO, UpdateLikeDTO, ParentType, Comment, CreateCommentDTO, UpdateCommentDTO,
     Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, View, CreateViewDTO, UpdateViewDTO,

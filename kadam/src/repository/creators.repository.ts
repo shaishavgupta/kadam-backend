@@ -1,4 +1,4 @@
-import { db } from "../infra/db/db";
+import { db } from "../infra/db";
 import {
     Creator,
     Qualification,

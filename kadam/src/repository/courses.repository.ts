@@ -1,32 +1,32 @@
-import { db } from "../infra/db/db";
+import { db } from "../infra/db";
 import { ContentType, Tag, Category, Module, Course, ContentWithModule, PaginatedCoursesResponse } from "../shared/types/courses.types";
 
 export class CoursesRepository {
 
-                async getAllCourses(page: number, limit: number): Promise<PaginatedCoursesResponse> {
-        const offset = (page - 1) * limit;
-        const coursesResult = await db.query('SELECT * FROM courses LIMIT $1 OFFSET $2', [limit, offset]);
-        const totalResult = await db.query('SELECT COUNT(*) FROM courses');
-        const total = parseInt(totalResult.rows[0].count, 10);
+  async getAllCourses(page: number, limit: number): Promise<PaginatedCoursesResponse> {
+    const offset = (page - 1) * limit;
+    const coursesResult = await db.query('SELECT * FROM courses LIMIT $1 OFFSET $2', [limit, offset]);
+    const totalResult = await db.query('SELECT COUNT(*) FROM courses');
+    const total = parseInt(totalResult.rows[0].count, 10);
 
-        return {
-                        courses: coursesResult.rows as Course[],
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-        };
-    }
+    return {
+      courses: coursesResult.rows as Course[],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 
   async getContentsByCourseId(courseId: number): Promise<ContentWithModule[]> {
-            const result = await db.query(
-        `SELECT c.*, m.title as module_title, m.description as module_description
+    const result = await db.query(
+      `SELECT c.*, m.title as module_title, m.description as module_description
       FROM contents c
       LEFT JOIN modules m ON c.module_id = m.id
                  WHERE c.course_id = $1`,
-        [courseId]
-      );
-      return result.rows as ContentWithModule[];
+      [courseId]
+    );
+    return result.rows as ContentWithModule[];
   }
 
   async getModulesByCreatorId(creatorId: number): Promise<Module[]> {
@@ -320,12 +320,12 @@ export class CoursesRepository {
     }
   }
 
-      async getCurrentlyEnrolledCourses(userId: number): Promise<Course[]> {
-        // This is a placeholder. You should implement the logic to get the actual data.
-        return [];
-    }
+  async getCurrentlyEnrolledCourses(userId: number): Promise<Course[]> {
+    // This is a placeholder. You should implement the logic to get the actual data.
+    return [];
+  }
 
-    async getPopularCategories(): Promise<Category[]> {
+  async getPopularCategories(): Promise<Category[]> {
     try {
       const result = await db.query(
         `SELECT c.*, COUNT(cc.course_id) as course_count
