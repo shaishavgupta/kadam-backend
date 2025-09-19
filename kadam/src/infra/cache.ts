@@ -3,8 +3,24 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Build Redis URL based on available credentials
+const buildRedisUrl = () => {
+    const host = process.env.REDIS_HOST || 'localhost';
+    const port = process.env.REDIS_PORT || '6379';
+    const username = process.env.REDIS_USERNAME;
+    const password = process.env.REDIS_PASSWORD;
+
+    if (username && password) {
+        return `redis://${username}:${password}@${host}:${port}`;
+    } else if (password) {
+        return `redis://:${password}@${host}:${port}`;
+    } else {
+        return `redis://${host}:${port}`;
+    }
+};
+
 const redisConfig: any = {
-    url: `redis://${process.env.REDIS_USERNAME}:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+    url: buildRedisUrl(),
     retryDelayOnFailover: 100,
     enableReadyCheck: false,
     maxRetriesPerRequest: null,

@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "migrate": "npm run build && node dist/db/migrate.js",
     "migrate:dev": "npm run build && node dist/db/migrate.js",
+    "seed": "npm run build && node dist/db/seed.js",
     "dev": "tsx watch src/index.ts",
     "test": "echo \"No tests specified\"",
     "docker:start": "./docker-scripts.sh start",

@@ -30,7 +30,7 @@ async function runMigrations() {
             driver: 'pg',
             database: process.env.DB_NAME || 'kadam_db',
             schemaTable: 'schemaversion',
-            execQuery: (query) => client.query(query),
+            execQuery: (query: string) => client.query(query),
         });
 
         // Run migrations
