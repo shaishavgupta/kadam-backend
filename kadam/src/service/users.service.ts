@@ -65,17 +65,19 @@ export class UserService {
 
             const otpKey = `otp:${phone}`;
             const storedOtpData = await cache.get(otpKey);
-            if (!storedOtpData) {
-                throw new Error("OTP not found. Please request a new OTP.");
-            }
+            if (process.env.NODE_ENV === "production") {
+                if (!storedOtpData) {
+                    throw new Error("OTP not found. Please request a new OTP.");
+                }
 
-            if (new Date(storedOtpData.expiresAt) < new Date()) {
-                await cache.delete(otpKey);
-                throw new Error("OTP has expired. Please request a new OTP.");
-            }
+                if (new Date(storedOtpData.expiresAt) < new Date()) {
+                    await cache.delete(otpKey);
+                    throw new Error("OTP has expired. Please request a new OTP.");
+                }
 
-            if (storedOtpData.otp !== otp && process.env.NODE_ENV === "production") {
-                throw new Error("Invalid OTP. Please try again.");
+                if (storedOtpData.otp !== otp) {
+                    throw new Error("Invalid OTP. Please try again.");
+                }
             }
 
             await cache.delete(otpKey);
