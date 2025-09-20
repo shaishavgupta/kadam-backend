@@ -33,8 +33,8 @@ fastifyInstance.register(swagger, {
         },
         servers: [
             {
-                url: `${process.env.DOMAIN || 'http://localhost'}:${process.env.PORT || '3001'}`,
-                description: 'Development server'
+                url: getServerUrl(),
+                description: 'API server'
             }
         ],
         components: {
@@ -129,15 +129,30 @@ async function checkRedisConnection() {
     }
 }
 
+// Helper function to get server URL based on environment
+function getServerUrl(): string {
+    const domain = process.env.DOMAIN || 'http://localhost';
+    const port = process.env.PORT || '3001';
+    const environment = process.env.NODE_ENV || 'local';
+
+    // For local development, include port
+    if (environment === 'local') {
+        return `${domain}:${port}`;
+    }
+
+    // For production domains, don't include port (assumes standard ports 80/443)
+    return domain;
+}
+
 // Start server
 const start = async () => {
     try {
         const port = parseInt(process.env.PORT || '3001');
         await fastifyInstance.listen({ port, host: '0.0.0.0' });
-        const domain = process.env.DOMAIN || 'http://localhost';
+        const serverUrl = getServerUrl();
         console.log(`🚀 Server running on port ${port}`);
-        console.log(`📊 Health check: ${domain}:${port}/health`);
-        console.log(`📚 Swagger UI: ${domain}:${port}/documentation`);
+        console.log(`📊 Health check: ${serverUrl}/health`);
+        console.log(`📚 Swagger UI: ${serverUrl}/documentation`);
     } catch (err) {
         fastifyInstance.log.error(err);
         process.exit(1);
