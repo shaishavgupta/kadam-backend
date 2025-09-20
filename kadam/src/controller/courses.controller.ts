@@ -254,6 +254,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             tags: ['Courses'],
             summary: 'Get currently enrolled courses',
             description: 'Retrieve courses currently enrolled by the authenticated user',
+            security: [{ bearerAuth: [] }],
             response: {
                 200: CurrentlyEnrolledCoursesResponseSchema
             }

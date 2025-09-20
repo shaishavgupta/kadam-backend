@@ -38,6 +38,7 @@ import {
     SendOtpResponse
 } from '../schemas/user';
 import { SuccessResponseSchema, SuccessResponse } from '../schemas/common';
+import { Language, Gender, PlanType } from '../shared/enums';
 
 const userService = new UserService();
 
@@ -56,9 +57,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
         return {
             success: true,
             data: {
-                languages: ['en', 'hi'],
-                genders: ['male', 'female', 'other'],
-                planTypes: ['free', 'premium', 'enterprise']
+                languages: Object.values(Language),
+                genders: Object.values(Gender),
+                planTypes: Object.values(PlanType)
             },
             message: "Enums retrieved successfully"
         };
@@ -163,6 +164,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Get all users',
                 description: 'Retrieve a paginated list of all users',
+                security: [{ bearerAuth: [] }],
                 querystring: GetUsersQuerySchema,
                 response: {
                     200: PaginatedUsersResponseWrapperSchema
@@ -192,6 +194,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Get user by ID',
                 description: 'Retrieve a specific user by their ID',
+                security: [{ bearerAuth: [] }],
                 params: UserIdParamSchema,
                 response: {
                     200: UserResponseSchema
@@ -226,6 +229,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Get user by phone number',
                 description: 'Retrieve a specific user by their phone number',
+                security: [{ bearerAuth: [] }],
                 params: UserPhoneParamSchema,
                 response: {
                     200: UserResponseSchema
@@ -252,6 +256,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Get user by email',
                 description: 'Retrieve a specific user by their email address',
+                security: [{ bearerAuth: [] }],
                 params: UserEmailParamSchema,
                 response: {
                     200: UserResponseSchema
@@ -278,6 +283,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Update user',
                 description: 'Update a specific user by their ID',
+                security: [{ bearerAuth: [] }],
                 params: UserIdParamSchema,
                 body: UpdateUserRequestSchema,
                 response: {
@@ -313,6 +319,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Create user',
                 description: 'Create a new user',
+                security: [{ bearerAuth: [] }],
                 body: CreateUserRequestSchema,
                 response: {
                     200: UserResponseSchema
@@ -339,6 +346,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Delete user',
                 description: 'Delete a specific user by their ID',
+                security: [{ bearerAuth: [] }],
                 params: UserIdParamSchema,
                 response: {
                     200: SuccessResponseSchema
@@ -372,6 +380,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Cleanup expired OTPs',
                 description: 'Remove expired OTP records from the database',
+                security: [{ bearerAuth: [] }],
                 response: {
                     200: CleanupOtpsResponseSchema
                 }
@@ -397,6 +406,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Get home page content',
                 description: 'Get banners and other content for the home page',
+                security: [{ bearerAuth: [] }],
                 response: {
                     200: HomePageContentResponseSchema
                 }

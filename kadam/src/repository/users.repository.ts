@@ -11,6 +11,28 @@ import {
 
 export class UserRepository {
 
+    private transformDatabaseRow(row: any): User {
+        return {
+            id: row.id,
+            email: row.email || undefined,
+            name: row.name || undefined,
+            phone: row.phone,
+            avatar_url: row.avatar_url || undefined,
+            preferred_language: row.preferred_language,
+            plan_type: row.plan_type,
+            created_at: new Date(row.created_at),
+            updated_at: new Date(row.updated_at),
+            is_active: row.is_active,
+            last_active_at: row.last_active_at ? new Date(row.last_active_at) : undefined,
+            paid_at: row.paid_at ? new Date(row.paid_at) : undefined,
+            dob: row.dob ? new Date(row.dob) : undefined,
+            bio: row.bio || undefined,
+            gender: row.gender && Object.values(Gender).includes(row.gender) ? row.gender : undefined,
+            onboarding_completed: row.onboarding_completed,
+            whatsapp_allowed: row.whatsapp_allowed
+        };
+    }
+
     private validatePhone(phone: string): boolean {
         const phoneRegex = /^[+]?[1-9]\d{1,14}$/;
         return phoneRegex.test(phone);
@@ -76,7 +98,7 @@ export class UserRepository {
         );
 
         if (result.rows.length > 0) {
-            return result.rows[0] as User;
+            return this.transformDatabaseRow(result.rows[0]);
         }
 
         throw new Error("Failed to create user");
@@ -87,7 +109,7 @@ export class UserRepository {
             `SELECT * FROM users WHERE id = $1 AND is_active = true`,
             [id]
         );
-        return result.rows.length > 0 ? result.rows[0] as User : null;
+        return result.rows.length > 0 ? this.transformDatabaseRow(result.rows[0]) : null;
     }
 
     async findUserByPhone(phone: string): Promise<User | null> {
@@ -98,7 +120,7 @@ export class UserRepository {
             `SELECT * FROM users WHERE phone = $1 AND is_active = true`,
             [phone]
         );
-        return result.rows.length > 0 ? result.rows[0] as User : null;
+        return result.rows.length > 0 ? this.transformDatabaseRow(result.rows[0]) : null;
     }
 
     async findUserByEmail(email: string): Promise<User | null> {
@@ -109,7 +131,7 @@ export class UserRepository {
             `SELECT * FROM users WHERE email = $1 AND is_active = true`,
             [email]
         );
-        return result.rows.length > 0 ? result.rows[0] as User : null;
+        return result.rows.length > 0 ? this.transformDatabaseRow(result.rows[0]) : null;
     }
 
     async updateUser(id: number, userData: UpdateUserRequest): Promise<User> {
@@ -155,7 +177,7 @@ export class UserRepository {
         );
 
         if (result.rows.length > 0) {
-            return result.rows[0] as User;
+            return this.transformDatabaseRow(result.rows[0]);
         }
 
         throw new Error("User not found or update failed");
@@ -200,7 +222,7 @@ export class UserRepository {
             [limit, offset]
         );
 
-        const users: User[] = result.rows as User[];
+        const users: User[] = result.rows.map(row => this.transformDatabaseRow(row));
 
         return {
             users,

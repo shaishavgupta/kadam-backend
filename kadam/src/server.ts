@@ -33,7 +33,7 @@ fastifyInstance.register(swagger, {
         },
         servers: [
             {
-                url: `${process.env.DOMAIN}`,
+                url: `${process.env.DOMAIN || 'http://localhost'}:${process.env.PORT || '3001'}`,
                 description: 'Development server'
             }
         ],
@@ -54,7 +54,18 @@ fastifyInstance.register(swaggerUi, {
     routePrefix: '/documentation',
     uiConfig: {
         docExpansion: 'full',
-        deepLinking: true
+        deepLinking: true,
+        persistAuthorization: true,
+        displayRequestDuration: true,
+        tryItOutEnabled: true
+    },
+    uiHooks: {
+        onRequest: function (request, reply, next) {
+            next();
+        },
+        preHandler: function (request, reply, next) {
+            next();
+        }
     },
     staticCSP: false,
     transformStaticCSP: (header) => header
@@ -121,9 +132,9 @@ async function checkRedisConnection() {
 // Start server
 const start = async () => {
     try {
-        const port = parseInt(process.env.PORT || '3000');
+        const port = parseInt(process.env.PORT || '3001');
         await fastifyInstance.listen({ port, host: '0.0.0.0' });
-        const domain = process.env.DOMAIN
+        const domain = process.env.DOMAIN || 'http://localhost';
         console.log(`🚀 Server running on port ${port}`);
         console.log(`📊 Health check: ${domain}:${port}/health`);
         console.log(`📚 Swagger UI: ${domain}:${port}/documentation`);
