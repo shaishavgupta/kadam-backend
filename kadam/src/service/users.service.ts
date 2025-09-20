@@ -187,8 +187,4 @@ export class UserService {
             throw error;
         }
     }
-
-    async cleanupExpiredOtps(): Promise<void> {
-        console.log("Redis cache handles OTP expiration automatically via TTL");
-    }
 }

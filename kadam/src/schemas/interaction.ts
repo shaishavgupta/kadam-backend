@@ -188,6 +188,52 @@ export const InteractionCourseIdParamSchema = Type.Object({
     courseId: Type.String({ pattern: '^[0-9]+$' })
 });
 
+// Additional parameter schemas for missing endpoints
+export const LikeUpdateParamSchema = Type.Object({
+    id: Type.String({ pattern: '^[0-9]+$' })
+});
+
+export const CommentUpdateParamSchema = Type.Object({
+    id: Type.String({ pattern: '^[0-9]+$' })
+});
+
+export const ShareUpdateParamSchema = Type.Object({
+    id: Type.String({ pattern: '^[0-9]+$' })
+});
+
+export const SaveDeleteParamSchema = Type.Object({
+    id: Type.String({ pattern: '^[0-9]+$' })
+});
+
+export const ViewUpdateParamSchema = Type.Object({
+    id: Type.String({ pattern: '^[0-9]+$' })
+});
+
+export const RatingUpdateParamSchema = Type.Object({
+    id: Type.String({ pattern: '^[0-9]+$' })
+});
+
+// Parent type and ID parameter schemas
+export const ParentTypeParamSchema = Type.Object({
+    parentType: Type.String(),
+    parentId: Type.String({ pattern: '^[0-9]+$' })
+});
+
+// Simple User ID parameter schema for interactions
+export const SimpleUserIdParamSchema = Type.Object({
+    userId: Type.String({ pattern: '^[0-9]+$' })
+});
+
+// Count response schema
+export const CountResponseSchema = ApiResponseSchema(Type.Object({
+    count: Type.Number()
+}));
+
+// Delete response schema
+export const DeleteResponseSchema = ApiResponseSchema(Type.Object({
+    deleted: Type.Boolean()
+}));
+
 // Export inferred TypeScript types using Static
 export type ParentType = Static<typeof ParentTypeSchema>;
 export type Like = Static<typeof LikeSchema>;
@@ -217,4 +263,12 @@ export type ViewIdParam = Static<typeof ViewIdParamSchema>;
 export type RatingIdParam = Static<typeof RatingIdParamSchema>;
 export type ParentIdParam = Static<typeof ParentIdParamSchema>;
 export type InteractionCourseIdParam = Static<typeof InteractionCourseIdParamSchema>;
+export type LikeUpdateParam = Static<typeof LikeUpdateParamSchema>;
+export type CommentUpdateParam = Static<typeof CommentUpdateParamSchema>;
+export type ShareUpdateParam = Static<typeof ShareUpdateParamSchema>;
+export type SaveDeleteParam = Static<typeof SaveDeleteParamSchema>;
+export type ViewUpdateParam = Static<typeof ViewUpdateParamSchema>;
+export type RatingUpdateParam = Static<typeof RatingUpdateParamSchema>;
+export type ParentTypeParam = Static<typeof ParentTypeParamSchema>;
+export type SimpleUserIdParam = Static<typeof SimpleUserIdParamSchema>;
 

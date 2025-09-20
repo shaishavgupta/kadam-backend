@@ -50,6 +50,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             tags: ['Courses'],
             summary: 'Get course categories',
             description: 'Retrieve all available course categories',
+            security: [{ bearerAuth: [] }],
             response: {
                 200: CategoriesResponseSchema
             }
@@ -75,6 +76,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             summary: 'Get course contents',
             description: 'Retrieve all contents for a specific course',
             params: CourseIdParamSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: ContentsResponseSchema
             }
@@ -101,6 +103,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             summary: 'Get modules by creator',
             description: 'Retrieve all modules created by a specific creator',
             params: CourseCreatorIdParamSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: ModulesResponseSchema
             }
@@ -127,6 +130,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             summary: 'Search tags',
             description: 'Search for tags based on content, course, or module names',
             querystring: TagsSearchQuerySchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: TagsSearchResponseSchema
             }
@@ -153,6 +157,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             summary: 'Create course',
             description: 'Create a new course',
             body: CreateCourseRequestSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: CourseResponseSchema
             }
@@ -179,6 +184,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             description: 'Update an existing course',
             params: CourseIdParamSchema2,
             body: UpdateCourseRequestSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: CourseResponseSchema
             }
@@ -204,6 +210,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             tags: ['Courses'],
             summary: 'Get popular categories',
             description: 'Retrieve the most popular course categories',
+            security: [{ bearerAuth: [] }],
             response: {
                 200: PopularCategoriesResponseSchema
             }
@@ -229,6 +236,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             summary: 'Get courses by category',
             description: 'Retrieve all courses in a specific category',
             params: CategoryIdParamSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: CoursesByCategoryResponseSchema
             }
@@ -282,6 +290,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             summary: 'Publish course',
             description: 'Publish a course to make it available to users',
             body: PublishCourseRequestSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: PublishCourseResponseSchema
             }
@@ -311,6 +320,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             summary: 'Unpublish course',
             description: 'Unpublish a course to make it unavailable to users',
             params: CourseIdParamSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: UnpublishCourseResponseSchema
             }

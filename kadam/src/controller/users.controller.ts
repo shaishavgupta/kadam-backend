@@ -49,6 +49,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
             tags: ['Users'],
             summary: 'Get user enums',
             description: 'Get available enum values for user-related fields',
+            security: [{ bearerAuth: [] }],
             response: {
                 200: UserEnumsResponseSchema
             }
@@ -96,6 +97,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
             summary: 'Verify OTP',
             description: 'Verify the OTP sent to user\'s phone number',
             body: VerifyOtpRequestSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: VerifyOtpResponseSchema
             }
@@ -164,8 +166,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Get all users',
                 description: 'Retrieve a paginated list of all users',
-                security: [{ bearerAuth: [] }],
                 querystring: GetUsersQuerySchema,
+                security: [{ bearerAuth: [] }],
                 response: {
                     200: PaginatedUsersResponseWrapperSchema
                 }
@@ -194,8 +196,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Get user by ID',
                 description: 'Retrieve a specific user by their ID',
-                security: [{ bearerAuth: [] }],
                 params: UserIdParamSchema,
+                security: [{ bearerAuth: [] }],
                 response: {
                     200: UserResponseSchema
                 }
@@ -229,8 +231,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Get user by phone number',
                 description: 'Retrieve a specific user by their phone number',
-                security: [{ bearerAuth: [] }],
                 params: UserPhoneParamSchema,
+                security: [{ bearerAuth: [] }],
                 response: {
                     200: UserResponseSchema
                 }
@@ -256,8 +258,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Get user by email',
                 description: 'Retrieve a specific user by their email address',
-                security: [{ bearerAuth: [] }],
                 params: UserEmailParamSchema,
+                security: [{ bearerAuth: [] }],
                 response: {
                     200: UserResponseSchema
                 }
@@ -283,9 +285,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Update user',
                 description: 'Update a specific user by their ID',
-                security: [{ bearerAuth: [] }],
                 params: UserIdParamSchema,
                 body: UpdateUserRequestSchema,
+                security: [{ bearerAuth: [] }],
                 response: {
                     200: UserResponseSchema
                 }
@@ -319,8 +321,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Create user',
                 description: 'Create a new user',
-                security: [{ bearerAuth: [] }],
                 body: CreateUserRequestSchema,
+                security: [{ bearerAuth: [] }],
                 response: {
                     200: UserResponseSchema
                 }
@@ -346,8 +348,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 tags: ['Users'],
                 summary: 'Delete user',
                 description: 'Delete a specific user by their ID',
-                security: [{ bearerAuth: [] }],
                 params: UserIdParamSchema,
+                security: [{ bearerAuth: [] }],
                 response: {
                     200: SuccessResponseSchema
                 }
@@ -366,32 +368,6 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 return {
                     success: true,
                     message: "User deleted successfully"
-                };
-            } catch (error) {
-                return reply.status(500).send({
-                    success: false,
-                    message: "Internal server error"
-                });
-            }
-        });
-
-        fastify.post('/admin/cleanup-otps', {
-            schema: {
-                tags: ['Users'],
-                summary: 'Cleanup expired OTPs',
-                description: 'Remove expired OTP records from the database',
-                security: [{ bearerAuth: [] }],
-                response: {
-                    200: CleanupOtpsResponseSchema
-                }
-            }
-        }, async (request: FastifyRequest, reply: FastifyReply): Promise<CleanupOtpsResponse> => {
-            try {
-                await userService.cleanupExpiredOtps();
-
-                return {
-                    success: true,
-                    message: "OTP cleanup completed successfully"
                 };
             } catch (error) {
                 return reply.status(500).send({

@@ -36,6 +36,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             summary: 'Create creator',
             description: 'Create a new creator',
             body: CreateCreatorRequestSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: CreateCreatorResponseSchema
             }
@@ -70,6 +71,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             summary: 'Get creator by ID',
             description: 'Retrieve a specific creator by their ID',
             params: CreatorIdParamSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: CreatorResponseSchema
             }
@@ -97,6 +99,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             description: 'Update an existing creator',
             params: CreatorIdParamSchema,
             body: UpdateCreatorRequestSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: UpdateCreatorResponseSchema
             }
@@ -132,6 +135,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             summary: 'Delete creator',
             description: 'Delete a specific creator by their ID',
             params: CreatorIdParamSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: DeleteCreatorResponseSchema
             }
@@ -159,6 +163,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             summary: 'Get all creators',
             description: 'Retrieve a paginated list of all creators',
             querystring: GetCreatorsQuerySchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: PaginatedCreatorsResponseWrapperSchema
             }
@@ -186,6 +191,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             summary: 'Get creator statistics',
             description: 'Retrieve statistics for a specific creator',
             params: CreatorIdParamSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: CreatorStatsResponseSchema
             }

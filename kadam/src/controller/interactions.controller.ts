@@ -28,6 +28,14 @@ import {
     RatingIdParam,
     ParentIdParam,
     InteractionCourseIdParam,
+    LikeUpdateParam,
+    CommentUpdateParam,
+    ShareUpdateParam,
+    SaveDeleteParam,
+    ViewUpdateParam,
+    RatingUpdateParam,
+    ParentTypeParam,
+    SimpleUserIdParam,
     CreateLikeDTOSchema,
     UpdateLikeDTOSchema,
     CreateCommentDTOSchema,
@@ -59,8 +67,21 @@ import {
     ViewIdParamSchema,
     RatingIdParamSchema,
     ParentIdParamSchema,
-    InteractionCourseIdParamSchema
+    InteractionCourseIdParamSchema,
+    LikeUpdateParamSchema,
+    CommentUpdateParamSchema,
+    ShareUpdateParamSchema,
+    SaveDeleteParamSchema,
+    ViewUpdateParamSchema,
+    RatingUpdateParamSchema,
+    ParentTypeParamSchema,
+    SimpleUserIdParamSchema,
+    CountResponseSchema,
+    DeleteResponseSchema
 } from '../schemas/interaction';
+
+// Import the user schema's UserIdParamSchema with alias to avoid conflicts
+import { UserIdParamSchema as UserParamSchema, UserIdParam } from '../schemas/user';
 
 export default async function interactionsRoutes(fastify: FastifyInstance) {
     const interactionsService = new InteractionsService();
@@ -72,6 +93,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             summary: 'Create like',
             description: 'Create a new like for content, course, or comment',
             body: CreateLikeDTOSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: LikeResponseSchema
             }
@@ -97,6 +119,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             summary: 'Get likes by user ID',
             description: 'Retrieve all likes created by a specific user',
             params: InteractionUserIdParamSchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: LikesArrayResponseSchema
             }
@@ -122,6 +145,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             tags: ['Interactions'],
             summary: 'Get all likes',
             description: 'Retrieve all likes',
+            security: [{ bearerAuth: [] }],
             response: {
                 200: LikesArrayResponseSchema
             }
@@ -141,7 +165,19 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Update like
-    fastify.patch('/likes/:id', async (request: FastifyRequest<{ Params: { id: string }, Body: UpdateLikeDTO }>, reply: FastifyReply) => {
+    fastify.patch('/likes/:id', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Update like',
+            description: 'Update an existing like',
+            params: LikeUpdateParamSchema,
+            body: UpdateLikeDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: LikeResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Params: LikeUpdateParam, Body: UpdateLikeDTO }>, reply: FastifyReply) => {
         try {
             const likeId = parseInt(request.params.id, 10);
             const data = await interactionsService.updateLike(likeId, request.body);
@@ -157,7 +193,18 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Get likes count by parent ID
-    fastify.get('/likes/count/:parentType/:parentId', async (request: FastifyRequest<{ Params: { parentType: string, parentId: string } }>, reply: FastifyReply) => {
+    fastify.get('/likes/count/:parentType/:parentId', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get likes count by parent ID',
+            description: 'Get the count of likes for a specific parent (content, course, or comment)',
+            params: ParentTypeParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: CountResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Params: ParentTypeParam }>, reply: FastifyReply) => {
         try {
             const parentId = parseInt(request.params.parentId, 10);
             const data = await interactionsService.getLikesCountByParentId(parentId, request.params.parentType as any);
@@ -173,7 +220,18 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Create comment
-    fastify.post('/comments', async (request: FastifyRequest<{ Body: CreateCommentDTO }>, reply: FastifyReply) => {
+    fastify.post('/comments', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Create comment',
+            description: 'Create a new comment on content, course, or another comment',
+            body: CreateCommentDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: CommentResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Body: CreateCommentDTO }>, reply: FastifyReply) => {
         try {
             const data = await interactionsService.createComment(request.body);
             return {
@@ -188,7 +246,18 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Get comments by parent ID
-    fastify.get('/comments/parent/:parentType/:parentId', async (request: FastifyRequest<{ Params: { parentType: string, parentId: string } }>, reply: FastifyReply) => {
+    fastify.get('/comments/parent/:parentType/:parentId', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get comments by parent ID',
+            description: 'Retrieve all comments for a specific parent (content, course, or comment)',
+            params: ParentTypeParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: CommentsArrayResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Params: ParentTypeParam }>, reply: FastifyReply) => {
         try {
             const parentId = parseInt(request.params.parentId, 10);
             const data = await interactionsService.getCommentsByParentId(parentId, request.params.parentType as any);
@@ -204,23 +273,35 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Get user comments
-    fastify.get('/comments/user/:userId', async (request: FastifyRequest<{ Params: { userId: string } }>, reply: FastifyReply) => {
-        try {
-            const userId = parseInt(request.params.userId, 10);
-            const data = await interactionsService.getCommentsByUserId(userId);
-            return {
-                success: true,
-                data,
-                message: "User comments retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+    fastify.get('/comments/user/:userId', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get user comments',
+            description: 'Retrieve all comments created by a specific user',
+            params: SimpleUserIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: CommentsArrayResponseSchema
+            }
         }
+    }, async (request: FastifyRequest<{ Params: SimpleUserIdParam }>, reply: FastifyReply) => {
+
     });
 
     // Update comment
-    fastify.patch('/comments/:id', async (request: FastifyRequest<{ Params: { id: string }, Body: UpdateCommentDTO }>, reply: FastifyReply) => {
+    fastify.patch('/comments/:id', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Update comment',
+            description: 'Update an existing comment',
+            params: CommentUpdateParamSchema,
+            body: UpdateCommentDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: CommentResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Params: CommentUpdateParam, Body: UpdateCommentDTO }>, reply: FastifyReply) => {
         try {
             const commentId = parseInt(request.params.id, 10);
             const data = await interactionsService.updateComment(commentId, request.body);
@@ -236,7 +317,18 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Create share
-    fastify.post('/shares', async (request: FastifyRequest<{ Body: CreateShareDTO }>, reply: FastifyReply) => {
+    fastify.post('/shares', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Create share',
+            description: 'Create a new share for content, course, or comment',
+            body: CreateShareDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: ShareResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Body: CreateShareDTO }>, reply: FastifyReply) => {
         try {
             const data = await interactionsService.createShare(request.body);
             return {
@@ -251,23 +343,35 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Get shares by user ID
-    fastify.get('/shares/user/:userId', async (request: FastifyRequest<{ Params: { userId: string } }>, reply: FastifyReply) => {
-        try {
-            const userId = parseInt(request.params.userId, 10);
-            const data = await interactionsService.getSharesByUserId(userId);
-            return {
-                success: true,
-                data,
-                message: "Shares retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+    fastify.get('/shares/user/:userId', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get shares by user ID',
+            description: 'Retrieve all shares created by a specific user',
+            params: SimpleUserIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: SharesArrayResponseSchema
+            }
         }
+    }, async (request: FastifyRequest<{ Params: SimpleUserIdParam }>, reply: FastifyReply) => {
+
     });
 
     // Update share
-    fastify.patch('/shares/:id', async (request: FastifyRequest<{ Params: { id: string }, Body: UpdateShareDTO }>, reply: FastifyReply) => {
+    fastify.patch('/shares/:id', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Update share',
+            description: 'Update an existing share',
+            params: ShareUpdateParamSchema,
+            body: UpdateShareDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: ShareResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Params: ShareUpdateParam, Body: UpdateShareDTO }>, reply: FastifyReply) => {
         try {
             const shareId = parseInt(request.params.id, 10);
             const data = await interactionsService.updateShare(shareId, request.body);
@@ -283,7 +387,18 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Create save
-    fastify.post('/saves', async (request: FastifyRequest<{ Body: CreateSaveDTO }>, reply: FastifyReply) => {
+    fastify.post('/saves', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Create save',
+            description: 'Save content, course, or comment for later viewing',
+            body: CreateSaveDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: SaveResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Body: CreateSaveDTO }>, reply: FastifyReply) => {
         try {
             const data = await interactionsService.createSave(request.body);
             return {
@@ -298,23 +413,34 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Get saves by user ID
-    fastify.get('/saves/user/:userId', async (request: FastifyRequest<{ Params: { userId: string } }>, reply: FastifyReply) => {
-        try {
-            const userId = parseInt(request.params.userId, 10);
-            const data = await interactionsService.getSavesByUserId(userId);
-            return {
-                success: true,
-                data,
-                message: "Saves retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+    fastify.get('/saves/user/:userId', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get saves by user ID',
+            description: 'Retrieve all saved items by a specific user',
+            params: SimpleUserIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: SavesArrayResponseSchema
+            }
         }
+    }, async (request: FastifyRequest<{ Params: SimpleUserIdParam }>, reply: FastifyReply) => {
+
     });
 
     // Delete save
-    fastify.delete('/saves/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+    fastify.delete('/saves/:id', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Delete save',
+            description: 'Remove a saved item',
+            params: SaveDeleteParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: DeleteResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Params: SaveDeleteParam }>, reply: FastifyReply) => {
         try {
             const saveId = parseInt(request.params.id, 10);
             const data = await interactionsService.deleteSave(saveId);
@@ -330,7 +456,18 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Create view
-    fastify.post('/views', async (request: FastifyRequest<{ Body: CreateViewDTO }>, reply: FastifyReply) => {
+    fastify.post('/views', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Create view',
+            description: 'Record a view for content, course, or comment',
+            body: CreateViewDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: ViewResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Body: CreateViewDTO }>, reply: FastifyReply) => {
         try {
             const data = await interactionsService.createView(request.body);
             return {
@@ -345,23 +482,35 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Get views by user ID
-    fastify.get('/views/user/:userId', async (request: FastifyRequest<{ Params: { userId: string } }>, reply: FastifyReply) => {
-        try {
-            const userId = parseInt(request.params.userId, 10);
-            const data = await interactionsService.getViewsByUserId(userId);
-            return {
-                success: true,
-                data,
-                message: "Views retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+    fastify.get('/views/user/:userId', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get views by user ID',
+            description: 'Retrieve all views by a specific user',
+            params: SimpleUserIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: ViewsArrayResponseSchema
+            }
         }
+    }, async (request: FastifyRequest<{ Params: SimpleUserIdParam }>, reply: FastifyReply) => {
+
     });
 
     // Update view
-    fastify.patch('/views/:id', async (request: FastifyRequest<{ Params: { id: string }, Body: UpdateViewDTO }>, reply: FastifyReply) => {
+    fastify.patch('/views/:id', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Update view',
+            description: 'Update an existing view record',
+            params: ViewUpdateParamSchema,
+            body: UpdateViewDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: ViewResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Params: ViewUpdateParam, Body: UpdateViewDTO }>, reply: FastifyReply) => {
         try {
             const viewId = parseInt(request.params.id, 10);
             const data = await interactionsService.updateView(viewId, request.body);
@@ -377,7 +526,18 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Create rating
-    fastify.post('/ratings', async (request: FastifyRequest<{ Body: CreateRatingDTO }>, reply: FastifyReply) => {
+    fastify.post('/ratings', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Create rating',
+            description: 'Create a rating and review for a course',
+            body: CreateRatingDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: RatingResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Body: CreateRatingDTO }>, reply: FastifyReply) => {
         try {
             const data = await interactionsService.createRating(request.body);
             return {
@@ -392,23 +552,34 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Get ratings by user ID
-    fastify.get('/ratings/user/:userId', async (request: FastifyRequest<{ Params: { userId: string } }>, reply: FastifyReply) => {
-        try {
-            const userId = parseInt(request.params.userId, 10);
-            const data = await interactionsService.getRatingsByUserId(userId);
-            return {
-                success: true,
-                data,
-                message: "User ratings retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+    fastify.get('/ratings/user/:userId', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get ratings by user ID',
+            description: 'Retrieve all ratings created by a specific user',
+            params: SimpleUserIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: RatingsArrayResponseSchema
+            }
         }
+    }, async (request: FastifyRequest<{ Params: SimpleUserIdParam }>, reply: FastifyReply) => {
+
     });
 
     // Get ratings by course ID
-    fastify.get('/ratings/course/:courseId', async (request: FastifyRequest<{ Params: { courseId: string } }>, reply: FastifyReply) => {
+    fastify.get('/ratings/course/:courseId', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get ratings by course ID',
+            description: 'Retrieve all ratings for a specific course',
+            params: InteractionCourseIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: RatingsArrayResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Params: InteractionCourseIdParam }>, reply: FastifyReply) => {
         try {
             const courseId = parseInt(request.params.courseId, 10);
             const data = await interactionsService.getRatingsByCourseId(courseId);
@@ -424,7 +595,19 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
     });
 
     // Update rating
-    fastify.patch('/ratings/:id', async (request: FastifyRequest<{ Params: { id: string }, Body: UpdateRatingDTO }>, reply: FastifyReply) => {
+    fastify.patch('/ratings/:id', {
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Update rating',
+            description: 'Update an existing rating and review',
+            params: RatingUpdateParamSchema,
+            body: UpdateRatingDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: RatingResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Params: RatingUpdateParam, Body: UpdateRatingDTO }>, reply: FastifyReply) => {
         try {
             const ratingId = parseInt(request.params.id, 10);
             const data = await interactionsService.updateRating(ratingId, request.body);

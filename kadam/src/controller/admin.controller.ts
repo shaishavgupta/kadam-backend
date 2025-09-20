@@ -25,6 +25,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             tags: ['Admin'],
             summary: 'Get dashboard data',
             description: 'Retrieve dashboard statistics and data for admin panel',
+            security: [{ bearerAuth: [] }],
             response: {
                 200: AdminDashboardResponseSchema
             }
@@ -51,6 +52,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             summary: 'Get all users',
             description: 'Retrieve a paginated list of all users for admin management',
             querystring: PaginationQuerySchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: AdminUsersResponseSchema
             }
@@ -79,6 +81,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             summary: 'Get all creators',
             description: 'Retrieve a paginated list of all creators for admin management',
             querystring: PaginationQuerySchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: AdminCreatorsResponseSchema
             }
@@ -107,6 +110,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             summary: 'Get all courses',
             description: 'Retrieve a paginated list of all courses for admin management',
             querystring: PaginationQuerySchema,
+            security: [{ bearerAuth: [] }],
             response: {
                 200: AdminCoursesResponseSchema
             }
