@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { authConfig } from '../../config';
 
 export interface AuthData {
 	userID: string;
@@ -23,14 +24,14 @@ export const authMiddleware = async (request: AuthenticatedRequest, reply: Fasti
 
 		const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
-		if (!process.env.JWT_SECRET) {
+		if (!authConfig.JWT_SECRET) {
 			return reply.status(500).send({
 				success: false,
 				message: 'JWT secret not configured'
 			});
 		}
 
-		const decoded = jwt.verify(token, process.env.JWT_SECRET) as any;
+		const decoded = jwt.verify(token, authConfig.JWT_SECRET) as any;
 
 		if (!decoded.sub || !decoded.userType) {
 			return reply.status(401).send({

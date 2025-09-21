@@ -7,6 +7,7 @@ import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { RedisInstrumentation } from '@opentelemetry/instrumentation-redis';
 import { FastifyInstrumentation } from '@opentelemetry/instrumentation-fastify';
 import { diag, DiagConsoleLogger, DiagLogLevel, Span } from '@opentelemetry/api';
+import { tracingConfig, appConfig } from '../config';
 
 diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.DEBUG);
 
@@ -23,10 +24,8 @@ const ignoreEndpoints: IgnoreIncomingRequestFunction = (request) => {
 };
 
 export async function startTelemetry(): Promise<void> {
-    const serviceName = process.env.OTEL_SERVICE_NAME || 'kadam-backend';
-    const endpoint =
-        (process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318')
-            .replace(/\/$/, '') + '/v1/traces';
+    const serviceName = tracingConfig.serviceName;
+    const endpoint = tracingConfig.endpoint.replace(/\/$/, '') + '/v1/traces';
 
     console.log(`🔍 Starting telemetry for service: ${serviceName}`);
     console.log(`🔍 OTLP endpoint: ${endpoint}`);
@@ -36,7 +35,7 @@ export async function startTelemetry(): Promise<void> {
     sdk = new NodeSDK({
         resource: new Resource({
             [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
-            [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: process.env.NODE_ENV || 'development',
+            [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: tracingConfig.environment,
         }),
         traceExporter,
         instrumentations: [
@@ -44,7 +43,7 @@ export async function startTelemetry(): Promise<void> {
                 ignoreIncomingRequestHook: ignoreEndpoints,
                 requestHook: (span: Span, req) => {
                     const method = (req as any).method;
-                    const url = new URL((req as any).url, process.env.DOMAIN).pathname;
+                    const url = new URL((req as any).url, appConfig.DOMAIN).pathname;
                     span.updateName(`${method} ${url}`);
                 }
             }),

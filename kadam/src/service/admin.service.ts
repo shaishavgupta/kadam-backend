@@ -6,6 +6,8 @@ import { CoursesRepository } from "../repository/courses.repository";
 import { PaginatedUsersResponse } from "../shared/types/users.types";
 import { PaginatedCreatorsResponse } from "../shared/types/creators.types";
 import { PaginatedCoursesResponse } from "../shared/types/courses.types";
+import { CreateAdminRequest, CreateUserWithAuthRequest } from "../schemas/auth";
+import { PlanType } from "../shared/enums";
 
 export class AdminService {
     private adminRepository: AdminRepository;
@@ -13,11 +15,41 @@ export class AdminService {
     private creatorRepository: CreatorRepository;
     private coursesRepository: CoursesRepository;
 
-        constructor() {
+    constructor() {
         this.adminRepository = new AdminRepository();
         this.userRepository = new UserRepository();
         this.creatorRepository = new CreatorRepository();
         this.coursesRepository = new CoursesRepository();
+    }
+
+    /**
+     * Create a new admin user
+     */
+    async getOrCreateAdmin(adminData: CreateAdminRequest): Promise<any> {
+        try {
+            // First create the base user
+            const userData: CreateUserWithAuthRequest = {
+                email: adminData.email,
+                name: adminData.name,
+                phone: adminData.phone,
+                plan_type: PlanType.PRO // Admins get PRO plan
+            };
+
+            const user = await this.userRepository.createUser(userData);
+
+            // Then create admin-specific data
+            // Note: This would need to be implemented in AdminRepository
+            // const admin = await this.adminRepository.createAdmin({
+            //     user_id: user.id,
+            //     role: adminData.role,
+            //     permissions: adminData.permissions
+            // });
+
+            return user; // Return user for now, admin creation needs to be implemented
+        } catch (error) {
+            console.error("Error creating admin user:", error);
+            throw error;
+        }
     }
 
     async getConfiguration(key: keyof typeof AdminConfigurations): Promise<AdminConfigurationResponse | null> {
@@ -47,7 +79,7 @@ export class AdminService {
         }
     }
 
-            async getActivities(page: number = 1, limit: number = 10): Promise<any[]> { // Assuming a type for activities is not defined yet
+    async getActivities(page: number = 1, limit: number = 10): Promise<any[]> { // Assuming a type for activities is not defined yet
         try {
             return await this.adminRepository.getAdminActivities(page, limit);
         } catch (error) {
@@ -56,7 +88,7 @@ export class AdminService {
         }
     }
 
-        async getDashboardData(): Promise<DashboardData> {
+    async getDashboardData(): Promise<DashboardData> {
         // This is a placeholder. You should implement the logic to get the actual data.
         return {
             totalUsers: 0,
@@ -66,15 +98,15 @@ export class AdminService {
         };
     }
 
-        async getUsers(page: number, limit: number): Promise<PaginatedUsersResponse> {
+    async getUsers(page: number, limit: number): Promise<PaginatedUsersResponse> {
         return this.userRepository.getAllUsers(page, limit);
     }
 
-        async getCreators(page: number, limit: number): Promise<PaginatedCreatorsResponse> {
+    async getCreators(page: number, limit: number): Promise<PaginatedCreatorsResponse> {
         return this.creatorRepository.getAllCreators(page, limit);
     }
 
-        async getCourses(page: number, limit: number): Promise<PaginatedCoursesResponse> {
+    async getCourses(page: number, limit: number): Promise<PaginatedCoursesResponse> {
         return this.coursesRepository.getAllCourses(page, limit);
     }
 }

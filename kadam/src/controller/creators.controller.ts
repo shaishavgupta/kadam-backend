@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { CreatorService } from '../service/creators.service';
+import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin } from '../shared/middleware/auth';
 import {
     CreateCreatorRequest,
     UpdateCreatorRequest,
@@ -31,6 +32,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
 
     // Create creator
     fastify.post('/', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Creators'],
             summary: 'Create creator',
@@ -41,9 +43,9 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: CreateCreatorResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Body: CreateCreatorRequest }>, reply: FastifyReply): Promise<CreateCreatorResponse | void> => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<CreateCreatorResponse | void> => {
         try {
-            const result = await creatorService.createCreator(request.body);
+            const result = await creatorService.createCreator(request.body as any);
             if (result.error) {
                 reply.code(400).send({ success: false, message: result.error });
                 return;
@@ -66,6 +68,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
 
     // Get creator by ID
     fastify.get('/:id', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Creators'],
             summary: 'Get creator by ID',
@@ -76,9 +79,9 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: CreatorResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Params: CreatorIdParam }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const creatorId = parseInt(request.params.id, 10);
+            const creatorId = parseInt((request.params as any).id, 10);
             const data = await creatorService.getCreatorById(creatorId);
             return {
                 success: true,
@@ -93,6 +96,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
 
     // Update creator
     fastify.patch('/:id', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Creators'],
             summary: 'Update creator',
@@ -104,10 +108,10 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: UpdateCreatorResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Params: CreatorIdParam, Body: UpdateCreatorRequest }>, reply: FastifyReply): Promise<UpdateCreatorResponse | void> => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<UpdateCreatorResponse | void> => {
         try {
-            const creatorId = parseInt(request.params.id, 10);
-            const result = await creatorService.updateCreator(creatorId, request.body);
+            const creatorId = parseInt((request.params as any).id, 10);
+            const result = await creatorService.updateCreator(creatorId, request.body as any);
             if (result.error) {
                 reply.code(400).send({ success: false, message: result.error });
                 return;
@@ -130,6 +134,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
 
     // Delete creator
     fastify.delete('/:id', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Creators'],
             summary: 'Delete creator',
@@ -140,9 +145,9 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: DeleteCreatorResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Params: CreatorIdParam }>, reply: FastifyReply): Promise<DeleteCreatorResponse | void> => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<DeleteCreatorResponse | void> => {
         try {
-            const creatorId = parseInt(request.params.id, 10);
+            const creatorId = parseInt((request.params as any).id, 10);
             const data = await creatorService.deleteCreator(creatorId);
             return {
                 success: true,
@@ -158,6 +163,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
 
     // Get all creators
     fastify.get('/', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Creators'],
             summary: 'Get all creators',
@@ -168,10 +174,10 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: PaginatedCreatorsResponseWrapperSchema
             }
         }
-    }, async (request: FastifyRequest<{ Querystring: GetCreatorsQuery }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const page = request.query.page ? parseInt(request.query.page, 10) : 1;
-            const limit = request.query.limit ? parseInt(request.query.limit, 10) : 10;
+            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
             const data = await creatorService.getAllCreators(page, limit);
             return {
                 success: true,
@@ -186,6 +192,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
 
     // Get creator statistics
     fastify.get('/:id/stats', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Creators'],
             summary: 'Get creator statistics',
@@ -196,9 +203,9 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: CreatorStatsResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Params: CreatorIdParam }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const creatorId = parseInt(request.params.id, 10);
+            const creatorId = parseInt((request.params as any).id, 10);
             const data = await creatorService.getCreatorStats(creatorId);
             return {
                 success: true,

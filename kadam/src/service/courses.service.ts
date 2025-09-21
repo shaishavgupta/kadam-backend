@@ -1,5 +1,6 @@
 import { CoursesRepository } from "../repository/courses.repository";
-import { Tag, Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest } from "../shared/types/courses.types";
+import { Tag, Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse } from "../shared/types/courses.types";
+import { CourseListData, UserStats } from "../schemas/course";
 
 export class CoursesService {
     private repository: CoursesRepository;
@@ -8,7 +9,22 @@ export class CoursesService {
         this.repository = new CoursesRepository();
     }
 
-        async getContentsByCourseId(courseId: number): Promise<ContentWithModule[]> {
+    async getCourseList(): Promise<CourseListData> {
+        try {
+            return await this.repository.getCourseList();
+        } catch (error) {
+            console.error("Error getting course list:", error);
+            return {
+                keep_watching: [],
+                for_you: [],
+                top_10: [],
+                popular: [],
+                latest: []
+            };
+        }
+    }
+
+    async getContentsByCourseId(courseId: number): Promise<ContentWithModule[]> {
         try {
             return await this.repository.getContentsByCourseId(courseId);
         } catch (error) {
@@ -17,7 +33,7 @@ export class CoursesService {
         }
     }
 
-        async getModulesByCreatorId(creatorId: number): Promise<Module[]> {
+    async getModulesByCreatorId(creatorId: number): Promise<Module[]> {
         try {
             return await this.repository.getModulesByCreatorId(creatorId);
         } catch (error) {
@@ -26,7 +42,7 @@ export class CoursesService {
         }
     }
 
-        async searchTags(contentName?: string, courseName?: string, moduleName?: string): Promise<Tag[]> {
+    async searchTags(contentName?: string, courseName?: string, moduleName?: string): Promise<Tag[]> {
         try {
             return await this.repository.searchTags(contentName, courseName, moduleName);
         } catch (error) {
@@ -35,7 +51,7 @@ export class CoursesService {
         }
     }
 
-        async getCategories(): Promise<Category[]> {
+    async getCategories(): Promise<Category[]> {
         try {
             return await this.repository.getCategories();
         } catch (error) {
@@ -44,7 +60,7 @@ export class CoursesService {
         }
     }
 
-        async createCourse(request: CreateCourseRequest): Promise<{ courseId: number }> {
+    async createCourse(request: CreateCourseRequest): Promise<{ courseId: number }> {
         try {
             const course = await this.repository.createCourse(request);
             if (course) {
@@ -57,7 +73,7 @@ export class CoursesService {
         }
     }
 
-        async updateCourse(id: number, request: UpdateCourseRequest): Promise<Course | null> {
+    async updateCourse(id: number, request: UpdateCourseRequest): Promise<Course | null> {
         try {
             return await this.repository.updateCourse(id, request);
         } catch (error) {
@@ -66,7 +82,7 @@ export class CoursesService {
         }
     }
 
-        async getCourseById(id: number): Promise<Course | null> {
+    async getCourseById(id: number): Promise<Course | null> {
         try {
             return await this.repository.getCourseById(id);
         } catch (error) {
@@ -75,7 +91,7 @@ export class CoursesService {
         }
     }
 
-        async publishCourse(request: PublishCourseRequest): Promise<boolean> {
+    async publishCourse(request: PublishCourseRequest): Promise<boolean> {
         try {
             return await this.repository.publishCourse(request.course_id);
         } catch (error) {
@@ -84,7 +100,7 @@ export class CoursesService {
         }
     }
 
-        async unpublishCourse(courseId: number): Promise<boolean> {
+    async unpublishCourse(courseId: number): Promise<boolean> {
         try {
             return await this.repository.unpublishCourse(courseId);
         } catch (error) {
@@ -93,16 +109,22 @@ export class CoursesService {
         }
     }
 
-        async getCoursesByCategory(categoryId: number): Promise<Course[]> {
+    async getCoursesByCategory(categoryId: number, page: number = 1, limit: number = 10): Promise<PaginatedCoursesResponse> {
         try {
-            return await this.repository.getCoursesByCategory(categoryId);
+            return await this.repository.getCoursesByCategory(categoryId, page, limit);
         } catch (error) {
             console.error("Error getting courses by category:", error);
-            return [];
+            return {
+                courses: [],
+                total: 0,
+                page,
+                limit,
+                totalPages: 0
+            };
         }
     }
 
-            async getCurrentlyEnrolledCourses(userId: number): Promise<Course[]> {
+    async getCurrentlyEnrolledCourses(userId: number): Promise<Course[]> {
         try {
             return await this.repository.getCurrentlyEnrolledCourses(userId);
         } catch (error) {
@@ -111,12 +133,16 @@ export class CoursesService {
         }
     }
 
-        async getPopularCategories(): Promise<Category[]> {
+    async getUserStats(userId: number): Promise<UserStats> {
         try {
-            return await this.repository.getPopularCategories();
+            return await this.repository.getUserStats(userId);
         } catch (error) {
-            console.error("Error getting popular categories:", error);
-            return [];
+            console.error("Error getting user stats:", error);
+            return {
+                total_courses_started: 0,
+                total_hours_spent: 0,
+                avg_hours_per_day: 0
+            };
         }
     }
 }

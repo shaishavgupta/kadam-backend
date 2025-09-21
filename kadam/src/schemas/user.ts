@@ -59,37 +59,6 @@ export const CreateUserRequestSchema = Type.Object({
 
 export const UpdateUserRequestSchema = Type.Partial(CreateUserRequestSchema);
 
-// OTP related schemas
-export const SendOtpRequestSchema = Type.Object({
-    phone: Type.String({
-        pattern: '^[0-9]{10}$',
-        description: '10-digit phone number'
-    })
-});
-
-export const SendOtpResponseSchema = Type.Object({
-    success: Type.Boolean(),
-    message: Type.String()
-});
-
-export const VerifyOtpRequestSchema = Type.Object({
-    phone: Type.String({
-        pattern: '^[0-9]{10}$',
-        description: '10-digit phone number'
-    }),
-    otp: Type.String({
-        pattern: '^[0-9]{6}$',
-        description: '6-digit OTP'
-    })
-});
-
-export const VerifyOtpResponseSchema = Type.Object({
-    accessToken: Type.String(),
-    refreshToken: Type.String(),
-    isNewUser: Type.Boolean(),
-    userId: Type.Number()
-});
-
 // Pagination schemas
 export const PaginatedUsersResponseSchema = Type.Object({
     users: Type.Array(UserSchema),
@@ -148,23 +117,7 @@ export const UserEnumsResponseSchema = Type.Object({
     message: Type.String()
 });
 
-export const LoginPageContentResponseSchema = Type.Object({
-    success: Type.Boolean(),
-    data: Type.Object({
-        background: Type.Array(Type.Array(Type.Object({
-            image_url: Type.String()
-        })))
-    }),
-    message: Type.String()
-});
 
-export const HomePageContentResponseSchema = Type.Object({
-    success: Type.Boolean(),
-    data: Type.Object({
-        banners: Type.Array(Type.Any())
-    }),
-    message: Type.String()
-});
 
 export const CleanupOtpsResponseSchema = Type.Object({
     success: Type.Boolean(),
@@ -185,16 +138,9 @@ export const UserEmailParamSchema = Type.Object({
 });
 
 // Export inferred TypeScript types using Static
-export type Language = Static<typeof LanguageSchema>;
-export type Gender = Static<typeof GenderSchema>;
-export type PlanType = Static<typeof PlanTypeSchema>;
 export type User = Static<typeof UserSchema>;
 export type CreateUserRequest = Static<typeof CreateUserRequestSchema>;
 export type UpdateUserRequest = Static<typeof UpdateUserRequestSchema>;
-export type SendOtpRequest = Static<typeof SendOtpRequestSchema>;
-export type SendOtpResponse = Static<typeof SendOtpResponseSchema>;
-export type VerifyOtpRequest = Static<typeof VerifyOtpRequestSchema>;
-export type VerifyOtpResponse = Static<typeof VerifyOtpResponseSchema>;
 export type PaginatedUsersResponse = Static<typeof PaginatedUsersResponseSchema>;
 export type GetUsersQuery = Static<typeof GetUsersQuerySchema>;
 export type UserBadge = Static<typeof UserBadgeSchema>;
@@ -202,8 +148,6 @@ export type UserEnrollment = Static<typeof UserEnrollmentSchema>;
 export type UserCertificate = Static<typeof UserCertificateSchema>;
 export type Banner = Static<typeof BannerSchema>;
 export type UserEnumsResponse = Static<typeof UserEnumsResponseSchema>;
-export type LoginPageContentResponse = Static<typeof LoginPageContentResponseSchema>;
-export type HomePageContentResponse = Static<typeof HomePageContentResponseSchema>;
 export type CleanupOtpsResponse = Static<typeof CleanupOtpsResponseSchema>;
 export type UserIdParam = Static<typeof UserIdParamSchema>;
 export type UserPhoneParam = Static<typeof UserPhoneParamSchema>;

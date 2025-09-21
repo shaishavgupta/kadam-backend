@@ -1,4 +1,5 @@
 import { CreatorRepository } from "../repository/creators.repository";
+import { UserRepository } from "../repository/users.repository";
 import {
     Creator,
     Qualification,
@@ -10,14 +11,54 @@ import {
     CreateAchievementRequest,
     CreatorStats
 } from "../shared/types/creators.types";
+import { CreateCreatorWithUserRequest, CreateUserWithAuthRequest } from "../schemas/auth";
 
 export class CreatorService {
     private creatorRepository: CreatorRepository;
+    private userRepository: UserRepository;
 
     constructor() {
         this.creatorRepository = new CreatorRepository();
+        this.userRepository = new UserRepository();
     }
 
+    /**
+     * Create a new creator with user account
+     */
+    async getOrCreateCreator(creatorData: CreateCreatorWithUserRequest): Promise<{ creator?: Creator; user?: any; error?: string }> {
+        try {
+            // First create the base user
+            const userData: CreateUserWithAuthRequest = {
+                email: creatorData.email,
+                name: creatorData.name,
+                phone: creatorData.phone,
+                bio: creatorData.bio,
+                avatar_url: creatorData.avatar_url
+            };
+
+            const user = await this.userRepository.createUser(userData);
+
+            // Then create creator-specific data
+            const creatorResult = await this.creatorRepository.createCreator({
+                name: creatorData.name,
+                bio: creatorData.bio,
+                profile_pic: creatorData.avatar_url
+            });
+
+            if (!creatorResult) {
+                throw new Error("Failed to create creator");
+            }
+
+            return { creator: creatorResult, user };
+        } catch (error) {
+            console.error("Error creating creator with user:", error);
+            return { error: "Failed to create creator with user" };
+        }
+    }
+
+    /**
+     * Create a new creator without user account (legacy method)
+     */
     async createCreator(creatorData: CreateCreatorRequest): Promise<{ creator?: Creator; error?: string }> {
         try {
             const creator = await this.creatorRepository.createCreator(creatorData);
@@ -80,7 +121,7 @@ export class CreatorService {
         }
     }
 
-            async getAllCreators(page: number = 1, limit: number = 10): Promise<PaginatedCreatorsResponse> {
+    async getAllCreators(page: number = 1, limit: number = 10): Promise<PaginatedCreatorsResponse> {
         return this.creatorRepository.getAllCreators(page, limit);
     }
 
@@ -104,7 +145,7 @@ export class CreatorService {
         }
     }
 
-        async addQualification(creatorId: number, qualificationData: CreateQualificationRequest): Promise<{ qualification?: Qualification; error?: string }> {
+    async addQualification(creatorId: number, qualificationData: CreateQualificationRequest): Promise<{ qualification?: Qualification; error?: string }> {
         try {
             const qualification = await this.creatorRepository.addQualification(creatorId, qualificationData);
             if (qualification) {
@@ -117,7 +158,7 @@ export class CreatorService {
         }
     }
 
-        async addAchievement(creatorId: number, achievementData: CreateAchievementRequest): Promise<{ achievement?: Achievement; error?: string }> {
+    async addAchievement(creatorId: number, achievementData: CreateAchievementRequest): Promise<{ achievement?: Achievement; error?: string }> {
         try {
             const achievement = await this.creatorRepository.addAchievement(creatorId, achievementData);
             if (achievement) {
@@ -130,7 +171,7 @@ export class CreatorService {
         }
     }
 
-        async updateQualification(id: number, qualificationData: Partial<CreateQualificationRequest>): Promise<{ qualification?: Qualification; error?: string }> {
+    async updateQualification(id: number, qualificationData: Partial<CreateQualificationRequest>): Promise<{ qualification?: Qualification; error?: string }> {
         try {
             const qualification = await this.creatorRepository.updateQualification(id, qualificationData);
             if (qualification) {
@@ -143,7 +184,7 @@ export class CreatorService {
         }
     }
 
-        async updateAchievement(id: number, achievementData: Partial<CreateAchievementRequest>): Promise<{ achievement?: Achievement; error?: string }> {
+    async updateAchievement(id: number, achievementData: Partial<CreateAchievementRequest>): Promise<{ achievement?: Achievement; error?: string }> {
         try {
             const achievement = await this.creatorRepository.updateAchievement(id, achievementData);
             if (achievement) {
@@ -182,11 +223,11 @@ export class CreatorService {
         }
     }
 
-            async searchCreators(name: string, page: number = 1, limit: number = 10): Promise<PaginatedCreatorsResponse> {
+    async searchCreators(name: string, page: number = 1, limit: number = 10): Promise<PaginatedCreatorsResponse> {
         return this.creatorRepository.searchCreators(name, page, limit);
     }
 
-        async getCreatorStats(creatorId: number): Promise<{ stats?: CreatorStats; error?: string }> {
+    async getCreatorStats(creatorId: number): Promise<{ stats?: CreatorStats; error?: string }> {
         try {
             const stats = await this.creatorRepository.getCreatorStats(creatorId);
             if (stats) {

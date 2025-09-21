@@ -21,7 +21,7 @@ CREATE TABLE courses (
   approved_by BIGINT,
   is_paid BOOLEAN NOT NULL DEFAULT true,
   is_active BOOLEAN,
-  avg_rating float DEFAULT 0,
+  rating float DEFAULT 0,
   num_ratings INTEGER DEFAULT 0,
   price decimal DEFAULT 0,
   thumbnail_url TEXT,
@@ -94,3 +94,14 @@ CREATE TABLE course_vector (
   description vector(1536) UNIQUE NOT NULL,
   course_id BIGINT UNIQUE NOT NULL
 );
+
+CREATE TABLE user_enrollments (
+  id BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  user_id BIGINT NOT NULL,
+  course_id BIGINT NOT NULL,
+  completed_at TIMESTAMP DEFAULT NULL,
+  progress FLOAT DEFAULT 0
+);
+
+CREATE INDEX idx_user_enrollments_user_id ON user_enrollments(user_id);

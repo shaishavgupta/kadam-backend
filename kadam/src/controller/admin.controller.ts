@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { AdminService } from '../service/admin.service';
+import { authMiddleware, AuthenticatedRequest, requireAdmin } from '../shared/middleware/auth';
 import {
     DashboardData,
     PaginatedUsersResponse,
@@ -21,6 +22,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     const adminService = new AdminService();
     // Dashboard endpoint
     fastify.get('/dashboard', {
+        preHandler: [authMiddleware, requireAdmin],
         schema: {
             tags: ['Admin'],
             summary: 'Get dashboard data',
@@ -47,6 +49,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
     // Get all users
     fastify.get('/users', {
+        preHandler: [authMiddleware, requireAdmin],
         schema: {
             tags: ['Admin'],
             summary: 'Get all users',
@@ -57,10 +60,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 200: AdminUsersResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Querystring: PaginationQuery }>, reply: FastifyReply): Promise<AdminUsersResponse | void> => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<AdminUsersResponse | void> => {
         try {
-            const page = request.query.page ? parseInt(request.query.page, 10) : 1;
-            const limit = request.query.limit ? parseInt(request.query.limit, 10) : 10;
+            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
             const data = await adminService.getUsers(page, limit);
             return {
                 success: true,
@@ -76,6 +79,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
     // Get all creators
     fastify.get('/creators', {
+        preHandler: [authMiddleware, requireAdmin],
         schema: {
             tags: ['Admin'],
             summary: 'Get all creators',
@@ -86,10 +90,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 200: AdminCreatorsResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Querystring: PaginationQuery }>, reply: FastifyReply): Promise<AdminCreatorsResponse | void> => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<AdminCreatorsResponse | void> => {
         try {
-            const page = request.query.page ? parseInt(request.query.page, 10) : 1;
-            const limit = request.query.limit ? parseInt(request.query.limit, 10) : 10;
+            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
             const data = await adminService.getCreators(page, limit);
             return {
                 success: true,
@@ -105,6 +109,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
     // Get all courses
     fastify.get('/courses', {
+        preHandler: [authMiddleware, requireAdmin],
         schema: {
             tags: ['Admin'],
             summary: 'Get all courses',
@@ -115,10 +120,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 200: AdminCoursesResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Querystring: PaginationQuery }>, reply: FastifyReply): Promise<AdminCoursesResponse | void> => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<AdminCoursesResponse | void> => {
         try {
-            const page = request.query.page ? parseInt(request.query.page, 10) : 1;
-            const limit = request.query.limit ? parseInt(request.query.limit, 10) : 10;
+            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
             const data = await adminService.getCourses(page, limit);
             return {
                 success: true,

@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -8,18 +8,21 @@ import { db } from './infra/db';
 import { redis } from './infra/cache';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { requestLogger } from './shared/middleware/logging';
+import { appConfig } from './config';
 // Import route handlers
 import userRoutes from './controller/users.controller';
 import adminRoutes from './controller/admin.controller';
 import coursesRoutes from './controller/courses.controller';
 import creatorsRoutes from './controller/creators.controller';
 import interactionsRoutes from './controller/interactions.controller';
+import authRoutes from './controller/auth.controller';
+import mediaRoutes from './controller/media.controller';
 
 dotenv.config();
 
 const fastifyInstance = Fastify({
     logger: {
-        level: process.env.LOG_LEVEL || 'info'
+        level: appConfig.LOG_LEVEL
     }
 }).withTypeProvider<TypeBoxTypeProvider>();
 
@@ -60,15 +63,15 @@ fastifyInstance.register(swaggerUi, {
         tryItOutEnabled: true
     },
     uiHooks: {
-        onRequest: function (request, reply, next) {
+        onRequest: function (request: any, reply: any, next: any) {
             next();
         },
-        preHandler: function (request, reply, next) {
+        preHandler: function (request: any, reply: any, next: any) {
             next();
         }
     },
     staticCSP: false,
-    transformStaticCSP: (header) => header
+    transformStaticCSP: (header: any) => header
 });
 
 fastifyInstance.register(cors, {
@@ -87,7 +90,7 @@ fastifyInstance.setErrorHandler(errorHandler);
 fastifyInstance.addHook('onRequest', requestLogger);
 
 // Health check endpoint
-fastifyInstance.get('/health', async (request, reply) => {
+fastifyInstance.get('/health', async (request: any, reply: any) => {
     const dbStatus = await checkDatabaseConnection();
     const redisStatus = await checkRedisConnection();
 
@@ -103,11 +106,13 @@ fastifyInstance.get('/health', async (request, reply) => {
 });
 
 // Register API routes BEFORE Swagger UI
+fastifyInstance.register(authRoutes, { prefix: '/api/auth' });
 fastifyInstance.register(userRoutes, { prefix: '/api/users' });
 fastifyInstance.register(adminRoutes, { prefix: '/api/admin' });
 fastifyInstance.register(coursesRoutes, { prefix: '/api/courses' });
 fastifyInstance.register(creatorsRoutes, { prefix: '/api/creators' });
 fastifyInstance.register(interactionsRoutes, { prefix: '/api/interactions' });
+fastifyInstance.register(mediaRoutes, { prefix: '/api/media' });
 
 // Database connection check
 async function checkDatabaseConnection() {
@@ -131,9 +136,9 @@ async function checkRedisConnection() {
 
 // Helper function to get server URL based on environment
 function getServerUrl(): string {
-    const domain = process.env.DOMAIN || 'http://localhost';
-    const port = process.env.PORT || '3001';
-    const environment = process.env.NODE_ENV || 'local';
+    const domain = appConfig.DOMAIN;
+    const port = appConfig.PORT;
+    const environment = appConfig.NODE_ENV;
 
     // For local development, include port
     if (environment === 'local') {
@@ -147,7 +152,7 @@ function getServerUrl(): string {
 // Start server
 const start = async () => {
     try {
-        const port = parseInt(process.env.PORT || '3001');
+        const port = appConfig.PORT;
         await fastifyInstance.listen({ port, host: '0.0.0.0' });
         const serverUrl = getServerUrl();
         console.log(`🚀 Server running on port ${port}`);
@@ -160,4 +165,3 @@ const start = async () => {
 };
 
 start();
-

@@ -80,7 +80,7 @@ export interface CreatorWithDetails {
 export interface CreatorStats {
     total_courses: number;
     published_courses: number;
-    avg_rating: number;
+    rating: number;
     num_ratings: number;
 }
 

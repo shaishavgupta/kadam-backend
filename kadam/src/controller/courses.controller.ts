@@ -38,14 +38,28 @@ import {
     CourseCreatorIdParamSchema,
     CourseIdParamSchema2,
     CategoryIdParamSchema,
-    TagsSearchQuerySchema
+    TagsSearchQuerySchema,
+    CourseListItemSchema,
+    CourseListDataSchema,
+    CourseListResponseSchema,
+    UserStatsSchema,
+    UserStatsResponseSchema,
+    CourseListItem,
+    CourseListData,
+    CourseListResponse,
+    UserStats,
+    UserStatsResponse
 } from '../schemas/course';
+
+import { PaginationQuery, PaginationQuerySchema } from '../schemas/common';
+import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin } from '../shared/middleware/auth';
 
 export default async function coursesRoutes(fastify: FastifyInstance) {
     const coursesService = new CoursesService();
 
     // Get course categories
     fastify.get('/categories', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Courses'],
             summary: 'Get course categories',
@@ -55,7 +69,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: CategoriesResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
         try {
             const data = await coursesService.getCategories();
             return {
@@ -71,6 +85,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
 
     // Get course contents
     fastify.get('/contents/:courseId', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Courses'],
             summary: 'Get course contents',
@@ -81,9 +96,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: ContentsResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Params: CourseIdParam }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const courseId = parseInt(request.params.courseId, 10);
+            const courseId = parseInt((request.params as any).courseId, 10);
             const data = await coursesService.getContentsByCourseId(courseId);
             return {
                 success: true,
@@ -98,6 +113,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
 
     // Get modules by creator
     fastify.get('/modules/creator/:creatorId', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Courses'],
             summary: 'Get modules by creator',
@@ -108,9 +124,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: ModulesResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Params: CourseCreatorIdParam }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const creatorId = parseInt(request.params.creatorId, 10);
+            const creatorId = parseInt((request.params as any).creatorId, 10);
             const data = await coursesService.getModulesByCreatorId(creatorId);
             return {
                 success: true,
@@ -125,6 +141,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
 
     // Search tags
     fastify.get('/tags/search', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Courses'],
             summary: 'Search tags',
@@ -135,9 +152,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: TagsSearchResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Querystring: TagsSearchQuery }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const { contentName, courseName, moduleName } = request.query;
+            const { contentName, courseName, moduleName } = request.query as any;
             const data = await coursesService.searchTags(contentName, courseName, moduleName);
             return {
                 success: true,
@@ -152,6 +169,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
 
     // Create course
     fastify.post('/courses', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Courses'],
             summary: 'Create course',
@@ -162,9 +180,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: CourseResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Body: CreateCourseRequest }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const data = await coursesService.createCourse(request.body);
+            const data = await coursesService.createCourse(request.body as any);
             return {
                 success: true,
                 data,
@@ -178,6 +196,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
 
     // Update course
     fastify.patch('/courses/:id', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Courses'],
             summary: 'Update course',
@@ -189,10 +208,10 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: CourseResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Params: CourseIdParam2, Body: UpdateCourseRequest }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const courseId = parseInt(request.params.id, 10);
-            const data = await coursesService.updateCourse(courseId, request.body);
+            const courseId = parseInt((request.params as any).id, 10);
+            const data = await coursesService.updateCourse(courseId, request.body as any);
             return {
                 success: true,
                 data,
@@ -204,47 +223,27 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Get popular categories
-    fastify.get('/courses/popular-categories', {
-        schema: {
-            tags: ['Courses'],
-            summary: 'Get popular categories',
-            description: 'Retrieve the most popular course categories',
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: PopularCategoriesResponseSchema
-            }
-        }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
-        try {
-            const data = await coursesService.getPopularCategories();
-            return {
-                success: true,
-                data,
-                message: "Popular categories retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-        }
-    });
-
     // Get courses by category
     fastify.get('/courses/category/:categoryId', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Courses'],
             summary: 'Get courses by category',
-            description: 'Retrieve all courses in a specific category',
+            description: 'Retrieve a paginated list of courses in a specific category',
             params: CategoryIdParamSchema,
+            querystring: PaginationQuerySchema,
             security: [{ bearerAuth: [] }],
             response: {
                 200: CoursesByCategoryResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Params: CategoryIdParam }>, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            const categoryId = parseInt(request.params.categoryId, 10);
-            const data = await coursesService.getCoursesByCategory(categoryId);
+            const categoryId = parseInt((request.params as any).categoryId, 10);
+            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
+
+            const data = await coursesService.getCoursesByCategory(categoryId, page, limit);
             return {
                 success: true,
                 data,
@@ -258,6 +257,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
 
     // Get currently enrolled courses
     fastify.get('/courses/currently-enrolled', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Courses'],
             summary: 'Get currently enrolled courses',
@@ -267,7 +267,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: CurrentlyEnrolledCoursesResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
         try {
             // Assuming userId is available from auth middleware
             const userId = (request as any).user.id;
@@ -285,6 +285,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
 
     // Publish course
     fastify.post('/courses/publish', {
+        preHandler: [authMiddleware, requireAdmin],
         schema: {
             tags: ['Courses'],
             summary: 'Publish course',
@@ -295,11 +296,11 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: PublishCourseResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Body: PublishCourseRequest }>, reply: FastifyReply): Promise<PublishCourseResponse | void> => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<PublishCourseResponse | void> => {
         try {
             const publishData = {
-                ...request.body,
-                published_at: request.body.published_at ? new Date(request.body.published_at) : undefined
+                ...(request.body as any),
+                published_at: (request.body as any).published_at ? new Date((request.body as any).published_at) : undefined
             };
             const success = await coursesService.publishCourse(publishData);
             return {
@@ -315,6 +316,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
 
     // Unpublish course
     fastify.post('/courses/:courseId/unpublish', {
+        preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Courses'],
             summary: 'Unpublish course',
@@ -325,9 +327,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: UnpublishCourseResponseSchema
             }
         }
-    }, async (request: FastifyRequest<{ Params: CourseIdParam }>, reply: FastifyReply): Promise<UnpublishCourseResponse | void> => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<UnpublishCourseResponse | void> => {
         try {
-            const courseId = parseInt(request.params.courseId, 10);
+            const courseId = parseInt((request.params as any).courseId, 10);
             const success = await coursesService.unpublishCourse(courseId);
             return {
                 success,
@@ -337,6 +339,91 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
             reply.code(500).send({ success: false, message: errorMessage });
             return { success: false, message: errorMessage };
+        }
+    });
+
+    // Get course list with aggregated data
+    fastify.get('/courses/home-page-courses', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Courses'],
+            summary: 'Get home page courses',
+            description: 'Retrieve course list with aggregated interaction data (likes, views, saves, shares)',
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: CourseListResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CourseListResponse> => {
+        try {
+            const data = await coursesService.getCourseList();
+            return {
+                success: true,
+                data,
+                message: "Home page courses retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.code(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    keep_watching: [],
+                    for_you: [],
+                    top_10: [],
+                    popular: [],
+                    latest: [],
+                },
+                message: errorMessage
+            };
+        }
+    });
+
+    // Get user statistics
+    fastify.get('/get-user-stats', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Courses'],
+            summary: 'Get user statistics',
+            description: 'Retrieve user statistics including total courses started, total hours spent, and average hours per day',
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: UserStatsResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<UserStatsResponse> => {
+        try {
+            const userId = request.user?.userID;
+            if (!userId) {
+                return reply.status(401).send({
+                    success: false,
+                    data: {
+                        total_courses_started: 0,
+                        total_hours_spent: 0,
+                        avg_hours_per_day: 0
+                    },
+                    message: "User not authenticated"
+                });
+            }
+
+            const data = await coursesService.getUserStats(parseInt(userId));
+            return {
+                success: true,
+                data,
+                message: "User statistics retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.code(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    total_courses_started: 0,
+                    total_hours_spent: 0,
+                    avg_hours_per_day: 0
+                },
+                message: errorMessage
+            };
         }
     });
 }

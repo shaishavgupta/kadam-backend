@@ -1,4 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { appConfig } from '../../config';
 
 export interface ApiError extends Error {
     statusCode?: number;
@@ -30,6 +31,6 @@ export const errorHandler = async (error: ApiError, request: FastifyRequest, rep
     return reply.status(errorResponse.statusCode || 500).send({
         success: false,
         message: errorResponse.message || 'Internal Server Error',
-        ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+        ...(appConfig.NODE_ENV === 'development' && { stack: error.stack })
     });
 };

@@ -1,18 +1,17 @@
 import { Client } from 'pg';
 import dotenv from 'dotenv';
+import { dbConfig } from '../config';
 
 dotenv.config();
 
 // Create PostgreSQL client
 const client = new Client({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || 'kadam_db',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    ssl: process.env.NODE_ENV === 'production' && process.env.DB_HOST !== 'postgres'
-        ? { rejectUnauthorized: false }
-        : false,
+    host: dbConfig.host,
+    port: dbConfig.port,
+    database: dbConfig.database,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    ssl: dbConfig.ssl,
 });
 
 async function runMigrations() {
@@ -28,7 +27,7 @@ async function runMigrations() {
         const postgrator = new Postgrator({
             migrationPattern: __dirname + '/../../src/db/postgres/migrations/*',
             driver: 'pg',
-            database: process.env.DB_NAME || 'kadam_db',
+            database: dbConfig.database,
             schemaTable: 'schemaversion',
             execQuery: (query: string) => client.query(query),
         });

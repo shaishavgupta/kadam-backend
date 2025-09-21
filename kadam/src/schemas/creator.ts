@@ -98,7 +98,7 @@ export const CreatorWithDetailsSchema = Type.Object({
 export const CreatorStatsSchema = Type.Object({
     total_courses: Type.Number(),
     published_courses: Type.Number(),
-    avg_rating: Type.Number(),
+    rating: Type.Number(),
     num_ratings: Type.Number()
 });
 

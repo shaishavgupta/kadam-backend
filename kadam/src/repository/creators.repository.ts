@@ -276,7 +276,7 @@ export class CreatorRepository {
                 `SELECT
                     COUNT(DISTINCT c.id) as total_courses,
                     COUNT(DISTINCT CASE WHEN c.is_published = true THEN c.id END) as published_courses,
-                    COALESCE(AVG(r.rating), 0) as avg_rating,
+                    COALESCE(AVG(r.rating), 0) as rating,
                     COUNT(DISTINCT r.id) as num_ratings
                  FROM creators cr
                  LEFT JOIN courses c ON cr.id = c.creator_id
@@ -290,7 +290,7 @@ export class CreatorRepository {
                 return {
                     total_courses: parseInt(row.total_courses) || 0,
                     published_courses: parseInt(row.published_courses) || 0,
-                    avg_rating: parseFloat(row.avg_rating) || 0,
+                    rating: parseFloat(row.rating) || 0,
                     num_ratings: parseInt(row.num_ratings) || 0
                 };
             }

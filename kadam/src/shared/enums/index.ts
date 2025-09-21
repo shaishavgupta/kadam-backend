@@ -45,3 +45,9 @@ export enum PlanType {
     PREMIUM = 'premium',
     PRO = 'pro'
 }
+
+export enum UserType {
+    USER = 'user',
+    ADMIN = 'admin',
+    CREATOR = 'creator'
+}

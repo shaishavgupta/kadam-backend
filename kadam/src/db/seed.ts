@@ -1,18 +1,17 @@
 import { Client } from 'pg';
 import dotenv from 'dotenv';
+import { dbConfig } from '../config';
 
 dotenv.config();
 
 // Create PostgreSQL client
 const client = new Client({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || 'kadam_db',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    ssl: process.env.NODE_ENV === 'production' && process.env.DB_HOST !== 'postgres'
-        ? { rejectUnauthorized: false }
-        : false,
+    host: dbConfig.host,
+    port: dbConfig.port,
+    database: dbConfig.database,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    ssl: dbConfig.ssl,
 });
 
 async function seedDatabase() {
@@ -406,7 +405,7 @@ async function seedCourses(categoryIds: number[]): Promise<number[]> {
             price: 99.99,
             thumbnail_url: 'https://example.com/js-course.jpg',
             certificate_url: 'https://example.com/certificates/js-cert.pdf',
-            avg_rating: 4.8,
+            rating: 4.8,
             num_ratings: 150,
             published_at: new Date(),
             priority: 1.0
@@ -418,7 +417,7 @@ async function seedCourses(categoryIds: number[]): Promise<number[]> {
             price: 79.99,
             thumbnail_url: 'https://example.com/design-course.jpg',
             certificate_url: 'https://example.com/certificates/design-cert.pdf',
-            avg_rating: 4.9,
+            rating: 4.9,
             num_ratings: 120,
             published_at: new Date(),
             priority: 0.9
@@ -430,7 +429,7 @@ async function seedCourses(categoryIds: number[]): Promise<number[]> {
             price: 69.99,
             thumbnail_url: 'https://example.com/marketing-course.jpg',
             certificate_url: 'https://example.com/certificates/marketing-cert.pdf',
-            avg_rating: 4.7,
+            rating: 4.7,
             num_ratings: 200,
             published_at: new Date(),
             priority: 0.8
@@ -442,7 +441,7 @@ async function seedCourses(categoryIds: number[]): Promise<number[]> {
             price: 0,
             thumbnail_url: 'https://example.com/python-course.jpg',
             certificate_url: 'https://example.com/certificates/python-cert.pdf',
-            avg_rating: 4.6,
+            rating: 4.6,
             num_ratings: 300,
             published_at: new Date(),
             priority: 0.7
@@ -452,9 +451,9 @@ async function seedCourses(categoryIds: number[]): Promise<number[]> {
     const courseIds: number[] = [];
     for (const course of courses) {
         const result = await client.query(
-            `INSERT INTO courses (name, description, is_paid, price, thumbnail_url, certificate_url, avg_rating, num_ratings, published_at, priority, updated_at, is_active)
+            `INSERT INTO courses (name, description, is_paid, price, thumbnail_url, certificate_url, rating, num_ratings, published_at, priority, updated_at, is_active)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), true) RETURNING id`,
-            [course.name, course.description, course.is_paid, course.price, course.thumbnail_url, course.certificate_url, course.avg_rating, course.num_ratings, course.published_at, course.priority]
+            [course.name, course.description, course.is_paid, course.price, course.thumbnail_url, course.certificate_url, course.rating, course.num_ratings, course.published_at, course.priority]
         );
         courseIds.push(result.rows[0].id);
     }

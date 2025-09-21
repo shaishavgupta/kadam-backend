@@ -63,7 +63,7 @@ export const CourseSchema = Type.Object({
     price: Type.Number(),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
     certificate_url: Type.String({ format: 'uri' }),
-    avg_rating: Type.Number(),
+    rating: Type.Number(),
     num_ratings: Type.Number(),
     published_at: Type.Optional(Type.String({ format: 'date-time' })),
     created_at: Type.String({ format: 'date-time' }),
@@ -187,7 +187,7 @@ export const TagsSearchResponseSchema = Type.Object({
 
 export const ModulesResponseSchema = ApiResponseSchema(Type.Array(ModuleSchema));
 export const PopularCategoriesResponseSchema = ApiResponseSchema(Type.Array(CategorySchema));
-export const CoursesByCategoryResponseSchema = ApiResponseSchema(Type.Array(CourseSchema));
+export const CoursesByCategoryResponseSchema = ApiResponseSchema(PaginatedCoursesResponseSchema);
 export const CurrentlyEnrolledCoursesResponseSchema = ApiResponseSchema(Type.Array(CourseSchema));
 export const PublishCourseResponseSchema = Type.Object({
     success: Type.Boolean(),
@@ -219,6 +219,53 @@ export type CourseCreatorIdParam = Static<typeof CourseCreatorIdParamSchema>;
 export type CourseIdParam2 = Static<typeof CourseIdParamSchema2>;
 export type CategoryIdParam = Static<typeof CategoryIdParamSchema>;
 export type TagsSearchQuery = Static<typeof TagsSearchQuerySchema>;
+
+// Course list response schema based on tasks.txt structure
+export const CourseListItemSchema = Type.Object({
+    id: Type.Number(),
+    title: Type.String(),
+    thumbnail: Type.Optional(Type.String({ format: 'uri' })),
+    description: Type.String(),
+    category: Type.String(),
+    total_videos: Type.Number(),
+    total_duration: Type.Number(),
+    likes: Type.Number(),
+    views: Type.Number(),
+    saves: Type.Number(),
+    shares: Type.Number()
+});
+
+export const CourseListDataSchema = Type.Object({
+    keep_watching: Type.Array(CourseListItemSchema),
+    for_you: Type.Array(CourseListItemSchema),
+    top_10: Type.Array(CourseListItemSchema),
+    popular: Type.Array(CourseListItemSchema),
+    latest: Type.Array(CourseListItemSchema)
+});
+
+export const CourseListResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: CourseListDataSchema,
+    message: Type.String()
+});
+
+export const UserStatsSchema = Type.Object({
+    total_courses_started: Type.Number(),
+    total_hours_spent: Type.Number(),
+    avg_hours_per_day: Type.Number()
+});
+
+export const UserStatsResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: UserStatsSchema,
+    message: Type.String()
+});
+
+export type CourseListItem = Static<typeof CourseListItemSchema>;
+export type CourseListData = Static<typeof CourseListDataSchema>;
+export type CourseListResponse = Static<typeof CourseListResponseSchema>;
+export type UserStats = Static<typeof UserStatsSchema>;
+export type UserStatsResponse = Static<typeof UserStatsResponseSchema>;
 export type TagsSearchResponse = Static<typeof TagsSearchResponseSchema>;
 export type PublishCourseResponse = Static<typeof PublishCourseResponseSchema>;
 export type UnpublishCourseResponse = Static<typeof UnpublishCourseResponseSchema>;

@@ -1,7 +1,121 @@
 import { db } from "../infra/db";
 import { ContentType, Tag, Category, Module, Course, ContentWithModule, PaginatedCoursesResponse } from "../shared/types/courses.types";
+import { CourseListItem, CourseListData, UserStats } from "../schemas/course";
 
 export class CoursesRepository {
+
+  async getCourseList(): Promise<CourseListData> {
+    // Base query for course data with ratings
+    const baseQuery = `
+      SELECT
+        c.id,
+        c.name as title,
+        c.thumbnail_url as thumbnail,
+        c.description,
+        cat.name as category,
+        COALESCE(video_count.total_videos, 0) as total_videos,
+        COALESCE(duration_sum.total_duration, 0) as total_duration,
+        COALESCE(c.avg_rating, 0) as likes,
+        COALESCE(c.num_ratings, 0) as views,
+        0 as saves,
+        0 as shares,
+        c.created_at,
+        CASE
+          WHEN c.num_ratings > 0 THEN c.avg_rating / c.num_ratings
+          ELSE 0
+        END as rating_ratio
+      FROM courses c
+      LEFT JOIN course_categories cc ON c.id = cc.course_id
+      LEFT JOIN categories cat ON cc.category_id = cat.id
+      LEFT JOIN (
+        SELECT course_id, COUNT(*) as total_videos
+        FROM contents
+        WHERE content_type = 'VIDEO' AND is_active = true
+        GROUP BY course_id
+      ) video_count ON c.id = video_count.course_id
+      LEFT JOIN (
+        SELECT course_id, SUM(COALESCE(duration, 0)) as total_duration
+        FROM contents
+        WHERE is_active = true
+        GROUP BY course_id
+      ) duration_sum ON c.id = duration_sum.course_id
+      WHERE c.is_active = true AND c.published_at IS NOT NULL
+    `;
+
+    // Get keep_watching courses (from user_enrollments)
+    const keepWatchingQuery = `
+      ${baseQuery}
+      AND c.id IN (
+        SELECT DISTINCT ue.course_id
+        FROM user_enrollments ue
+        WHERE ue.completed_at IS NULL AND ue.progress > 0
+        ORDER BY ue.created_at DESC
+      )
+      ORDER BY ue.created_at DESC
+    `;
+
+    // Get for_you courses (ordered by rating ratio)
+    const forYouQuery = `
+      ${baseQuery}
+      ORDER BY rating_ratio DESC, c.avg_rating DESC
+      LIMIT 10
+    `;
+
+    // Get top_10 courses (highest rating ratio)
+    const top10Query = `
+      ${baseQuery}
+      ORDER BY rating_ratio DESC, c.avg_rating DESC
+      LIMIT 10
+    `;
+
+    // Get Popular courses (not in top_10 but still good ratings)
+    const popularQuery = `
+      ${baseQuery}
+      AND c.id NOT IN (
+        SELECT id FROM (
+          ${baseQuery}
+          ORDER BY rating_ratio DESC, c.avg_rating DESC
+          LIMIT 10
+        ) top_courses
+      )
+      ORDER BY rating_ratio DESC, c.avg_rating DESC
+      LIMIT 20 OFFSET 10
+    `;
+
+    // Get Latest courses
+    const latestQuery = `
+      ${baseQuery}
+      ORDER BY c.created_at DESC
+      LIMIT 10
+    `;
+
+    try {
+      const [keepWatchingResult, forYouResult, top10Result, popularResult, latestResult] = await Promise.all([
+        db.query(keepWatchingQuery),
+        db.query(forYouQuery),
+        db.query(top10Query),
+        db.query(popularQuery),
+        db.query(latestQuery)
+      ]);
+
+      return {
+        keep_watching: keepWatchingResult.rows as CourseListItem[],
+        for_you: forYouResult.rows as CourseListItem[],
+        top_10: top10Result.rows as CourseListItem[],
+        popular: popularResult.rows as CourseListItem[],
+        latest: latestResult.rows as CourseListItem[]
+      };
+    } catch (error) {
+      console.error("Error getting course list:", error);
+      return {
+        keep_watching: [],
+        for_you: [],
+        top_10: [],
+        popular: [],
+        latest: []
+      };
+    }
+  }
 
   async getAllCourses(page: number, limit: number): Promise<PaginatedCoursesResponse> {
     const offset = (page - 1) * limit;
@@ -305,18 +419,46 @@ export class CoursesRepository {
     }
   }
 
-  async getCoursesByCategory(categoryId: number): Promise<Course[]> {
+  async getCoursesByCategory(categoryId: number, page: number = 1, limit: number = 10): Promise<PaginatedCoursesResponse> {
     try {
-      const result = await db.query(
+      const offset = (page - 1) * limit;
+
+      // Get paginated courses
+      const coursesResult = await db.query(
         `SELECT c.* FROM courses c
+                 JOIN course_categories cc ON c.id = cc.course_id
+                 WHERE cc.category_id = $1 AND c.is_published = true
+                 ORDER BY c.created_at DESC
+                 LIMIT $2 OFFSET $3`,
+        [categoryId, limit, offset]
+      );
+
+      // Get total count
+      const totalResult = await db.query(
+        `SELECT COUNT(*) FROM courses c
                  JOIN course_categories cc ON c.id = cc.course_id
                  WHERE cc.category_id = $1 AND c.is_published = true`,
         [categoryId]
       );
-      return result.rows as Course[];
+
+      const total = parseInt(totalResult.rows[0].count, 10);
+
+      return {
+        courses: coursesResult.rows as Course[],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      };
     } catch (error) {
       console.error("Error getting courses by category:", error);
-      return [];
+      return {
+        courses: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0
+      };
     }
   }
 
@@ -325,20 +467,63 @@ export class CoursesRepository {
     return [];
   }
 
-  async getPopularCategories(): Promise<Category[]> {
+  async getUserStats(userId: number): Promise<UserStats> {
     try {
-      const result = await db.query(
-        `SELECT c.*, COUNT(cc.course_id) as course_count
-                 FROM categories c
-                 LEFT JOIN course_categories cc ON c.id = cc.category_id
-                 GROUP BY c.id
-                 ORDER BY course_count DESC
-                 LIMIT 10`
-      );
-      return result.rows as Category[];
+      const query = `
+        WITH user_stats AS (
+          SELECT
+            COUNT(DISTINCT ue.course_id) as total_courses_started,
+            COALESCE(SUM(
+              CASE
+                WHEN c.duration IS NOT NULL THEN c.duration / 3600.0  -- Convert seconds to hours
+                ELSE 0
+              END
+            ), 0) as total_hours_spent,
+            COALESCE(AVG(
+              CASE
+                WHEN c.duration IS NOT NULL THEN c.duration / 3600.0  -- Convert seconds to hours
+                ELSE 0
+              END
+            ), 0) as avg_hours_per_course
+          FROM user_enrollments ue
+          LEFT JOIN contents c ON ue.course_id = c.course_id AND c.is_active = true
+          WHERE ue.user_id = $1
+        ),
+        user_activity_days AS (
+          SELECT
+            COUNT(DISTINCT DATE(ue.created_at)) as active_days
+          FROM user_enrollments ue
+          WHERE ue.user_id = $1
+        )
+        SELECT
+          us.total_courses_started,
+          us.total_hours_spent,
+          CASE
+            WHEN uad.active_days > 0 THEN us.total_hours_spent / uad.active_days
+            ELSE 0
+          END as avg_hours_per_day
+        FROM user_stats us
+        CROSS JOIN user_activity_days uad
+      `;
+
+      const result = await db.query(query, [userId]);
+
+      if (result.rows.length === 0) {
+        return {
+          total_courses_started: 0,
+          total_hours_spent: 0,
+          avg_hours_per_day: 0
+        };
+      }
+
+      return result.rows[0] as UserStats;
     } catch (error) {
-      console.error("Error getting popular categories:", error);
-      return [];
+      console.error("Error getting user stats:", error);
+      return {
+        total_courses_started: 0,
+        total_hours_spent: 0,
+        avg_hours_per_day: 0
+      };
     }
   }
 }

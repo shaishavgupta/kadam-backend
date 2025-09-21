@@ -45,6 +45,7 @@ export interface SendOtpRequest {
 export interface VerifyOtpRequest {
     phone: string;
     otp: string;
+    language: Language;
 }
 
 export interface VerifyOtpResponse {
