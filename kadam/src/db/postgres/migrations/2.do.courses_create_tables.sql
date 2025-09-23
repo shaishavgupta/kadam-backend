@@ -99,6 +99,7 @@ CREATE TABLE user_enrollments (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   user_id BIGINT NOT NULL,
   course_id BIGINT NOT NULL,
+  content_id BIGINT NOT NULL,
   completed_at TIMESTAMP DEFAULT NULL,
   progress FLOAT DEFAULT 0
 );

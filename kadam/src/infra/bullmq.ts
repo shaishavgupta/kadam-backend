@@ -18,6 +18,7 @@ export const QUEUE_NAMES = {
     EMAIL: 'email-queue',
     NOTIFICATIONS: 'notifications-queue',
     COURSE_RANKING: 'course-ranking-queue',
+    VIDEO_PROCESSING: 'video-processing-queue',
 } as const;
 
 // Job types
@@ -35,6 +36,22 @@ export const JOB_TYPES = {
         CALCULATE_RANKINGS: 'calculate-rankings',
         UPDATE_SINGLE_COURSE_RANKING: 'update-single-course-ranking',
     },
+    VIDEO_PROCESSING: {
+        PROCESS_VIDEO: 'process-video',
+        PROCESS_COURSE_VIDEOS: 'process-course-videos',
+        GENERATE_THUMBNAILS: 'generate-thumbnails',
+        EXTRACT_SUBTITLES: 'extract-subtitles',
+    },
+} as const;
+
+// Cron patterns
+export const CRON_PATTERNS = {
+    EVERY_MINUTE: '* * * * *',
+    EVERY_5_MINUTES: '*/5 * * * *',
+    EVERY_HOUR: '0 * * * *',
+    DAILY: '0 0 * * *',
+    WEEKLY: '0 0 * * 0',
+    MONTHLY: '0 0 1 * *',
 } as const;
 
 // Job data interfaces
@@ -57,6 +74,35 @@ export interface CourseRankingJobData {
     courseId?: number;
     data: Record<string, any>;
     timestamp: string;
+}
+
+export interface VideoProcessingJobData {
+    courseId: number;
+    videoId: number;
+    videoUrl: string;
+    processingOptions: {
+        quality: '240p' | '360p' | '480p' | '720p';
+        format: 'mp4';
+        thumbnailGeneration: boolean;
+        subtitleExtraction: boolean;
+    };
+    metadata: {
+        originalFileName: string;
+        fileSize: number;
+        duration?: number;
+        uploadedBy: string;
+        uploadedAt: string;
+    };
+}
+
+export interface CourseVideoProcessingJobData {
+    courseId: number;
+    processingOptions: {
+        quality: '240p' | '360p' | '480p' | '720p';
+        format: 'mp4';
+        thumbnailGeneration: boolean;
+        subtitleExtraction: boolean;
+    };
 }
 
 // Queue Manager Class

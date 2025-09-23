@@ -15,6 +15,7 @@ import { bullMQManager, setupBullBoardDashboard } from './infra/bullmq';
 import { initializeWorkers } from './workers/workers';
 import { initializeScheduledJobs } from './workers/cron';
 import { appConfig } from './config';
+import { connectInfrastructure, checkInfrastructureHealth, InfrastructureOptions } from './infra';
 
 /**
  * BullMQ Standalone Server Class
@@ -39,7 +40,7 @@ export class BullMQStandaloneServer {
     /**
      * Initialize BullMQ infrastructure (without starting HTTP server)
      */
-    async initialize(): Promise<void> {
+    async initialize(options: InfrastructureOptions = {}): Promise<void> {
         if (this.isInitialized) {
             console.log('⚠️  BullMQ infrastructure already initialized');
             return;
@@ -47,6 +48,19 @@ export class BullMQStandaloneServer {
 
         try {
             console.log('🔄 Initializing BullMQ infrastructure...');
+
+            // Connect to infrastructure components
+            const infraStatus = await connectInfrastructure({
+                enableDatabase: true,
+                enableRedis: true,
+                enableTracing: false, // BullMQ doesn't need tracing
+                enableS3: false, // BullMQ doesn't need S3
+                ...options
+            });
+
+            if (!infraStatus.overall) {
+                throw new Error('Infrastructure connection failed');
+            }
 
             // Step 1: Initialize workers
             console.log('👷 Setting up BullMQ workers...');
@@ -94,6 +108,7 @@ export class BullMQStandaloneServer {
 
             // Add health check endpoint
             this.fastifyInstance.get('/health', async (request, reply) => {
+                const infraHealth = await checkInfrastructureHealth();
                 return {
                     status: 'OK',
                     service: 'BullMQ Standalone Server',
@@ -103,7 +118,8 @@ export class BullMQStandaloneServer {
                     workers: ['email-worker', 'notifications-worker', 'analytics-worker'],
                     infrastructure: {
                         initialized: this.isInitialized,
-                        serverRunning: this.isRunning
+                        serverRunning: this.isRunning,
+                        health: infraHealth
                     }
                 };
             });
@@ -230,8 +246,8 @@ export async function startBullMQStandaloneServer(port?: number): Promise<void> 
     return bullMQStandaloneServer.startServer(port);
 }
 
-export async function initializeBullMQInfrastructure(): Promise<void> {
-    return bullMQStandaloneServer.initialize();
+export async function initializeBullMQInfrastructure(options?: InfrastructureOptions): Promise<void> {
+    return bullMQStandaloneServer.initialize(options);
 }
 
 export async function stopBullMQServer(): Promise<void> {

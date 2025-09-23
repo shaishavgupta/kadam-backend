@@ -32,7 +32,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 200: AdminDashboardResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<AdminDashboardResponse | void> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<AdminDashboardResponse> => {
         try {
             const data = await adminService.getDashboardData();
             return {
@@ -42,8 +42,17 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-            return;
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    totalUsers: 0,
+                    totalCreators: 0,
+                    totalCourses: 0,
+                    totalRevenue: 0
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -60,10 +69,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 200: AdminUsersResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<AdminUsersResponse | void> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<AdminUsersResponse> => {
         try {
-            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
-            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
+            const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
             const data = await adminService.getUsers(page, limit);
             return {
                 success: true,
@@ -72,8 +81,20 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-            return;
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    users: [],
+                    pagination: {
+                        page: 1,
+                        limit: 10,
+                        total: 0,
+                        totalPages: 0
+                    }
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -90,10 +111,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 200: AdminCreatorsResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<AdminCreatorsResponse | void> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<AdminCreatorsResponse> => {
         try {
-            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
-            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
+            const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
             const data = await adminService.getCreators(page, limit);
             return {
                 success: true,
@@ -102,8 +123,20 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-            return;
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    creators: [],
+                    pagination: {
+                        page: 1,
+                        limit: 10,
+                        total: 0,
+                        totalPages: 0
+                    }
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -120,10 +153,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 200: AdminCoursesResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<AdminCoursesResponse | void> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<AdminCoursesResponse> => {
         try {
-            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
-            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
+            const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
             const data = await adminService.getCourses(page, limit);
             return {
                 success: true,
@@ -132,8 +165,20 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-            return;
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    courses: [],
+                    pagination: {
+                        page: 1,
+                        limit: 10,
+                        total: 0,
+                        totalPages: 0
+                    }
+                },
+                message: errorMessage
+            };
         }
     });
 }

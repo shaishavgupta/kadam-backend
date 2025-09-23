@@ -27,6 +27,13 @@ import {
     GetCreatorsQuerySchema
 } from '../schemas/creator';
 
+// Helper to convert all Date values in objects/arrays to ISO strings
+function serializeDates<T>(value: any): T {
+    return JSON.parse(
+        JSON.stringify(value, (_key, val) => (val instanceof Date ? val.toISOString() : val))
+    );
+}
+
 export default async function creatorsRoutes(fastify: FastifyInstance) {
     const creatorService = new CreatorService();
 
@@ -43,12 +50,24 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: CreateCreatorResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<CreateCreatorResponse | void> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CreateCreatorResponse> => {
         try {
-            const result = await creatorService.createCreator(request.body as any);
+            const result = await creatorService.createCreator(request.body as CreateCreatorRequest);
             if (result.error) {
-                reply.code(400).send({ success: false, message: result.error });
-                return;
+                reply.status(400).send({ success: false, message: result.error });
+                return {
+                    success: false,
+                    data: {
+                        id: 0,
+                        name: '',
+                        bio: '',
+                        profile_pic: '',
+                        rating: 0,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    },
+                    message: result.error
+                };
             }
             return {
                 success: true,
@@ -61,8 +80,20 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-            return;
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    id: 0,
+                    name: '',
+                    bio: '',
+                    profile_pic: '',
+                    rating: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -79,10 +110,11 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: CreatorResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Creator; message: string }> => {
         try {
             const creatorId = parseInt((request.params as any).id, 10);
-            const data = await creatorService.getCreatorById(creatorId);
+            const raw = await creatorService.getCreatorById(creatorId);
+            const data = serializeDates<Creator>(raw);
             return {
                 success: true,
                 data,
@@ -90,7 +122,20 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    id: 0,
+                    name: '',
+                    bio: '',
+                    profile_pic: '',
+                    rating: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -108,13 +153,25 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: UpdateCreatorResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<UpdateCreatorResponse | void> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<UpdateCreatorResponse> => {
         try {
             const creatorId = parseInt((request.params as any).id, 10);
-            const result = await creatorService.updateCreator(creatorId, request.body as any);
+            const result = await creatorService.updateCreator(creatorId, request.body as UpdateCreatorRequest);
             if (result.error) {
-                reply.code(400).send({ success: false, message: result.error });
-                return;
+                reply.status(400).send({ success: false, message: result.error });
+                return {
+                    success: false,
+                    data: {
+                        id: 0,
+                        name: '',
+                        bio: '',
+                        profile_pic: '',
+                        rating: 0,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    },
+                    message: result.error
+                };
             }
             return {
                 success: true,
@@ -127,8 +184,20 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-            return;
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    id: 0,
+                    name: '',
+                    bio: '',
+                    profile_pic: '',
+                    rating: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -145,7 +214,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: DeleteCreatorResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<DeleteCreatorResponse | void> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<DeleteCreatorResponse> => {
         try {
             const creatorId = parseInt((request.params as any).id, 10);
             const data = await creatorService.deleteCreator(creatorId);
@@ -156,8 +225,20 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-            return;
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    id: 0,
+                    name: '',
+                    bio: '',
+                    profile_pic: '',
+                    rating: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -174,11 +255,19 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: PaginatedCreatorsResponseWrapperSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: PaginatedCreatorsResponse; message: string }> => {
         try {
-            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
-            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
-            const data = await creatorService.getAllCreators(page, limit);
+            const { page: pageStr, limit: limitStr } = (request.query as any) || {};
+            const page = pageStr ? parseInt(pageStr, 10) : 1;
+            const limit = limitStr ? parseInt(limitStr, 10) : 10;
+            const raw = await creatorService.getAllCreators(page, limit);
+            const data: PaginatedCreatorsResponse = {
+                creators: serializeDates<any[]>(raw?.creators ?? []),
+                total: (raw as any)?.total ?? (raw as any)?.pagination?.total ?? 0,
+                page: (raw as any)?.page ?? (raw as any)?.pagination?.page ?? page,
+                limit: (raw as any)?.limit ?? (raw as any)?.pagination?.limit ?? limit,
+                totalPages: (raw as any)?.totalPages ?? (raw as any)?.pagination?.totalPages ?? 0
+            } as PaginatedCreatorsResponse;
             return {
                 success: true,
                 data,
@@ -186,7 +275,18 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    creators: [],
+                    total: 0,
+                    page: 1,
+                    limit: 10,
+                    totalPages: 0
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -203,10 +303,11 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                 200: CreatorStatsResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: CreatorStats; message: string }> => {
         try {
             const creatorId = parseInt((request.params as any).id, 10);
-            const data = await creatorService.getCreatorStats(creatorId);
+            const raw = await creatorService.getCreatorStats(creatorId);
+            const data = serializeDates<CreatorStats>(raw);
             return {
                 success: true,
                 data,
@@ -214,7 +315,17 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    total_courses: 0,
+                    published_courses: 0,
+                    rating: 0,
+                    num_ratings: 0
+                },
+                message: errorMessage
+            };
         }
     });
 }

@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { UserService } from "../service/users.service";
-import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin } from "../shared/middleware/auth";
+import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin, requireAdminOrUser } from "../shared/middleware/auth";
 import {
     CreateUserRequestSchema,
     UpdateUserRequestSchema,
@@ -24,6 +24,13 @@ import {
 } from '../schemas/user';
 import { SuccessResponseSchema, SuccessResponse } from '../schemas/common';
 import { Language, Gender, PlanType } from '../shared/enums';
+
+// Helper to convert all Date values in objects/arrays to ISO strings
+function serializeDates<T>(value: any): T {
+    return JSON.parse(
+        JSON.stringify(value, (_key, val) => (val instanceof Date ? val.toISOString() : val))
+    );
+}
 
 const userService = new UserService();
 
@@ -68,22 +75,41 @@ export default async function userRoutes(fastify: FastifyInstance) {
                     200: PaginatedUsersResponseWrapperSchema
                 }
             }
-        }, async (request: FastifyRequest<{ Querystring: { page?: string; limit?: string } }>, reply: FastifyReply) => {
+        }, async (request: FastifyRequest<{ Querystring: { page?: string; limit?: string } }>, reply: FastifyReply): Promise<{ success: boolean; data: PaginatedUsersResponse; message: string }> => {
             try {
                 const page = parseInt(request.query.page || '1');
                 const limit = parseInt(request.query.limit || '10');
 
-                const data = await userService.getAllUsers(page, limit);
+                const raw = await userService.getAllUsers(page, limit);
+                const data: PaginatedUsersResponse = {
+                    users: serializeDates<any[]>(raw?.users ?? (raw as any)?.data?.users ?? (raw as any)?.data ?? []),
+                    total: (raw as any)?.total ?? (raw as any)?.pagination?.total ?? 0,
+                    page: (raw as any)?.page ?? (raw as any)?.pagination?.page ?? page,
+                    limit: (raw as any)?.limit ?? (raw as any)?.pagination?.limit ?? limit,
+                    totalPages: (raw as any)?.totalPages ?? (raw as any)?.pagination?.totalPages ?? 0
+                } as PaginatedUsersResponse;
                 return {
                     success: true,
                     data,
                     message: "Users retrieved successfully"
                 };
             } catch (error) {
-                return reply.status(500).send({
+                const errorMessage = error instanceof Error ? error.message : "Internal server error";
+                reply.status(500).send({
                     success: false,
-                    message: "Internal server error"
+                    message: errorMessage
                 });
+                return {
+                    success: false,
+                    data: {
+                        users: [],
+                        total: 0,
+                        page: 1,
+                        limit: 10,
+                        totalPages: 0
+                    },
+                    message: errorMessage
+                };
             }
         });
 
@@ -98,31 +124,80 @@ export default async function userRoutes(fastify: FastifyInstance) {
                     200: UserResponseSchema
                 }
             }
-        }, async (request: FastifyRequest, reply: FastifyReply) => {
+        }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: User; message: string }> => {
             try {
                 const userId = parseInt((request.params as any).id);
                 if (isNaN(userId)) {
-                    return reply.status(400).send({
+                    reply.status(400).send({
                         success: false,
                         message: "Invalid user ID"
                     });
+                    return {
+                        success: false,
+                        data: {
+                            id: 0,
+                            email: '',
+                            name: '',
+                            phone: '',
+                            avatar_url: '',
+                            preferred_language: Language.ENGLISH,
+                            plan_type: PlanType.FREE,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                            is_active: false,
+                            last_active_at: undefined,
+                            paid_at: undefined,
+                            dob: undefined,
+                            bio: '',
+                            gender: Gender.OTHERS,
+                            onboarding_completed: false,
+                            whatsapp_allowed: false
+                        },
+                        message: "Invalid user ID"
+                    };
                 }
 
-                const data = await userService.getUserById(userId);
+                const raw = await userService.getUserById(userId);
+                const data = serializeDates<User>(raw);
                 return {
                     success: true,
                     data,
                     message: "User retrieved successfully"
                 };
             } catch (error) {
-                return reply.status(500).send({
+                const errorMessage = error instanceof Error ? error.message : "Internal server error";
+                reply.status(500).send({
                     success: false,
-                    message: "Internal server error"
+                    message: errorMessage
                 });
+                return {
+                    success: false,
+                    data: {
+                        id: 0,
+                        email: '',
+                        name: '',
+                        phone: '',
+                        avatar_url: '',
+                        preferred_language: Language.ENGLISH,
+                        plan_type: PlanType.FREE,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        is_active: false,
+                        last_active_at: undefined,
+                        paid_at: undefined,
+                        dob: undefined,
+                        bio: '',
+                        gender: Gender.OTHERS,
+                        onboarding_completed: false,
+                        whatsapp_allowed: false
+                    },
+                    message: errorMessage
+                };
             }
         });
 
         fastify.get('/phone/:phone', {
+            preHandler: [authMiddleware, requireAdminOrUser],
             schema: {
                 tags: ['Users'],
                 summary: 'Get user by phone number',
@@ -133,23 +208,49 @@ export default async function userRoutes(fastify: FastifyInstance) {
                     200: UserResponseSchema
                 }
             }
-        }, async (request: FastifyRequest, reply: FastifyReply) => {
+        }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: User; message: string }> => {
             try {
-                const data = await userService.getUserByPhone((request.params as any).phone);
+                const raw = await userService.getUserByPhone((request.params as any).phone);
+                const data = serializeDates<User>(raw);
                 return {
                     success: true,
                     data,
                     message: "User retrieved successfully"
                 };
             } catch (error) {
-                return reply.status(500).send({
+                const errorMessage = error instanceof Error ? error.message : "Internal server error";
+                reply.status(500).send({
                     success: false,
-                    message: "Internal server error"
+                    message: errorMessage
                 });
+                return {
+                    success: false,
+                    data: {
+                        id: 0,
+                        email: '',
+                        name: '',
+                        phone: '',
+                        avatar_url: '',
+                        preferred_language: Language.ENGLISH,
+                        plan_type: PlanType.FREE,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        is_active: false,
+                        last_active_at: undefined,
+                        paid_at: undefined,
+                        dob: undefined,
+                        bio: '',
+                        gender: Gender.OTHERS,
+                        onboarding_completed: false,
+                        whatsapp_allowed: false
+                    },
+                    message: errorMessage
+                };
             }
         });
 
         fastify.get('/email/:email', {
+            preHandler: [authMiddleware, requireAdminOrUser],
             schema: {
                 tags: ['Users'],
                 summary: 'Get user by email',
@@ -160,23 +261,49 @@ export default async function userRoutes(fastify: FastifyInstance) {
                     200: UserResponseSchema
                 }
             }
-        }, async (request: FastifyRequest, reply: FastifyReply) => {
+        }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: User; message: string }> => {
             try {
-                const data = await userService.getUserByEmail((request.params as any).email);
+                const raw = await userService.getUserByEmail((request.params as any).email);
+                const data = serializeDates<User>(raw);
                 return {
                     success: true,
                     data,
                     message: "User retrieved successfully"
                 };
             } catch (error) {
-                return reply.status(500).send({
+                const errorMessage = error instanceof Error ? error.message : "Internal server error";
+                reply.status(500).send({
                     success: false,
-                    message: "Internal server error"
+                    message: errorMessage
                 });
+                return {
+                    success: false,
+                    data: {
+                        id: 0,
+                        email: '',
+                        name: '',
+                        phone: '',
+                        avatar_url: '',
+                        preferred_language: Language.ENGLISH,
+                        plan_type: PlanType.FREE,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        is_active: false,
+                        last_active_at: undefined,
+                        paid_at: undefined,
+                        dob: undefined,
+                        bio: '',
+                        gender: Gender.OTHERS,
+                        onboarding_completed: false,
+                        whatsapp_allowed: false
+                    },
+                    message: errorMessage
+                };
             }
         });
 
         fastify.patch('/:id', {
+            preHandler: [authMiddleware, requireAdminOrUser],
             schema: {
                 tags: ['Users'],
                 summary: 'Update user',
@@ -188,58 +315,80 @@ export default async function userRoutes(fastify: FastifyInstance) {
                     200: UserResponseSchema
                 }
             }
-        }, async (request: FastifyRequest, reply: FastifyReply) => {
+        }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: User; message: string }> => {
             try {
                 const userId = parseInt((request.params as any).id);
                 if (isNaN(userId)) {
-                    return reply.status(400).send({
+                    reply.status(400).send({
                         success: false,
                         message: "Invalid user ID"
                     });
+                    return {
+                        success: false,
+                        data: {
+                            id: 0,
+                            email: '',
+                            name: '',
+                            phone: '',
+                            avatar_url: '',
+                            preferred_language: Language.ENGLISH,
+                            plan_type: PlanType.FREE,
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                            is_active: false,
+                            last_active_at: undefined,
+                            paid_at: undefined,
+                            dob: undefined,
+                            bio: '',
+                            gender: Gender.OTHERS,
+                            onboarding_completed: false,
+                            whatsapp_allowed: false
+                        },
+                        message: "Invalid user ID"
+                    };
                 }
 
-                const data = await userService.updateUser(userId, request.body as any);
+                const raw = await userService.updateUser(userId, request.body as UpdateUserRequest);
+                const data = serializeDates<User>(raw);
                 return {
                     success: true,
                     data,
                     message: "User updated successfully"
                 };
             } catch (error) {
-                return reply.status(500).send({
+                const errorMessage = error instanceof Error ? error.message : "Internal server error";
+                reply.status(500).send({
                     success: false,
-                    message: "Internal server error"
+                    message: errorMessage
                 });
-            }
-        });
-
-        fastify.post('/', {
-            schema: {
-                tags: ['Users'],
-                summary: 'Create user',
-                description: 'Create a new user',
-                body: CreateUserRequestSchema,
-                security: [{ bearerAuth: [] }],
-                response: {
-                    200: UserResponseSchema
-                }
-            }
-        }, async (request: FastifyRequest, reply: FastifyReply) => {
-            try {
-                const data = await userService.createUser(request.body as any);
                 return {
-                    success: true,
-                    data,
-                    message: "User created successfully"
-                };
-            } catch (error) {
-                return reply.status(500).send({
                     success: false,
-                    message: "Internal server error"
-                });
+                    data: {
+                        id: 0,
+                        email: '',
+                        name: '',
+                        phone: '',
+                        avatar_url: '',
+                        preferred_language: Language.ENGLISH,
+                        plan_type: PlanType.FREE,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                        is_active: false,
+                        last_active_at: undefined,
+                        paid_at: undefined,
+                        dob: undefined,
+                        bio: '',
+                        gender: Gender.OTHERS,
+                        onboarding_completed: false,
+                        whatsapp_allowed: false
+                    },
+                    message: errorMessage
+                };
             }
         });
 
         fastify.delete('/:id', {
+            preHandler: [authMiddleware, requireAdmin],
             schema: {
                 tags: ['Users'],
                 summary: 'Delete user',
@@ -254,10 +403,14 @@ export default async function userRoutes(fastify: FastifyInstance) {
             try {
                 const userId = parseInt((request.params as any).id);
                 if (isNaN(userId)) {
-                    return reply.status(400).send({
+                    reply.status(400).send({
                         success: false,
                         message: "Invalid user ID"
                     });
+                    return {
+                        success: false,
+                        message: "Invalid user ID"
+                    };
                 }
 
                 await userService.deleteUser(userId);
@@ -266,10 +419,15 @@ export default async function userRoutes(fastify: FastifyInstance) {
                     message: "User deleted successfully"
                 };
             } catch (error) {
-                return reply.status(500).send({
+                const errorMessage = error instanceof Error ? error.message : "Internal server error";
+                reply.status(500).send({
                     success: false,
-                    message: "Internal server error"
+                    message: errorMessage
                 });
+                return {
+                    success: false,
+                    message: errorMessage
+                };
             }
         });
     });

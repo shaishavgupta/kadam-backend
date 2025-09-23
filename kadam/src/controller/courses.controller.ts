@@ -54,6 +54,13 @@ import {
 import { PaginationQuery, PaginationQuerySchema } from '../schemas/common';
 import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin } from '../shared/middleware/auth';
 
+// Helper to convert all Date values in objects/arrays to ISO strings
+function serializeDates<T>(value: any): T {
+    return JSON.parse(
+        JSON.stringify(value, (_key, val) => (val instanceof Date ? val.toISOString() : val))
+    );
+}
+
 export default async function coursesRoutes(fastify: FastifyInstance) {
     const coursesService = new CoursesService();
 
@@ -69,7 +76,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: CategoriesResponseSchema
             }
         }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Category[]; message: string }> => {
         try {
             const data = await coursesService.getCategories();
             return {
@@ -79,7 +86,12 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
         }
     });
 
@@ -96,10 +108,11 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: ContentsResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: ContentWithModule[]; message: string }> => {
         try {
             const courseId = parseInt((request.params as any).courseId, 10);
-            const data = await coursesService.getContentsByCourseId(courseId);
+            const raw = await coursesService.getContentsByCourseId(courseId);
+            const data = serializeDates<ContentWithModule[]>(raw);
             return {
                 success: true,
                 data,
@@ -107,7 +120,12 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
         }
     });
 
@@ -124,10 +142,11 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: ModulesResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Module[]; message: string }> => {
         try {
             const creatorId = parseInt((request.params as any).creatorId, 10);
-            const data = await coursesService.getModulesByCreatorId(creatorId);
+            const raw = await coursesService.getModulesByCreatorId(creatorId);
+            const data = serializeDates<Module[]>(raw);
             return {
                 success: true,
                 data,
@@ -135,7 +154,12 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
         }
     });
 
@@ -152,9 +176,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: TagsSearchResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Tag[]; message: string }> => {
         try {
-            const { contentName, courseName, moduleName } = request.query as any;
+            const { contentName, courseName, moduleName } = request.query as TagsSearchQuery;
             const data = await coursesService.searchTags(contentName, courseName, moduleName);
             return {
                 success: true,
@@ -163,7 +187,12 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
         }
     });
 
@@ -180,9 +209,23 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: CourseResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Course; message: string }> => {
         try {
-            const data = await coursesService.createCourse(request.body as any);
+            const created = await coursesService.createCourse(request.body as CreateCourseRequest);
+            const body = request.body as CreateCourseRequest;
+            const data: Course = {
+                id: (created as any)?.id ?? (created as any)?.courseId ?? 0,
+                name: body.name,
+                description: body.description,
+                is_paid: body.is_paid,
+                price: body.price,
+                thumbnail_url: body.thumbnail_url,
+                certificate_url: body.certificate_url,
+                rank: 0,
+                published_at: undefined,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
             return {
                 success: true,
                 data,
@@ -190,7 +233,23 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    id: 0,
+                    name: '',
+                    description: '',
+                    is_paid: false,
+                    price: 0,
+                    thumbnail_url: '',
+                    certificate_url: '',
+                    rank: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -208,10 +267,24 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: CourseResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Course; message: string }> => {
         try {
             const courseId = parseInt((request.params as any).id, 10);
-            const data = await coursesService.updateCourse(courseId, request.body as any);
+            const updated = await coursesService.updateCourse(courseId, request.body as UpdateCourseRequest);
+            const body = request.body as UpdateCourseRequest;
+            const data: Course = {
+                id: (updated as any)?.id ?? courseId,
+                name: body.name,
+                description: body.description,
+                is_paid: body.is_paid,
+                price: body.price,
+                thumbnail_url: body.thumbnail_url,
+                certificate_url: body.certificate_url,
+                rank: (updated as any)?.rank ?? 0,
+                published_at: (updated as any)?.published_at ? serializeDates<{ published_at?: string }>((updated as any)).published_at : undefined,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
             return {
                 success: true,
                 data,
@@ -219,7 +292,23 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    id: 0,
+                    name: '',
+                    description: '',
+                    is_paid: false,
+                    price: 0,
+                    thumbnail_url: '',
+                    certificate_url: '',
+                    rank: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -237,13 +326,20 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: CoursesByCategoryResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: PaginatedCoursesResponse; message: string }> => {
         try {
             const categoryId = parseInt((request.params as any).categoryId, 10);
-            const page = (request.query as any).page ? parseInt((request.query as any).page, 10) : 1;
-            const limit = (request.query as any).limit ? parseInt((request.query as any).limit, 10) : 10;
+            const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
 
-            const data = await coursesService.getCoursesByCategory(categoryId, page, limit);
+            const raw = await coursesService.getCoursesByCategory(categoryId, page, limit);
+            const data: PaginatedCoursesResponse = {
+                courses: serializeDates<any[]>(raw?.courses ?? []),
+                total: (raw as any)?.total ?? (raw as any)?.pagination?.total ?? 0,
+                page: (raw as any)?.page ?? (raw as any)?.pagination?.page ?? page,
+                limit: (raw as any)?.limit ?? (raw as any)?.pagination?.limit ?? limit,
+                totalPages: (raw as any)?.totalPages ?? (raw as any)?.pagination?.totalPages ?? 0
+            } as PaginatedCoursesResponse;
             return {
                 success: true,
                 data,
@@ -251,7 +347,18 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    courses: [],
+                    total: 0,
+                    page: 1,
+                    limit: 10,
+                    totalPages: 0
+                },
+                message: errorMessage
+            };
         }
     });
 
@@ -267,11 +374,24 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: CurrentlyEnrolledCoursesResponseSchema
             }
         }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Course[]; message: string }> => {
         try {
             // Assuming userId is available from auth middleware
-            const userId = (request as any).user.id;
-            const data = await coursesService.getCurrentlyEnrolledCourses(userId);
+            const userId = request.user?.userID;
+            if (!userId) {
+                reply.status(401).send({
+                    success: false,
+                    data: [],
+                    message: "User not authenticated"
+                });
+                return {
+                    success: false,
+                    data: [],
+                    message: "User not authenticated"
+                };
+            }
+            const raw = await coursesService.getCurrentlyEnrolledCourses(parseInt(userId));
+            const data = serializeDates<Course[]>(raw);
             return {
                 success: true,
                 data,
@@ -279,7 +399,12 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
         }
     });
 
@@ -296,11 +421,11 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: PublishCourseResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<PublishCourseResponse | void> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<PublishCourseResponse> => {
         try {
             const publishData = {
-                ...(request.body as any),
-                published_at: (request.body as any).published_at ? new Date((request.body as any).published_at) : undefined
+                ...(request.body as PublishCourseRequest),
+                published_at: (request.body as PublishCourseRequest).published_at ? new Date((request.body as PublishCourseRequest).published_at!) : undefined
             };
             const success = await coursesService.publishCourse(publishData);
             return {
@@ -309,7 +434,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
             return { success: false, message: errorMessage };
         }
     });
@@ -327,7 +452,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 200: UnpublishCourseResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<UnpublishCourseResponse | void> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<UnpublishCourseResponse> => {
         try {
             const courseId = parseInt((request.params as any).courseId, 10);
             const success = await coursesService.unpublishCourse(courseId);
@@ -337,7 +462,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
             return { success: false, message: errorMessage };
         }
     });
@@ -395,7 +520,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         try {
             const userId = request.user?.userID;
             if (!userId) {
-                return reply.status(401).send({
+                reply.status(401).send({
                     success: false,
                     data: {
                         total_courses_started: 0,
@@ -404,6 +529,15 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                     },
                     message: "User not authenticated"
                 });
+                return {
+                    success: false,
+                    data: {
+                        total_courses_started: 0,
+                        total_hours_spent: 0,
+                        avg_hours_per_day: 0
+                    },
+                    message: "User not authenticated"
+                };
             }
 
             const data = await coursesService.getUserStats(parseInt(userId));
@@ -414,7 +548,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
             return {
                 success: false,
                 data: {
@@ -445,7 +579,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 }
             }
         }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; message: string }> => {
         try {
             await coursesService.calculateAndUpdateCourseRankings();
             return {
@@ -454,7 +588,11 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                message: errorMessage
+            };
         }
     });
 }

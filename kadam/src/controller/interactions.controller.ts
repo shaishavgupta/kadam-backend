@@ -87,9 +87,9 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: LikeResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
-            const data = await interactionsService.createLike(request.body as any);
+            const data = await interactionsService.createLike(request.body as any as any);
             return {
                 success: true,
                 data,
@@ -97,7 +97,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 
@@ -114,7 +119,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: LikesArrayResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const userId = parseInt((request.params as any).userId, 10);
             const data = await interactionsService.getLikesByUserId(userId);
@@ -125,7 +130,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
         }
     });
 
@@ -141,7 +151,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: LikesArrayResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const data = await interactionsService.getAllLikes();
             return {
@@ -151,7 +161,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
         }
     });
 
@@ -169,10 +184,10 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: LikeResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const likeId = parseInt((request.params as any).id, 10);
-            const data = await interactionsService.updateLike(likeId, request.body as any);
+            const data = await interactionsService.updateLike(likeId, request.body as any as any);
             return {
                 success: true,
                 data,
@@ -180,7 +195,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 
@@ -197,18 +217,23 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: CountResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: { count: number }; message: string }> => {
         try {
             const parentId = parseInt((request.params as any).parentId, 10);
             const data = await interactionsService.getLikesCountByParentId(parentId, (request.params as any).parentType);
             return {
                 success: true,
-                data,
+                data: { count: data },
                 message: "Likes count retrieved successfully"
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: { count: 0 },
+                message: errorMessage
+            };
         }
     });
 
@@ -225,7 +250,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: CommentResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const data = await interactionsService.createComment(request.body as any);
             return {
@@ -235,7 +260,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 
@@ -252,7 +282,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: CommentsArrayResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const parentId = parseInt((request.params as any).parentId, 10);
             const data = await interactionsService.getCommentsByParentId(parentId, (request.params as any).parentType);
@@ -263,7 +293,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
         }
     });
 
@@ -280,8 +315,24 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: CommentsArrayResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
-
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+        try {
+            const userId = parseInt((request.params as any).userId, 10);
+            const data = await interactionsService.getCommentsByUserId(userId);
+            return {
+                success: true,
+                data,
+                message: "User comments retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
     });
 
     // Update comment
@@ -298,7 +349,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: CommentResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const commentId = parseInt((request.params as any).id, 10);
             const data = await interactionsService.updateComment(commentId, request.body as any);
@@ -309,7 +360,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 
@@ -326,7 +382,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: ShareResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const data = await interactionsService.createShare(request.body as any);
             return {
@@ -336,7 +392,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 
@@ -353,8 +414,24 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: SharesArrayResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
-
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+        try {
+            const userId = parseInt((request.params as any).userId, 10);
+            const data = await interactionsService.getSharesByUserId(userId);
+            return {
+                success: true,
+                data,
+                message: "User shares retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
     });
 
     // Update share
@@ -371,7 +448,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: ShareResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const shareId = parseInt((request.params as any).id, 10);
             const data = await interactionsService.updateShare(shareId, request.body as any);
@@ -382,7 +459,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 
@@ -399,7 +481,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: SaveResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const data = await interactionsService.createSave(request.body as any);
             return {
@@ -409,7 +491,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 
@@ -426,8 +513,24 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: SavesArrayResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
-
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+        try {
+            const userId = parseInt((request.params as any).userId, 10);
+            const data = await interactionsService.getSavesByUserId(userId);
+            return {
+                success: true,
+                data,
+                message: "User saves retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
     });
 
     // Delete save
@@ -443,7 +546,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: DeleteResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const saveId = parseInt((request.params as any).id, 10);
             const data = await interactionsService.deleteSave(saveId);
@@ -454,7 +557,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 
@@ -471,7 +579,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: ViewResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const data = await interactionsService.createView(request.body as any);
             return {
@@ -481,7 +589,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 
@@ -498,8 +611,24 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: ViewsArrayResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
-
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+        try {
+            const userId = parseInt((request.params as any).userId, 10);
+            const data = await interactionsService.getViewsByUserId(userId);
+            return {
+                success: true,
+                data,
+                message: "User views retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
     });
 
     // Update view
@@ -516,7 +645,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: ViewResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const viewId = parseInt((request.params as any).id, 10);
             const data = await interactionsService.updateView(viewId, request.body as any);
@@ -527,7 +656,12 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
         }
     });
 

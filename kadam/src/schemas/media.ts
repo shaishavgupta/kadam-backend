@@ -32,7 +32,55 @@ export const LoginPageContentResponseSchema = Type.Object({
     message: Type.String()
 });
 
+export const PresignedUrlRequestSchema = Type.Object({
+    fileName: Type.String({ minLength: 1 }),
+    contentType: Type.String({ minLength: 1 }),
+    courseId: Type.Number({ minimum: 1 }),
+    fileType: Type.Union([
+        Type.Literal('raw-video'),
+    ])
+});
+
+export const PresignedUrlResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        presignedUrl: Type.String(),
+        fileKey: Type.String(),
+        expiresIn: Type.Number()
+    }),
+    message: Type.String()
+});
+
+export const VideoProcessingRequestSchema = Type.Object({
+    courseId: Type.Number({ minimum: 1 }),
+    processingOptions: Type.Object({
+        quality: Type.Union([
+            Type.Literal('240p'),
+            Type.Literal('360p'),
+            Type.Literal('480p'),
+            Type.Literal('720p')
+        ]),
+        format: Type.Literal('mp4'),
+        thumbnailGeneration: Type.Boolean(),
+        subtitleExtraction: Type.Boolean()
+    })
+});
+
+export const VideoProcessingResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        jobId: Type.String(),
+        status: Type.String(),
+        message: Type.String()
+    }),
+    message: Type.String()
+});
+
 export type Banners = Static<typeof Banners>;
 export type Categories = Static<typeof Categories>;
 export type HomePageContentResponse = Static<typeof HomePageContentResponseSchema>;
 export type LoginPageContentResponse = Static<typeof LoginPageContentResponseSchema>;
+export type PresignedUrlRequest = Static<typeof PresignedUrlRequestSchema>;
+export type PresignedUrlResponse = Static<typeof PresignedUrlResponseSchema>;
+export type VideoProcessingRequest = Static<typeof VideoProcessingRequestSchema>;
+export type VideoProcessingResponse = Static<typeof VideoProcessingResponseSchema>;

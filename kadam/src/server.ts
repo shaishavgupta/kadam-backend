@@ -8,11 +8,11 @@ import { requestLogger } from './shared/middleware/logging';
 import { appConfig } from './config';
 // Infrastructure imports
 import {
-    db,
-    redis
+    connectInfrastructure,
+    checkInfrastructureHealth,
+    InfrastructureOptions
 } from './infra';
 
-// BullMQ runs independently - no imports needed
 // Import route handlers
 import userRoutes from './controller/users.controller';
 import adminRoutes from './controller/admin.controller';
@@ -93,16 +93,18 @@ fastifyInstance.addHook('onRequest', requestLogger);
 
 // Health check endpoint
 fastifyInstance.get('/health', async (request: any, reply: any) => {
-    const dbStatus = await checkDatabaseConnection();
-    const redisStatus = await checkRedisConnection();
+    const infraHealth = await checkInfrastructureHealth();
 
     return {
         status: 'OK',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         services: {
-            database: dbStatus,
-            redis: redisStatus
+            database: infraHealth.database,
+            redis: infraHealth.redis,
+            tracing: infraHealth.tracing,
+            s3: infraHealth.s3,
+            overall: infraHealth.overall
         }
     };
 });
@@ -116,25 +118,7 @@ fastifyInstance.register(creatorsRoutes, { prefix: '/api/creators' });
 fastifyInstance.register(interactionsRoutes, { prefix: '/api/interactions' });
 fastifyInstance.register(mediaRoutes, { prefix: '/api/media' });
 
-// Database connection check
-async function checkDatabaseConnection() {
-    try {
-        await db.query('SELECT 1');
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-// Redis connection check
-async function checkRedisConnection() {
-    try {
-        await redis.ping();
-        return true;
-    } catch {
-        return false;
-    }
-}
+// Connection checks are now handled by centralized infrastructure functions
 
 // Helper function to get server URL based on environment
 function getServerUrl(): string {
@@ -154,6 +138,20 @@ function getServerUrl(): string {
 // Start server
 const start = async () => {
     try {
+        // Connect to all infrastructure components
+        console.log('🔄 Connecting to infrastructure...');
+        const infraStatus = await connectInfrastructure({
+            enableTracing: false, // Tracing is already initialized by index.ts
+            enableS3: true,
+            enableDatabase: true,
+            enableRedis: true
+        });
+
+        if (!infraStatus.overall) {
+            console.error('❌ Infrastructure connection failed');
+            process.exit(1);
+        }
+
         const port = appConfig.PORT;
         await fastifyInstance.listen({ port, host: '0.0.0.0' });
         const serverUrl = getServerUrl();

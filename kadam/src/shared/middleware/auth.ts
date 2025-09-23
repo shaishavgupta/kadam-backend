@@ -85,3 +85,12 @@ export const requireUser = async (request: AuthenticatedRequest, reply: FastifyR
 		});
 	}
 };
+
+export const requireAdminOrUser = async (request: AuthenticatedRequest, reply: FastifyReply) => {
+	if (!request.user || request.user.userType !== 'admin' && request.user.userType !== 'user') {
+		return reply.status(403).send({
+			success: false,
+			message: 'Admin or user access required'
+		});
+	}
+};

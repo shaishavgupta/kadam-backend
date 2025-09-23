@@ -51,10 +51,15 @@ export default async function authRoutes(fastify: FastifyInstance) {
             const data = await authService.sendOtp(request.body);
             return data;
         } catch (error) {
-            return reply.status(500).send({
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500).send({
                 success: false,
-                message: error instanceof Error ? error.message : "Internal server error"
+                message: errorMessage
             });
+            return {
+                success: false,
+                message: errorMessage
+            };
         }
     });
 
@@ -76,12 +81,18 @@ export default async function authRoutes(fastify: FastifyInstance) {
             const isValid = await authService.verifyOtp(request.body);
 
             if (!isValid) {
-                return reply.status(400).send({
+                reply.status(400).send({
                     accessToken: "",
                     refreshToken: "",
                     isNewUser: false,
                     userId: 0
                 });
+                return {
+                    accessToken: "",
+                    refreshToken: "",
+                    isNewUser: false,
+                    userId: 0
+                };
             }
 
             let newEntity: boolean;
@@ -132,12 +143,19 @@ export default async function authRoutes(fastify: FastifyInstance) {
                 userId: entity.id
             };
         } catch (error) {
-            return reply.status(400).send({
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(400).send({
                 accessToken: "",
                 refreshToken: "",
                 isNewUser: false,
                 userId: 0
             });
+            return {
+                accessToken: "",
+                refreshToken: "",
+                isNewUser: false,
+                userId: 0
+            };
         }
     });
 }
