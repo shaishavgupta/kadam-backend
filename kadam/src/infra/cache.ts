@@ -1,8 +1,5 @@
 import { createClient } from 'redis';
-import dotenv from 'dotenv';
 import { redisConfig } from '../config';
-
-dotenv.config();
 
 // Build Redis URL based on available credentials
 const buildRedisUrl = () => {
@@ -28,6 +25,7 @@ const redisClientConfig: any = {
     lazyConnect: true,
     connectTimeout: 10000,
     commandTimeout: 5000,
+    appendOnly: true,
 };
 
 const redis = createClient(redisClientConfig);

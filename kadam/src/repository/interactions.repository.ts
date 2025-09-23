@@ -1,8 +1,7 @@
 import { db } from "../infra/db";
 import {
     Like, CreateLikeDTO, UpdateLikeDTO, ParentType, Comment, CreateCommentDTO, UpdateCommentDTO,
-    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, View, CreateViewDTO, UpdateViewDTO,
-    Rating, CreateRatingDTO, UpdateRatingDTO
+    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, View, CreateViewDTO, UpdateViewDTO
 } from "../shared/types/interactions.types";
 
 export class InteractionsRepository {
@@ -285,65 +284,4 @@ export class InteractionsRepository {
         }
     }
 
-    // Rating operations
-    async createRating(ratingData: CreateRatingDTO): Promise<Rating | null> {
-        try {
-            const result = await db.query(
-                `INSERT INTO ratings (user_id, course_id, rating, review, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
-                [ratingData.user_id, ratingData.course_id, ratingData.rating, ratingData.review]
-            );
-
-            if (result.rows.length > 0) {
-                return result.rows[0] as Rating;
-            }
-            return null;
-        } catch (error) {
-            console.error("Error creating rating:", error);
-            return null;
-        }
-    }
-
-    async getRatingsByUserId(userId: number): Promise<Rating[]> {
-        try {
-            const result = await db.query(
-                `SELECT * FROM ratings WHERE user_id = $1 ORDER BY created_at DESC`,
-                [userId]
-            );
-            return result.rows as Rating[];
-        } catch (error) {
-            console.error("Error getting ratings by user ID:", error);
-            return [];
-        }
-    }
-
-    async getRatingsByCourseId(courseId: number): Promise<Rating[]> {
-        try {
-            const result = await db.query(
-                `SELECT * FROM ratings WHERE course_id = $1 ORDER BY created_at DESC`,
-                [courseId]
-            );
-            return result.rows as Rating[];
-        } catch (error) {
-            console.error("Error getting ratings by course ID:", error);
-            return [];
-        }
-    }
-
-    async updateRating(id: number, ratingData: UpdateRatingDTO): Promise<Rating | null> {
-        try {
-            const result = await db.query(
-                `UPDATE ratings SET rating = $1, review = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
-                [ratingData.rating, ratingData.review, id]
-            );
-
-            if (result.rows.length > 0) {
-                return result.rows[0] as Rating;
-            }
-            return null;
-        } catch (error) {
-            console.error("Error updating rating:", error);
-            return null;
-        }
-    }
 }

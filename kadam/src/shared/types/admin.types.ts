@@ -27,3 +27,12 @@ export interface DashboardData {
     totalCourses: number;
     totalRevenue: number;
 }
+
+export interface Admin {
+    id: number;
+    email: string;
+    name: string;
+    phone: string;
+    role: string;
+    permissions: string[];
+}

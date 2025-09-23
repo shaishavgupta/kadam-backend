@@ -1,7 +1,21 @@
-import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse } from "../shared/types/admin.types";
+import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, Admin } from "../shared/types/admin.types";
 import { db } from "../infra/db";
+import { CreateAdminRequest } from "../schemas/auth";
 
 export class AdminRepository {
+    async createAdmin(adminData: CreateAdminRequest): Promise<Admin> {
+        try {
+            const result = await db.query(
+                `INSERT INTO admins (name, email, phone) VALUES ($1, $2, $3) RETURNING *`,
+                [adminData.name, adminData.email, adminData.phone]
+            );
+            return result.rows[0];
+        } catch (error) {
+            console.error("Error creating admin:", error);
+            throw error;
+        }
+    }
+
     async getAdminConfigurations(key: keyof typeof AdminConfigurations): Promise<AdminConfigurationResponse | null> {
         try {
             const result = await db.query(

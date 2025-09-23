@@ -15,15 +15,12 @@ export class CoursesRepository {
         cat.name as category,
         COALESCE(video_count.total_videos, 0) as total_videos,
         COALESCE(duration_sum.total_duration, 0) as total_duration,
-        COALESCE(c.avg_rating, 0) as likes,
-        COALESCE(c.num_ratings, 0) as views,
+        0 as likes,
+        0 as views,
         0 as saves,
         0 as shares,
         c.created_at,
-        CASE
-          WHEN c.num_ratings > 0 THEN c.avg_rating / c.num_ratings
-          ELSE 0
-        END as rating_ratio
+        c.rank as rating_ratio
       FROM courses c
       LEFT JOIN course_categories cc ON c.id = cc.course_id
       LEFT JOIN categories cat ON cc.category_id = cat.id
@@ -54,31 +51,31 @@ export class CoursesRepository {
       ORDER BY ue.created_at DESC
     `;
 
-    // Get for_you courses (ordered by rating ratio)
+    // Get for_you courses (ordered by rank)
     const forYouQuery = `
       ${baseQuery}
-      ORDER BY rating_ratio DESC, c.avg_rating DESC
+      ORDER BY c.rank DESC, c.created_at DESC
       LIMIT 10
     `;
 
-    // Get top_10 courses (highest rating ratio)
+    // Get top_10 courses (ordered by rank)
     const top10Query = `
       ${baseQuery}
-      ORDER BY rating_ratio DESC, c.avg_rating DESC
+      ORDER BY c.rank DESC, c.created_at DESC
       LIMIT 10
     `;
 
-    // Get Popular courses (not in top_10 but still good ratings)
+    // Get Popular courses (ordered by rank, offset from top_10)
     const popularQuery = `
       ${baseQuery}
       AND c.id NOT IN (
         SELECT id FROM (
           ${baseQuery}
-          ORDER BY rating_ratio DESC, c.avg_rating DESC
+          ORDER BY c.rank DESC, c.created_at DESC
           LIMIT 10
         ) top_courses
       )
-      ORDER BY rating_ratio DESC, c.avg_rating DESC
+      ORDER BY c.rank DESC, c.created_at DESC
       LIMIT 20 OFFSET 10
     `;
 
@@ -524,6 +521,80 @@ export class CoursesRepository {
         total_hours_spent: 0,
         avg_hours_per_day: 0
       };
+    }
+  }
+
+  async calculateAndUpdateCourseRankings(): Promise<void> {
+    try {
+      console.log('🔄 Starting course ranking calculation...');
+
+      // Calculate rankings for all published courses based on interactions
+      const rankingQuery = `
+        WITH course_interactions AS (
+          SELECT
+            c.id as course_id,
+            c.name as course_name,
+            -- Calculate total interactions for each course
+            COALESCE(SUM(
+              CASE
+                WHEN v.id IS NOT NULL THEN 1  -- views
+                ELSE 0
+              END
+            ), 0) as total_views,
+            COALESCE(SUM(
+              CASE
+                WHEN l.id IS NOT NULL THEN 1  -- likes
+                ELSE 0
+              END
+            ), 0) as total_likes,
+            COALESCE(SUM(
+              CASE
+                WHEN cm.id IS NOT NULL THEN 1  -- comments
+                ELSE 0
+              END
+            ), 0) as total_comments,
+            COALESCE(SUM(
+              CASE
+                WHEN s.id IS NOT NULL THEN 1  -- shares
+                ELSE 0
+              END
+            ), 0) as total_shares
+          FROM courses c
+          LEFT JOIN contents ct ON c.id = ct.course_id AND ct.is_active = true
+          LEFT JOIN views v ON ct.id = v.parent_id AND v.parent_type = 'content' AND v.created_at >= NOW() - INTERVAL '30 days'
+          LEFT JOIN likes l ON ct.id = l.parent_id AND l.parent_type = 'content' AND l.is_active = true AND l.created_at >= NOW() - INTERVAL '30 days'
+          LEFT JOIN comments cm ON ct.id = cm.parent_id AND cm.parent_type = 'content' AND cm.is_active = true AND cm.created_at >= NOW() - INTERVAL '30 days'
+          LEFT JOIN shares s ON ct.id = s.parent_id AND s.parent_type = 'content' AND s.created_at >= NOW() - INTERVAL '30 days'
+          WHERE c.is_active = true AND c.published_at IS NOT NULL
+          GROUP BY c.id, c.name
+        ),
+        course_scores AS (
+          SELECT
+            course_id,
+            course_name,
+            total_views,
+            total_likes,
+            total_comments,
+            total_shares,
+            -- Calculate score using the formula: (views * 1) + (likes * 3) + (comments * 5) + (shares * 8)
+            (total_views * 1.0) + (total_likes * 3.0) + (total_comments * 5.0) + (total_shares * 8.0) as calculated_score
+          FROM course_interactions
+        )
+        UPDATE courses
+        SET
+          rank = cs.calculated_score,
+          updated_at = NOW()
+        FROM course_scores cs
+        WHERE courses.id = cs.course_id
+        RETURNING courses.id, courses.name, cs.calculated_score as new_rank
+      `;
+
+      const result = await db.query(rankingQuery);
+
+      console.log(`✅ Updated rankings for ${result.rows.length} courses`);
+    } catch (error) {
+      console.error('❌ Error calculating course rankings:', error);
+      throw error;
     }
   }
 }

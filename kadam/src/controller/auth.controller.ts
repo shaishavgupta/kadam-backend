@@ -3,6 +3,9 @@ import { AuthService } from '../service/auth.service';
 import { UserService } from '../service/users.service';
 import { AdminService } from '../service/admin.service';
 import { CreatorService } from '../service/creators.service';
+import { User } from '../shared/types/users.types';
+import { Admin } from '../shared/types/admin.types';
+import { Creator } from '../shared/types/creators.types';
 import { authMiddleware, AuthenticatedRequest } from '../shared/middleware/auth';
 import { UserType as UserTypeEnum } from '../shared/enums';
 import {
@@ -70,9 +73,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
             const { phone, otp, language, userType } = request.body;
 
             // Verify OTP
-            const otpResult = await authService.verifyOtp(request.body);
+            const isValid = await authService.verifyOtp(request.body);
 
-            if (!otpResult.isValid) {
+            if (!isValid) {
                 return reply.status(400).send({
                     accessToken: "",
                     refreshToken: "",
@@ -81,39 +84,28 @@ export default async function authRoutes(fastify: FastifyInstance) {
                 });
             }
 
-            // // Check if user exists
-            // let existingUser;
-            // try {
-            //     existingUser = await userService.getUserByPhone(phone);
-            // } catch (error) {
-            //     // User doesn't exist, we'll create a new one
-            //     existingUser = null;
-            // }
-
-            // if (existingUser) {
-            //     // Update last active and language preference
-            //     await userService.updateUser(existingUser.id, {
-            //         preferred_language: language
-            //     });
-
-            let newUser;
-            let isNewUser = true;
+            let newEntity: boolean;
+            let entity: User | Admin | Creator;
 
             switch (userType) {
                 case UserTypeEnum.USER:
-                    newUser = await userService.getOrCreateUser({
+                    const userResult = await userService.getOrCreateUser({
                         phone: phone,
                         preferred_language: language
                     });
+                    newEntity = userResult.newEntity;
+                    entity = userResult.entity;
                     break;
                 case UserTypeEnum.ADMIN:
-                    newUser = await adminService.getOrCreateAdmin({
+                    const adminResult = await adminService.getOrCreateAdmin({
                         email: '', // Will be set later
                         name: '', // Will be set later
                         phone: phone,
                         role: 'admin',
                         permissions: []
                     });
+                    newEntity = adminResult.newEntity;
+                    entity = adminResult.entity;
                     break;
                 case UserTypeEnum.CREATOR:
                     const creatorResult = await creatorService.getOrCreateCreator({
@@ -123,23 +115,21 @@ export default async function authRoutes(fastify: FastifyInstance) {
                         bio: '',
                         avatar_url: ''
                     });
-                    if (creatorResult.error) {
-                        throw new Error(creatorResult.error);
-                    }
-                    newUser = creatorResult.user;
+                    newEntity = creatorResult.newEntity;
+                    entity = creatorResult.entity;
                     break;
                 default:
                     throw new Error("Invalid user type");
             }
 
             // Generate tokens
-            const tokens = await authService.generateTokens(newUser.id, userType);
+            const tokens = await authService.generateTokens(entity.id, userType);
 
             return {
                 accessToken: tokens.accessToken,
                 refreshToken: tokens.refreshToken,
                 isNewUser: true,
-                userId: newUser.id
+                userId: entity.id
             };
         } catch (error) {
             return reply.status(400).send({

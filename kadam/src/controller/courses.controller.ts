@@ -426,4 +426,35 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         }
     });
+
+    // Manual trigger for course ranking calculation (Admin only)
+    fastify.post('/recalculate-rankings', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Courses'],
+            summary: 'Recalculate course rankings',
+            description: 'Manually trigger recalculation of course rankings based on interactions',
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            await coursesService.calculateAndUpdateCourseRankings();
+            return {
+                success: true,
+                message: "Course rankings recalculated successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.code(500).send({ success: false, message: errorMessage });
+        }
+    });
 }

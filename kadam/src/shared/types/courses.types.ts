@@ -53,8 +53,7 @@ export interface Course {
     price: number;
     thumbnail_url?: string;
     certificate_url: string;
-    rating: number;
-    num_ratings: number;
+    rank: number;
     published_at?: Date;
     created_at: Date;
     updated_at: Date;

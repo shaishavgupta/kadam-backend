@@ -16,9 +16,6 @@ import {
     View,
     CreateViewDTO,
     UpdateViewDTO,
-    Rating,
-    CreateRatingDTO,
-    UpdateRatingDTO,
     GetLikesByUserIdDTO,
     InteractionUserIdParam,
     LikeIdParam,
@@ -26,15 +23,12 @@ import {
     ShareIdParam,
     SaveIdParam,
     ViewIdParam,
-    RatingIdParam,
     ParentIdParam,
-    InteractionCourseIdParam,
     LikeUpdateParam,
     CommentUpdateParam,
     ShareUpdateParam,
     SaveDeleteParam,
     ViewUpdateParam,
-    RatingUpdateParam,
     ParentTypeParam,
     SimpleUserIdParam,
     CreateLikeDTOSchema,
@@ -46,35 +40,28 @@ import {
     CreateSaveDTOSchema,
     CreateViewDTOSchema,
     UpdateViewDTOSchema,
-    CreateRatingDTOSchema,
-    UpdateRatingDTOSchema,
     LikeResponseSchema,
     CommentResponseSchema,
     ShareResponseSchema,
     SaveResponseSchema,
     ViewResponseSchema,
-    RatingResponseSchema,
     LikesArrayResponseSchema,
     CommentsArrayResponseSchema,
     SharesArrayResponseSchema,
     SavesArrayResponseSchema,
     ViewsArrayResponseSchema,
-    RatingsArrayResponseSchema,
     InteractionUserIdParamSchema,
     LikeIdParamSchema,
     CommentIdParamSchema,
     ShareIdParamSchema,
     SaveIdParamSchema,
     ViewIdParamSchema,
-    RatingIdParamSchema,
     ParentIdParamSchema,
-    InteractionCourseIdParamSchema,
     LikeUpdateParamSchema,
     CommentUpdateParamSchema,
     ShareUpdateParamSchema,
     SaveDeleteParamSchema,
     ViewUpdateParamSchema,
-    RatingUpdateParamSchema,
     ParentTypeParamSchema,
     SimpleUserIdParamSchema,
     CountResponseSchema,
@@ -544,104 +531,4 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Create rating
-    fastify.post('/ratings', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Interactions'],
-            summary: 'Create rating',
-            description: 'Create a rating and review for a course',
-            body: CreateRatingDTOSchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: RatingResponseSchema
-            }
-        }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
-        try {
-            const data = await interactionsService.createRating(request.body as any);
-            return {
-                success: true,
-                data,
-                message: "Rating created successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-        }
-    });
-
-    // Get ratings by user ID
-    fastify.get('/ratings/user/:userId', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Interactions'],
-            summary: 'Get ratings by user ID',
-            description: 'Retrieve all ratings created by a specific user',
-            params: SimpleUserIdParamSchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: RatingsArrayResponseSchema
-            }
-        }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
-
-    });
-
-    // Get ratings by course ID
-    fastify.get('/ratings/course/:courseId', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Interactions'],
-            summary: 'Get ratings by course ID',
-            description: 'Retrieve all ratings for a specific course',
-            params: InteractionCourseIdParamSchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: RatingsArrayResponseSchema
-            }
-        }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
-        try {
-            const courseId = parseInt((request.params as any).courseId, 10);
-            const data = await interactionsService.getRatingsByCourseId(courseId);
-            return {
-                success: true,
-                data,
-                message: "Course ratings retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-        }
-    });
-
-    // Update rating
-    fastify.patch('/ratings/:id', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Interactions'],
-            summary: 'Update rating',
-            description: 'Update an existing rating and review',
-            params: RatingUpdateParamSchema,
-            body: UpdateRatingDTOSchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: RatingResponseSchema
-            }
-        }
-    }, async (request: FastifyRequest, reply: FastifyReply) => {
-        try {
-            const ratingId = parseInt((request.params as any).id, 10);
-            const data = await interactionsService.updateRating(ratingId, request.body as any);
-            return {
-                success: true,
-                data,
-                message: "Rating updated successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.code(500).send({ success: false, message: errorMessage });
-        }
-    });
 }

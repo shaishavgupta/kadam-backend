@@ -145,4 +145,15 @@ export class CoursesService {
             };
         }
     }
+
+    async calculateAndUpdateCourseRankings(): Promise<void> {
+        try {
+            console.log('🔄 Starting course ranking calculation service...');
+            await this.repository.calculateAndUpdateCourseRankings();
+            console.log('✅ Course ranking calculation completed successfully');
+        } catch (error) {
+            console.error("Error calculating course rankings:", error);
+            throw error;
+        }
+    }
 }

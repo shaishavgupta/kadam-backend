@@ -8,8 +8,6 @@
 - **Dependencies**: Install the following packages:
   - `fastify`: Latest version for the Fastify framework.
   - `@fastify/cors`: For handling CORS.
-  - `@prisma/client`: For Prisma ORM client.
-  - `prisma`: For Prisma CLI.
   - `typescript`: For TypeScript support.
   - `ts-node`: For running TypeScript files directly.
   - `@types/node`: Type definitions for Node.js.
@@ -23,8 +21,6 @@
     - `repositories/`: Directory for database queries using Prisma.
     - `shared/`: Directory for shared types, middlewares, and logging utilities.
     - `infra/`: Directory for infrastructure concerns like cache and database initialization.
-    - `prisma/`: Directory for Prisma schema and migrations.
-      - `schema.prisma`: Prisma schema file.
   - `package.json`: Project metadata and scripts.
   - `tsconfig.json`: TypeScript configuration.
   - `.env`: Environment variables (e.g., database URL).
@@ -39,8 +35,6 @@
   - `start`: Run the compiled application (`node dist/index.js`).
   - `dev`: Run with `ts-node-dev` for development with auto-reload.
   - `build`: Compile TypeScript to JavaScript (`tsc`).
-  - `prisma:generate`: Generate Prisma client (`npx prisma generate`).
-  - `prisma:migrate`: Run Prisma migrations (`npx prisma migrate dev`).
 - Include dependencies and devDependencies as listed above.
 
 ### tsconfig.json

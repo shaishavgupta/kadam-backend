@@ -12,9 +12,15 @@ export class UserService {
     /**
      * Create a new user (for auth service)
      */
-    async getOrCreateUser(userData: CreateUserWithAuthRequest): Promise<User> {
+    async getOrCreateUser(userData: CreateUserWithAuthRequest): Promise<{ entity: User, newEntity: boolean }> {
         try {
-            return this.userRepository.createUser(userData);
+            const existingUser = await this.userRepository.findUserByPhone(userData.phone);
+            if (existingUser) {
+                return { entity: existingUser, newEntity: false };
+            }
+
+            const user = await this.userRepository.createUser(userData);
+            return { entity: user, newEntity: true };
         } catch (error) {
             console.error("Error creating user with auth:", error);
             throw error;

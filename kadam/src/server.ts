@@ -3,12 +3,16 @@ import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
-import dotenv from 'dotenv';
-import { db } from './infra/db';
-import { redis } from './infra/cache';
 import { errorHandler } from './shared/middleware/errorHandler';
 import { requestLogger } from './shared/middleware/logging';
 import { appConfig } from './config';
+// Infrastructure imports
+import {
+    db,
+    redis
+} from './infra';
+
+// BullMQ runs independently - no imports needed
 // Import route handlers
 import userRoutes from './controller/users.controller';
 import adminRoutes from './controller/admin.controller';
@@ -17,8 +21,6 @@ import creatorsRoutes from './controller/creators.controller';
 import interactionsRoutes from './controller/interactions.controller';
 import authRoutes from './controller/auth.controller';
 import mediaRoutes from './controller/media.controller';
-
-dotenv.config();
 
 const fastifyInstance = Fastify({
     logger: {

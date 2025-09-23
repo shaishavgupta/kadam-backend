@@ -1,5 +1,4 @@
 import { Static, Type } from "@sinclair/typebox";
-import { CourseListDataSchema } from "./course";
 
 export const Banners = Type.Object({
     image_url: Type.String(),
@@ -19,7 +18,6 @@ export const HomePageContentResponseSchema = Type.Object({
     data: Type.Object({
         banners: Type.Array(Banners),
         categories: Type.Array(Categories),
-        courses: CourseListDataSchema
     }),
     message: Type.String()
 });

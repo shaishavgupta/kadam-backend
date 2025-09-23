@@ -328,7 +328,15 @@ src/
 │   ├── middleware/   # Custom middleware
 │   ├── types/       # TypeScript interfaces
 │   └── enums/       # Application enums
-├── infra/           # Infrastructure (DB, Cache, Tracing)
+├── infra/           # Infrastructure (DB, Cache, Tracing, BullMQ)
+│   ├── bullmq.ts    # BullMQ queue management
+│   ├── bullmq-init.ts # BullMQ initialization module
+│   ├── db.ts        # Database connection
+│   ├── cache.ts     # Redis cache operations
+│   └── tracing.ts   # OpenTelemetry tracing
+├── workers/         # Background job workers
+│   ├── workers.ts   # Worker processors
+│   └── cron.ts      # Scheduled job definitions
 ├── db/              # Database migrations and seeds
 └── server.ts        # Application entry point
 ```
@@ -390,7 +398,472 @@ await cache.unsubscribeAll();
 - **Analytics Events**: Track user actions and system events
 - **Live Updates**: Push real-time updates to connected clients
 
-For detailed examples, see `src/infra/cache-examples.md`.
+### BullMQ Job Queues
+
+The application includes a comprehensive job queue system using BullMQ for background processing. The BullMQ infrastructure is modularized for better maintainability:
+
+#### Architecture Overview
+
+- **`infra/bullmq.ts`**: Core BullMQ queue management and configuration
+- **`infra/bullmq-init.ts`**: Centralized initialization module for all BullMQ components
+- **`workers/workers.ts`**: Worker processors for different job types
+- **`workers/cron.ts`**: Scheduled job definitions and cron patterns
+
+#### Initialization Flow
+
+The BullMQ infrastructure follows a clean initialization pattern:
+
+```typescript
+import { initializeBullMQInfrastructure } from './infra';
+
+// Initialize complete BullMQ infrastructure
+await initializeBullMQInfrastructure(fastifyInstance);
+```
+
+This single call handles:
+1. Queue setup and configuration
+2. Worker initialization
+3. Scheduled job setup
+4. Bull Board dashboard configuration
+
+#### Modular Architecture Benefits
+
+The separation of BullMQ components provides several advantages:
+
+- **Separation of Concerns**: Each module has a single responsibility
+- **Easier Testing**: Individual components can be tested in isolation
+- **Better Maintainability**: Changes to one component don't affect others
+- **Cleaner Server Code**: Server.ts focuses on HTTP server setup
+- **Reusability**: BullMQ components can be reused in other applications
+- **Configuration Management**: Centralized configuration and initialization
+
+#### Component Responsibilities
+
+| Component | Responsibility |
+|-----------|----------------|
+| `bullmq.ts` | Queue management, job operations, Bull Board setup |
+| `bullmq-init.ts` | Centralized initialization, lifecycle management |
+| `workers/workers.ts` | Job processors, worker configuration |
+| `workers/cron.ts` | Scheduled job definitions, cron patterns |
+
+#### Queue Types
+- **Email Queue**: Send welcome emails, notifications, password resets
+- **Notifications Queue**: Push notifications, SMS, email alerts
+- **Analytics Queue**: Track events, update metrics, generate reports
+- **Cache Invalidation Queue**: Clean up cache entries
+- **Course Processing Queue**: Process videos, generate thumbnails, extract metadata
+
+#### Basic Queue Operations
+```typescript
+import { QueueService } from '../service/queue.service';
+
+// Send welcome email
+await QueueService.sendWelcomeEmail('user@example.com', 123, 'John Doe');
+
+// Send push notification
+await QueueService.sendPushNotification(123, 'New Course Available', 'Check out our latest course!');
+
+// Track analytics event
+await QueueService.trackUserEvent('course_completed', 123, { courseId: 456 });
+
+// Invalidate cache
+await QueueService.invalidateUserCache(123, 'profile_updated');
+```
+
+#### Direct Queue Management
+```typescript
+import { bullMQManager, QUEUE_NAMES, JOB_TYPES } from '../infra';
+
+// Add a job directly to a queue
+const job = await bullMQManager.addJob(
+    QUEUE_NAMES.EMAIL,
+    JOB_TYPES.EMAIL.SEND_WELCOME,
+    {
+        to: 'user@example.com',
+        subject: 'Welcome!',
+        template: 'welcome',
+        data: { userId: 123, userName: 'John' }
+    },
+    {
+        priority: 10,
+        attempts: 3,
+        delay: 5000, // 5 second delay
+        removeOnComplete: 5,
+        removeOnFail: 3
+    }
+);
+```
+
+#### Scheduled Jobs
+```typescript
+import { bullMQManager, CRON_PATTERNS } from '../infra';
+
+// Schedule recurring job
+await bullMQManager.scheduleRecurringJob(
+    QUEUE_NAMES.ANALYTICS,
+    'daily-report',
+    { reportType: 'daily_summary' },
+    CRON_PATTERNS.DAILY,
+    'daily-analytics-report',
+    { timezone: 'UTC', removeOnComplete: 7, removeOnFail: 3 }
+);
+
+// Schedule delayed job
+await bullMQManager.scheduleDelayedJob(
+    QUEUE_NAMES.EMAIL,
+    'welcome-email',
+    { userId: 123, email: 'user@example.com' },
+    5000, // 5 second delay
+    { priority: 10, attempts: 3 }
+);
+```
+
+#### Job Scheduling Patterns
+```typescript
+import { CRON_PATTERNS } from '../workers/cron';
+
+// Available cron patterns
+CRON_PATTERNS.EVERY_MINUTE     // '* * * * *'
+CRON_PATTERNS.EVERY_5_MINUTES  // '*/5 * * * *'
+CRON_PATTERNS.EVERY_HOUR       // '0 * * * *'
+CRON_PATTERNS.DAILY            // '0 0 * * *'
+CRON_PATTERNS.WEEKLY           // '0 0 * * 0'
+CRON_PATTERNS.MONTHLY          // '0 0 1 * *'
+```
+
+#### Queue Management API
+```typescript
+// Get queue statistics
+const stats = await QueueService.getQueueStats('email-queue');
+
+// Pause/resume queues
+await QueueService.pauseQueue('email-queue');
+await QueueService.resumeQueue('email-queue');
+
+// Clean completed jobs
+await QueueService.cleanQueue('email-queue', 5000);
+```
+
+#### Bull Board Dashboard
+Access the queue management dashboard at: `http://localhost:3001/admin/queues`
+
+Features:
+- **Real-time Queue Monitoring**: View job counts, processing rates
+- **Job Management**: Retry failed jobs, remove completed jobs
+- **Queue Control**: Pause, resume, and clean queues
+- **Job Details**: View job data, progress, and error messages
+- **Statistics**: Monitor queue performance and health
+
+#### Use Cases
+- **Email Campaigns**: Send bulk welcome emails, course completion notifications
+- **Background Processing**: Process videos, generate thumbnails, extract metadata
+- **Analytics Processing**: Track user events, generate reports
+- **Cache Management**: Automatically invalidate stale cache entries
+- **System Maintenance**: Scheduled cleanup tasks, health checks
+
+#### Comprehensive Examples
+
+##### Email Jobs
+```typescript
+import { QueueService } from '../service/queue.service';
+
+// Send welcome email to new user
+await QueueService.sendWelcomeEmail('newuser@example.com', 123, 'John Doe');
+
+// Batch send welcome emails
+const users = [
+    { id: 1, email: 'user1@example.com', name: 'Alice' },
+    { id: 2, email: 'user2@example.com', name: 'Bob' },
+    { id: 3, email: 'user3@example.com', name: 'Charlie' }
+];
+await QueueService.batchSendWelcomeEmails(users);
+
+// Send course completion email
+await QueueService.sendCourseCompletionEmail(
+    'user@example.com',
+    123,
+    456,
+    'Advanced React Development'
+);
+
+// Send password reset email
+await QueueService.sendPasswordResetEmail('user@example.com', 'reset-token-123');
+```
+
+##### Notification Jobs
+```typescript
+// Send push notification
+await QueueService.sendPushNotification(
+    123,
+    'New Course Available',
+    'Check out our latest React course!',
+    { courseId: 456, courseName: 'React Fundamentals' }
+);
+
+// Send email notification
+await QueueService.sendEmailNotification(
+    123,
+    'Course Update',
+    'Your enrolled course has been updated with new content.',
+    { courseId: 456 }
+);
+
+// Send SMS notification
+await QueueService.sendSmsNotification(123, 'Your course assignment is due tomorrow!');
+```
+
+##### Analytics Jobs
+```typescript
+// Track user events
+await QueueService.trackUserEvent('course_started', 123, {
+    courseId: 456,
+    courseName: 'React Fundamentals',
+    timestamp: new Date().toISOString()
+});
+
+await QueueService.trackUserEvent('video_completed', 123, {
+    courseId: 456,
+    videoId: 789,
+    duration: 1200,
+    completionRate: 100
+});
+
+// Batch track events
+const events = [
+    { eventType: 'page_view', userId: 123, data: { page: '/courses' } },
+    { eventType: 'course_clicked', userId: 123, data: { courseId: 456 } },
+    { eventType: 'enrollment_started', userId: 123, data: { courseId: 456 } }
+];
+await QueueService.batchTrackEvents(events);
+
+// Update user metrics
+await QueueService.updateUserMetrics(123, {
+    totalCoursesCompleted: 5,
+    totalHoursSpent: 120,
+    averageRating: 4.5,
+    lastActiveDate: new Date().toISOString()
+});
+
+// Generate analytics report
+await QueueService.generateAnalyticsReport('monthly_summary', {
+    startDate: '2024-01-01',
+    endDate: '2024-01-31',
+    includeUserMetrics: true,
+    includeCourseMetrics: true
+});
+```
+
+##### Cache Invalidation Jobs
+```typescript
+// Invalidate user cache after profile update
+await QueueService.invalidateUserCache(123, 'profile_updated');
+
+// Invalidate course cache after content update
+await QueueService.invalidateCourseCache(456, 'content_updated');
+
+// Invalidate all user-related cache
+await QueueService.invalidateCachePattern('user:*', 'bulk_update');
+```
+
+##### Course Processing Jobs
+```typescript
+// Process course videos
+await QueueService.processCourseVideos(456, [
+    '/uploads/video1.mp4',
+    '/uploads/video2.mp4',
+    '/uploads/video3.mp4'
+]);
+
+// Generate thumbnails for course videos
+await QueueService.generateCourseThumbnails(456, [789, 790, 791]);
+
+// Extract metadata from course content
+await QueueService.extractCourseMetadata(456, [
+    '/uploads/video1.mp4',
+    '/uploads/document1.pdf',
+    '/uploads/audio1.mp3'
+]);
+```
+
+##### Scheduled Jobs
+```typescript
+import { SchedulingUtils, jobScheduler, CRON_PATTERNS } from '../infra';
+
+// Schedule delayed welcome email
+await SchedulingUtils.scheduleWelcomeEmail(123, 'user@example.com');
+
+// Schedule analytics event
+await SchedulingUtils.scheduleAnalyticsEvent('user_signup', 123, { source: 'web' });
+
+// Schedule recurring daily analytics report
+await jobScheduler.scheduleRecurringJob({
+    name: 'daily-analytics-report',
+    cron: CRON_PATTERNS.DAILY,
+    queueName: 'analytics-queue',
+    jobName: 'generate-report',
+    data: {
+        eventType: 'daily_report',
+        data: { reportType: 'daily_summary' },
+        timestamp: new Date().toISOString()
+    },
+    options: {
+        timezone: 'UTC',
+        removeOnComplete: 7,
+        removeOnFail: 3
+    }
+});
+```
+
+##### Queue Management
+```typescript
+// Get statistics for all queues
+const allStats = await QueueService.getAllQueueStats();
+console.log('All queue stats:', allStats);
+
+// Get statistics for specific queue
+const emailStats = await QueueService.getQueueStats('email-queue');
+console.log('Email queue stats:', emailStats);
+
+// Pause/resume queues
+await QueueService.pauseQueue('email-queue');
+await QueueService.resumeQueue('email-queue');
+
+// Clean completed jobs
+await QueueService.cleanQueue('email-queue', 5000);
+```
+
+##### Direct Queue Management
+```typescript
+import { bullMQManager, QUEUE_NAMES, JOB_TYPES } from '../infra';
+
+// Add a job directly to a queue
+const job = await bullMQManager.addJob(
+    QUEUE_NAMES.EMAIL,
+    JOB_TYPES.EMAIL.SEND_WELCOME,
+    {
+        to: 'user@example.com',
+        subject: 'Welcome!',
+        template: 'welcome',
+        data: { userId: 123, userName: 'John' }
+    },
+    {
+        priority: 10,
+        attempts: 3,
+        delay: 5000, // 5 second delay
+        removeOnComplete: 5,
+        removeOnFail: 3
+    }
+);
+
+console.log('Job added:', job.id);
+```
+
+##### Error Handling & Best Practices
+```typescript
+// Retry logic with exponential backoff
+await bullMQManager.addJob(
+    QUEUE_NAMES.EMAIL,
+    JOB_TYPES.EMAIL.SEND_WELCOME,
+    emailData,
+    {
+        attempts: 5,
+        backoff: {
+            type: 'exponential',
+            delay: 2000
+        },
+        removeOnComplete: 10,
+        removeOnFail: 5
+    }
+);
+
+// Error handling
+try {
+    await QueueService.sendWelcomeEmail('user@example.com', 123, 'John');
+} catch (error) {
+    console.error('Failed to queue welcome email:', error);
+    // Handle error appropriately
+}
+
+// Monitor failed jobs
+const queue = bullMQManager.getQueue('email-queue');
+const failedJobs = await queue?.getJobs(['failed'], 0, 10);
+for (const job of failedJobs || []) {
+    console.error('Failed job:', {
+        id: job.id,
+        name: job.name,
+        data: job.data,
+        failedReason: job.failedReason,
+        attemptsMade: job.attemptsMade
+    });
+}
+```
+
+##### Integration Examples
+
+**User Registration Flow:**
+```typescript
+async function handleUserRegistration(userData: any) {
+    try {
+        // Create user in database
+        const user = await createUser(userData);
+
+        // Queue welcome email
+        await QueueService.sendWelcomeEmail(user.email, user.id, user.name);
+
+        // Track registration event
+        await QueueService.trackUserEvent('user_registered', user.id, {
+            source: userData.source,
+            timestamp: new Date().toISOString()
+        });
+
+        // Invalidate user cache
+        await QueueService.invalidateUserCache(user.id, 'user_created');
+
+        return user;
+    } catch (error) {
+        console.error('User registration failed:', error);
+        throw error;
+    }
+}
+```
+
+**Course Completion Flow:**
+```typescript
+async function handleCourseCompletion(userId: number, courseId: number) {
+    try {
+        // Update user progress in database
+        await updateUserProgress(userId, courseId, 100);
+
+        // Queue completion email
+        await QueueService.sendCourseCompletionEmail(
+            user.email,
+            userId,
+            courseId,
+            course.name
+        );
+
+        // Track completion event
+        await QueueService.trackUserEvent('course_completed', userId, {
+            courseId,
+            courseName: course.name,
+            completionDate: new Date().toISOString()
+        });
+
+        // Update user metrics
+        await QueueService.updateUserMetrics(userId, {
+            totalCoursesCompleted: user.totalCoursesCompleted + 1,
+            lastActiveDate: new Date().toISOString()
+        });
+
+        // Invalidate user cache
+        await QueueService.invalidateUserCache(userId, 'course_completed');
+
+    } catch (error) {
+        console.error('Course completion handling failed:', error);
+        throw error;
+    }
+}
+```
 
 ### Authentication & Authorization
 

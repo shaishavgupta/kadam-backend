@@ -25,7 +25,7 @@ export class CreatorService {
     /**
      * Create a new creator with user account
      */
-    async getOrCreateCreator(creatorData: CreateCreatorWithUserRequest): Promise<{ creator?: Creator; user?: any; error?: string }> {
+    async getOrCreateCreator(creatorData: CreateCreatorWithUserRequest): Promise<{ entity: Creator, newEntity: boolean }> {
         try {
             // First create the base user
             const userData: CreateUserWithAuthRequest = {
@@ -36,7 +36,7 @@ export class CreatorService {
                 avatar_url: creatorData.avatar_url
             };
 
-            const user = await this.userRepository.createUser(userData);
+            const creator = await this.creatorRepository.createCreator(creatorData);
 
             // Then create creator-specific data
             const creatorResult = await this.creatorRepository.createCreator({
@@ -49,10 +49,10 @@ export class CreatorService {
                 throw new Error("Failed to create creator");
             }
 
-            return { creator: creatorResult, user };
+            return { entity: creatorResult, newEntity: true };
         } catch (error) {
             console.error("Error creating creator with user:", error);
-            return { error: "Failed to create creator with user" };
+            throw error;
         }
     }
 

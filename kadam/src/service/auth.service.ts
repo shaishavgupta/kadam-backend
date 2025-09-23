@@ -1,13 +1,16 @@
 import jwt from "jsonwebtoken";
+import { cache } from '../infra';
 import {
     SendOtpRequest,
     SendOtpResponse,
     VerifyOtpRequest,
-    VerifyOtpResponse
 } from '../schemas/auth';
 import { UserType as UserTypeEnum } from "../shared/enums";
 import { authConfig } from '../config';
+import { QueueService } from "./queue.service";
+import { config } from '../config';
 
+const OTP_REDIS_KEY = "otp:{phone}";
 export class AuthService {
     constructor() {
         // No service dependencies
@@ -24,10 +27,10 @@ export class AuthService {
             const otp = this.generateOtp();
 
             // Store OTP in cache/database with expiration (5 minutes)
-            await this.storeOtp(phone, otp);
+            await cache.set(OTP_REDIS_KEY.replace("{phone}", phone), otp, 5 * 60);
 
             // Send OTP via SMS (implement actual SMS service)
-            await this.sendSms(phone, otp);
+            await QueueService.sendOtpNotification("OTP Verification", "Your OTP is {otp}", phone, { otp: otp });
 
             return {
                 success: true,
@@ -43,22 +46,21 @@ export class AuthService {
      * Verify OTP and return authentication response
      * Note: User creation logic is handled by the controller based on userType
      */
-    async verifyOtp(request: VerifyOtpRequest): Promise<{ isValid: boolean; phone: string; language: any; userType: string }> {
+    async verifyOtp(request: VerifyOtpRequest): Promise<boolean> {
         try {
-            const { phone, otp, language, userType } = request;
+            const { phone, otp } = request;
+
+            if (config.NODE_ENV === 'development') {
+                return true;
+            }
 
             // Verify OTP
-            const isValidOtp = await this.verifyStoredOtp(phone, otp);
-            if (!isValidOtp) {
+            const isValidOtp = await cache.get(OTP_REDIS_KEY.replace("{phone}", phone));
+            if (!isValidOtp || isValidOtp !== otp) {
                 throw new Error("Invalid OTP");
             }
 
-            return {
-                isValid: true,
-                phone,
-                language,
-                userType
-            };
+            return true;
         } catch (error) {
             console.error("Error verifying OTP:", error);
             if (error instanceof Error) {
@@ -73,33 +75,6 @@ export class AuthService {
      */
     private generateOtp(): string {
         return Math.floor(100000 + Math.random() * 900000).toString();
-    }
-
-    /**
-     * Store OTP in cache/database with expiration
-     */
-    private async storeOtp(phone: string, otp: string): Promise<void> {
-        // TODO: Implement actual OTP storage (Redis/cache)
-        // For now, just log it
-        console.log(`Storing OTP for ${phone}: ${otp}`);
-    }
-
-    /**
-     * Send SMS with OTP
-     */
-    private async sendSms(phone: string, otp: string): Promise<void> {
-        // TODO: Implement actual SMS service (Twilio, AWS SNS, etc.)
-        // For now, just log it
-        console.log(`Sending SMS to ${phone}: Your OTP is ${otp}`);
-    }
-
-    /**
-     * Verify stored OTP
-     */
-    private async verifyStoredOtp(phone: string, otp: string): Promise<boolean> {
-        // TODO: Implement actual OTP verification from cache/database
-        // For now, accept any 6-digit OTP for testing
-        return otp.length === 6 && /^\d+$/.test(otp);
     }
 
     /**

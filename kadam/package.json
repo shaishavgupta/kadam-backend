@@ -10,6 +10,7 @@
     "migrate": "npm run build && node dist/db/migrate.js",
     "seed": "npm run build && node dist/db/seed.js",
     "dev": "tsx watch src/index.ts",
+    "bullmq": "tsx src/bullmq-init.ts",
     "test": "echo \"No tests specified\"",
     "docker:start": "./docker-scripts.sh start",
     "docker:dev": "./docker-scripts.sh dev",
@@ -30,6 +31,8 @@
     "typescript": "^5.9.2"
   },
   "dependencies": {
+    "@bull-board/api": "^6.13.0",
+    "@bull-board/fastify": "^6.13.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/swagger": "^9.5.1",
     "@fastify/swagger-ui": "^5.2.3",
@@ -45,6 +48,7 @@
     "@opentelemetry/sdk-node": "^0.54.0",
     "@opentelemetry/semantic-conventions": "^1.9.0",
     "@sinclair/typebox": "^0.34.41",
+    "bullmq": "^5.58.7",
     "dotenv": "^17.2.2",
     "fastify": "^5.6.0",
     "fastify-cors": "^6.0.3",

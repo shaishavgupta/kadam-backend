@@ -64,14 +64,12 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
             try {
                 const banners = await adminService.getConfiguration(AdminConfigurations.homePageBanners)
                 const categories = await adminService.getConfiguration(AdminConfigurations.homePagePopularCategories)
-                const courses = await coursesService.getCourseList()
 
                 return {
                     success: true,
                     data: {
                         banners: (banners?.value as Banners[]) || [],
                         categories: (categories?.value as Categories[]) || [],
-                        courses: courses
                     },
                     message: "Home page content retrieved successfully"
                 };

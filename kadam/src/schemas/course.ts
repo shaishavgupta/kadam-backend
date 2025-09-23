@@ -63,8 +63,7 @@ export const CourseSchema = Type.Object({
     price: Type.Number(),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
     certificate_url: Type.String({ format: 'uri' }),
-    rating: Type.Number(),
-    num_ratings: Type.Number(),
+    rank: Type.Number(),
     published_at: Type.Optional(Type.String({ format: 'date-time' })),
     created_at: Type.String({ format: 'date-time' }),
     updated_at: Type.String({ format: 'date-time' })

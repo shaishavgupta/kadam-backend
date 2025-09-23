@@ -1,8 +1,5 @@
 import { Client } from 'pg';
-import dotenv from 'dotenv';
 import { dbConfig } from '../config';
-
-dotenv.config();
 
 // Create PostgreSQL client
 const client = new Client({

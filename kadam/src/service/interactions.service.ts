@@ -1,7 +1,6 @@
 import {
     CreateLikeDTO, Like, UpdateLikeDTO, ParentType, Comment, CreateCommentDTO, UpdateCommentDTO,
-    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, View, CreateViewDTO, UpdateViewDTO,
-    Rating, CreateRatingDTO, UpdateRatingDTO
+    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, View, CreateViewDTO, UpdateViewDTO
 } from "../shared/types/interactions.types";
 import { InteractionsRepository } from "../repository/interactions.repository";
 
@@ -215,48 +214,4 @@ export class InteractionsService {
         }
     }
 
-    // Rating operations
-    async createRating(data: CreateRatingDTO): Promise<Rating> {
-        try {
-            const rating = await this.interactionsRepository.createRating(data);
-            if (rating) {
-                return rating;
-            }
-            throw new Error("Failed to create rating");
-        } catch (error) {
-            console.error("Error creating rating:", error);
-            throw error;
-        }
-    }
-
-    async getRatingsByUserId(userId: number): Promise<Rating[]> {
-        try {
-            return this.interactionsRepository.getRatingsByUserId(userId);
-        } catch (error) {
-            console.error("Error getting ratings by user ID:", error);
-            throw error;
-        }
-    }
-
-    async getRatingsByCourseId(courseId: number): Promise<Rating[]> {
-        try {
-            return this.interactionsRepository.getRatingsByCourseId(courseId);
-        } catch (error) {
-            console.error("Error getting ratings by course ID:", error);
-            throw error;
-        }
-    }
-
-    async updateRating(id: number, data: UpdateRatingDTO): Promise<Rating> {
-        try {
-            const rating = await this.interactionsRepository.updateRating(id, data);
-            if (rating) {
-                return rating;
-            }
-            throw new Error("Failed to update rating");
-        } catch (error) {
-            console.error("Error updating rating:", error);
-            throw error;
-        }
-    }
 }

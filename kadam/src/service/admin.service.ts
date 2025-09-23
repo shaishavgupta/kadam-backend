@@ -1,5 +1,5 @@
 import { AdminRepository } from "../repository/admin.repository";
-import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, DashboardData } from "../shared/types/admin.types";
+import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, DashboardData, Admin } from "../shared/types/admin.types";
 import { UserRepository } from "../repository/users.repository";
 import { CreatorRepository } from "../repository/creators.repository";
 import { CoursesRepository } from "../repository/courses.repository";
@@ -25,7 +25,7 @@ export class AdminService {
     /**
      * Create a new admin user
      */
-    async getOrCreateAdmin(adminData: CreateAdminRequest): Promise<any> {
+    async getOrCreateAdmin(adminData: CreateAdminRequest): Promise<{ entity: Admin, newEntity: boolean }> {
         try {
             // First create the base user
             const userData: CreateUserWithAuthRequest = {
@@ -35,7 +35,7 @@ export class AdminService {
                 plan_type: PlanType.PRO // Admins get PRO plan
             };
 
-            const user = await this.userRepository.createUser(userData);
+            const admin = await this.adminRepository.createAdmin(adminData);
 
             // Then create admin-specific data
             // Note: This would need to be implemented in AdminRepository
@@ -45,7 +45,7 @@ export class AdminService {
             //     permissions: adminData.permissions
             // });
 
-            return user; // Return user for now, admin creation needs to be implemented
+            return { entity: admin, newEntity: true };
         } catch (error) {
             console.error("Error creating admin user:", error);
             throw error;
