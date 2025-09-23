@@ -23,7 +23,7 @@ export class AdminRepository {
                 [key]
             );
             if (result.rows.length > 0) {
-                return result.rows[0].value;
+                return result.rows[0];
             }
             return null;
         } catch (error) {

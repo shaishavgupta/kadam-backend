@@ -50,7 +50,7 @@ export class AuthService {
         try {
             const { phone, otp } = request;
 
-            if (config.NODE_ENV === 'development') {
+            if (config.NODE_ENV === 'development' || config.NODE_ENV === 'local') {
                 return true;
             }
 

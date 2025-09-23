@@ -21,8 +21,8 @@ export const VerifyOtpRequestSchema = Type.Object({
         description: '10-digit phone number'
     }),
     otp: Type.String({
-        pattern: '^[0-9]{6}$',
-        description: '6-digit OTP'
+        pattern: '^[0-9]{4}$',
+        description: '4-digit OTP'
     }),
     language: Type.Enum(LanguageEnum),
     userType: Type.Enum(UserTypeEnum)
