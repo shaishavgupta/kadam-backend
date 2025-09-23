@@ -33,7 +33,7 @@ COPY --from=builder /app/dist ./dist
 COPY package*.json ./
 
 # Expose app port
-EXPOSE 3000
+EXPOSE 3000 3001
 
 # Start app
 CMD ["node", "dist/server.js"]
