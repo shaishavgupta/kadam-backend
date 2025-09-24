@@ -28,6 +28,7 @@ export interface Module {
 
 export interface Content {
     id: number;
+    name: string;
     module_id: number;
     course_id: number;
     type: ContentType;
@@ -57,13 +58,17 @@ export interface Course {
     published_at?: Date;
     created_at: Date;
     updated_at: Date;
+    next_course_ids?: number[];
 }
 
-export interface CourseVector {
+export interface Vector {
     id: number;
-    name: string;
-    description: string;
-    course_id: number;
+    string: string;
+    vector: number[];
+    created_at: Date;
+    updated_at: Date;
+    source: 'contents' | 'courses';
+    source_id: number;
 }
 
 export interface CreateCourseRequest {
@@ -78,6 +83,7 @@ export interface CreateCourseRequest {
     thumbnail_url?: string;
     certificate_url: string;
     contents?: CreateContentRequest[];
+    next_course_ids?: number[];
 }
 
 export interface CreateModuleRequest {
@@ -89,6 +95,7 @@ export interface CreateModuleRequest {
 }
 
 export interface CreateContentRequest {
+    name: string;
     type: ContentType;
     position: number;
     is_paid: boolean;
@@ -114,10 +121,12 @@ export interface UpdateCourseRequest {
     thumbnail_url?: string;
     certificate_url: string;
     contents?: CreateContentRequest[];
+    next_course_ids?: number[];
 }
 
 export interface ContentWithModule {
     id: number;
+    name: string;
     module_id?: number;
     course_id: number;
     type: ContentType;

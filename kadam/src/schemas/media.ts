@@ -60,16 +60,16 @@ export const VideoProcessingRequestSchema = Type.Object({
             Type.Literal('480p'),
             Type.Literal('720p')
         ]),
-        format: Type.Literal('mp4'),
-        thumbnailGeneration: Type.Boolean(),
-        subtitleExtraction: Type.Boolean()
+        format: Type.Literal('mp4')
     })
 });
 
 export const VideoProcessingResponseSchema = Type.Object({
     success: Type.Boolean(),
     data: Type.Object({
-        jobId: Type.String(),
+        videoJobId: Type.String(),
+        vectorJobId: Type.String(),
+        contentVectorJobId: Type.String(),
         status: Type.String(),
         message: Type.String()
     }),

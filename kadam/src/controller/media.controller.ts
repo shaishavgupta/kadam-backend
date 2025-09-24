@@ -253,7 +253,9 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                     return {
                         success: false,
                         data: {
-                            jobId: '',
+                            videoJobId: '',
+                            vectorJobId: '',
+                            contentVectorJobId: '',
                             status: 'failed',
                             message: 'Course not found'
                         },
@@ -275,7 +277,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 // 4. Uploading processed videos to S3 processed-videos bucket
                 // 5. Generating and uploading thumbnails
                 // 6. Cleaning up temporary files
-                const job = await bullMQManager.addJob(
+                const videoJob = await bullMQManager.addJob(
                     QUEUE_NAMES.VIDEO_PROCESSING,
                     JOB_TYPES.VIDEO_PROCESSING.PROCESS_COURSE_VIDEOS,
                     jobData,
@@ -287,14 +289,53 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                     }
                 );
 
+                // Add parallel job to vector embedding queue
+                // The worker will handle:
+                // 1. Fetching course name and description
+                // 2. Fetching all content names from the course
+                // 3. Generating vector embeddings for semantic search
+                // 4. Storing embeddings in the vectors table
+                const vectorJob = await bullMQManager.addJob(
+                    QUEUE_NAMES.VECTOR_EMBEDDING,
+                    JOB_TYPES.VECTOR_EMBEDDING.GENERATE_COURSE_EMBEDDINGS,
+                    {
+                        courseId: courseId,
+                        source: 'courses' as const
+                    },
+                    {
+                        priority: 2,
+                        attempts: 3,
+                        removeOnComplete: 10,
+                        removeOnFail: 5
+                    }
+                );
+
+                // Add parallel job for content embeddings
+                const contentVectorJob = await bullMQManager.addJob(
+                    QUEUE_NAMES.VECTOR_EMBEDDING,
+                    JOB_TYPES.VECTOR_EMBEDDING.GENERATE_CONTENT_EMBEDDINGS,
+                    {
+                        courseId: courseId,
+                        source: 'contents' as const
+                    },
+                    {
+                        priority: 2,
+                        attempts: 3,
+                        removeOnComplete: 10,
+                        removeOnFail: 5
+                    }
+                );
+
                 return {
                     success: true,
                     data: {
-                        jobId: job.id,
+                        videoJobId: videoJob.id,
+                        vectorJobId: vectorJob.id,
+                        contentVectorJobId: contentVectorJob.id,
                         status: 'queued',
-                        message: 'Job added to processing queue'
+                        message: 'Jobs added to processing queues'
                     },
-                    message: 'Video processing job queued successfully. The worker will handle all processing and S3 operations.'
+                    message: 'Video processing and vector embedding jobs queued successfully. Workers will handle all processing operations in parallel.'
                 };
             } catch (error) {
                 console.error('Error queuing video processing job:', error);
@@ -305,7 +346,9 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 return {
                     success: false,
                     data: {
-                        jobId: '',
+                        videoJobId: '',
+                        vectorJobId: '',
+                        contentVectorJobId: '',
                         status: 'failed',
                         message: 'Internal server error'
                     },

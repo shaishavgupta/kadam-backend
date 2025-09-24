@@ -48,7 +48,9 @@ import {
     CourseListData,
     CourseListResponse,
     UserStats,
-    UserStatsResponse
+    UserStatsResponse,
+    Vector,
+    VectorSchema
 } from '../schemas/course';
 
 import { PaginationQuery, PaginationQuerySchema } from '../schemas/common';
@@ -561,6 +563,50 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     });
 
+    // Get next courses for a given course
+    fastify.get('/courses/:courseId/next', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Courses'],
+            summary: 'Get next courses',
+            description: 'Retrieve the next recommended courses for a given course',
+            params: CourseIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        data: {
+                            type: 'array',
+                            items: CourseResponseSchema
+                        },
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Course[]; message: string }> => {
+        try {
+            const courseId = parseInt((request.params as any).courseId, 10);
+            const raw = await coursesService.getNextCourses(courseId);
+            const data = serializeDates<Course[]>(raw);
+            return {
+                success: true,
+                data,
+                message: "Next courses retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
+    });
+
     // Manual trigger for course ranking calculation (Admin only)
     fastify.post('/recalculate-rankings', {
         preHandler: [authMiddleware, requireAdmin],
@@ -591,6 +637,453 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             reply.status(500).send({ success: false, message: errorMessage });
             return {
                 success: false,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Vector endpoints
+    // Create vector
+    fastify.post('/vectors', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Vectors'],
+            summary: 'Create a new vector',
+            description: 'Create a new vector for courses or contents',
+            security: [{ bearerAuth: [] }],
+            body: {
+                type: 'object',
+                required: ['string', 'vector', 'source', 'source_id'],
+                properties: {
+                    string: { type: 'string' },
+                    vector: { type: 'array', items: { type: 'number' } },
+                    source: { type: 'string', enum: ['contents', 'courses'] },
+                    source_id: { type: 'number' }
+                }
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        data: VectorSchema,
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Vector | null; message: string }> => {
+        try {
+            const { string, vector, source, source_id } = request.body as any;
+            const data = await coursesService.createVector(string, vector, source, source_id);
+            return {
+                success: true,
+                data,
+                message: "Vector created successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Update vector
+    fastify.put('/vectors/:id', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Vectors'],
+            summary: 'Update a vector',
+            description: 'Update an existing vector',
+            security: [{ bearerAuth: [] }],
+            params: {
+                type: 'object',
+                properties: {
+                    id: { type: 'number' }
+                }
+            },
+            body: {
+                type: 'object',
+                required: ['string', 'vector'],
+                properties: {
+                    string: { type: 'string' },
+                    vector: { type: 'array', items: { type: 'number' } }
+                }
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        data: VectorSchema,
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Vector | null; message: string }> => {
+        try {
+            const { id } = request.params as { id: number };
+            const { string, vector } = request.body as any;
+            const data = await coursesService.updateVector(id, string, vector);
+            return {
+                success: true,
+                data,
+                message: "Vector updated successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Get vector by source
+    fastify.get('/vectors/:source/:sourceId', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Vectors'],
+            summary: 'Get vector by source',
+            description: 'Get vector by source type and source ID',
+            security: [{ bearerAuth: [] }],
+            params: {
+                type: 'object',
+                properties: {
+                    source: { type: 'string', enum: ['contents', 'courses'] },
+                    sourceId: { type: 'number' }
+                }
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        data: VectorSchema,
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Vector | null; message: string }> => {
+        try {
+            const { source, sourceId } = request.params as { source: 'contents' | 'courses', sourceId: number };
+            const data = await coursesService.getVectorBySourceId(source, sourceId);
+            return {
+                success: true,
+                data,
+                message: "Vector retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Search similar vectors
+    fastify.post('/vectors/search', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Vectors'],
+            summary: 'Search similar vectors',
+            description: 'Search for similar vectors using cosine similarity',
+            security: [{ bearerAuth: [] }],
+            body: {
+                type: 'object',
+                required: ['query_vector', 'source'],
+                properties: {
+                    query_vector: { type: 'array', items: { type: 'number' } },
+                    source: { type: 'string', enum: ['contents', 'courses'] },
+                    limit: { type: 'number', default: 10 }
+                }
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        data: { type: 'array', items: VectorSchema },
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Vector[]; message: string }> => {
+        try {
+            const { query_vector, source, limit = 10 } = request.body as any;
+            const data = await coursesService.searchSimilarVectors(query_vector, source, limit);
+            return {
+                success: true,
+                data,
+                message: "Similar vectors retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
+    });
+
+    // Delete vector
+    fastify.delete('/vectors/:id', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Vectors'],
+            summary: 'Delete a vector',
+            description: 'Delete a vector by ID',
+            security: [{ bearerAuth: [] }],
+            params: {
+                type: 'object',
+                properties: {
+                    id: { type: 'number' }
+                }
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; message: string }> => {
+        try {
+            const { id } = request.params as { id: number };
+            const success = await coursesService.deleteVector(id);
+            return {
+                success,
+                message: success ? "Vector deleted successfully" : "Vector not found"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Delete vector by source
+    fastify.delete('/vectors/:source/:sourceId', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Vectors'],
+            summary: 'Delete vector by source',
+            description: 'Delete a vector by source type and source ID',
+            security: [{ bearerAuth: [] }],
+            params: {
+                type: 'object',
+                properties: {
+                    source: { type: 'string', enum: ['contents', 'courses'] },
+                    sourceId: { type: 'number' }
+                }
+            },
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; message: string }> => {
+        try {
+            const { source, sourceId } = request.params as { source: 'contents' | 'courses', sourceId: number };
+            const success = await coursesService.deleteVectorBySourceId(source, sourceId);
+            return {
+                success,
+                message: success ? "Vector deleted successfully" : "Vector not found"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Fuzzy search endpoints
+    // Search courses and contents
+    fastify.get('/search', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Search'],
+            summary: 'Fuzzy search courses and contents',
+            description: 'Search for courses and contents using fuzzy matching on names and descriptions',
+            querystring: {
+                type: 'object',
+                required: ['q'],
+                properties: {
+                    q: { type: 'string', description: 'Search query string' },
+                    limit: { type: 'number', default: 5, description: 'Maximum number of results per type' }
+                }
+            },
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        data: {
+                            type: 'object',
+                            properties: {
+                                courses: {
+                                    type: 'array',
+                                    items: CourseResponseSchema
+                                },
+                                contents: {
+                                    type: 'array',
+                                    items: ContentsResponseSchema
+                                }
+                            }
+                        },
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: { courses: Course[]; contents: ContentWithModule[] }; message: string }> => {
+        try {
+            const { q: searchString, limit = 5 } = request.query as { q: string; limit?: number };
+
+            if (!searchString || searchString.trim().length === 0) {
+                reply.status(400).send({
+                    success: false,
+                    data: { courses: [], contents: [] },
+                    message: "Search query is required"
+                });
+                return {
+                    success: false,
+                    data: { courses: [], contents: [] },
+                    message: "Search query is required"
+                };
+            }
+
+            const raw = await coursesService.fuzzySearchCombined(searchString.trim(), limit);
+            const data = {
+                courses: serializeDates<Course[]>(raw.courses),
+                contents: serializeDates<ContentWithModule[]>(raw.contents)
+            };
+
+            return {
+                success: true,
+                data,
+                message: `Found ${raw.courses.length} courses and ${raw.contents.length} contents matching "${searchString}"`
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: { courses: [], contents: [] },
+                message: errorMessage
+            };
+        }
+    });
+
+    // Test search endpoint
+    fastify.get('/search/test', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Search'],
+            summary: 'Test search functionality',
+            description: 'Test endpoint to verify search functionality with sample queries',
+            querystring: {
+                type: 'object',
+                properties: {
+                    q: { type: 'string', default: 'python', description: 'Test search query' },
+                    limit: { type: 'number', default: 3, description: 'Maximum number of results per type' }
+                }
+            },
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        data: {
+                            type: 'object',
+                            properties: {
+                                courses: {
+                                    type: 'array',
+                                    items: CourseResponseSchema
+                                },
+                                contents: {
+                                    type: 'array',
+                                    items: ContentsResponseSchema
+                                },
+                                testInfo: {
+                                    type: 'object',
+                                    properties: {
+                                        searchQuery: { type: 'string' },
+                                        limit: { type: 'number' },
+                                        timestamp: { type: 'string' },
+                                        coursesFound: { type: 'number' },
+                                        contentsFound: { type: 'number' }
+                                    }
+                                }
+                            }
+                        },
+                        message: { type: 'string' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: { courses: Course[]; contents: ContentWithModule[]; testInfo: any }; message: string }> => {
+        try {
+            const { q: searchString = 'python', limit = 3 } = request.query as { q?: string; limit?: number };
+
+            const startTime = Date.now();
+            const raw = await coursesService.fuzzySearchCombined(searchString, limit);
+            const endTime = Date.now();
+
+            const data = {
+                courses: serializeDates<Course[]>(raw.courses),
+                contents: serializeDates<ContentWithModule[]>(raw.contents),
+                testInfo: {
+                    searchQuery: searchString,
+                    limit,
+                    timestamp: new Date().toISOString(),
+                    coursesFound: raw.courses.length,
+                    contentsFound: raw.contents.length,
+                    executionTimeMs: endTime - startTime
+                }
+            };
+
+            return {
+                success: true,
+                data,
+                message: `Test search completed in ${endTime - startTime}ms. Found ${raw.courses.length} courses and ${raw.contents.length} contents.`
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: { courses: [], contents: [], testInfo: null },
                 message: errorMessage
             };
         }

@@ -6,31 +6,109 @@ import {
     VerifyOtpRequest,
 } from '../schemas/auth';
 import { UserType as UserTypeEnum } from "../shared/enums";
-import { authConfig } from '../config';
-import { QueueService } from "./queue.service";
+import { authConfig, authyoConfig } from '../config';
 import { config } from '../config';
+import { ApiClient, ExternalApiResponse } from '../shared/api';
 
-const OTP_REDIS_KEY = "otp:{phone}";
+const MASK_ID_REDIS_KEY = "maskId:{phone}";
+
+// Authyo API interfaces
+export interface AuthyoSendOtpRequest {
+    to: string;
+    expiry: number;
+    otplength: number;
+    authway: 'SMS' | 'WhatsApp';
+}
+
+export interface AuthyoSendOtpResult {
+    success: boolean;
+    message: string;
+    to: string;
+    authType: string;
+    maskId: string;
+    createdTime: number;
+    expireTime: number;
+    charge: string;
+    currency: string;
+}
+
+export interface AuthyoSendOtpResponse {
+    success: boolean;
+    message: string;
+    data: {
+        isTried: number;
+        isSent: number;
+        results: AuthyoSendOtpResult[];
+    };
+}
+
+export interface AuthyoVerifyOtpRequest {
+    maskId: string;
+    otp: string;
+}
+
+export interface AuthyoVerifyOtpResponse {
+    success: boolean;
+    message: string;
+    error?: string;
+}
+
 export class AuthService {
+    private apiClient: ApiClient;
+
     constructor() {
-        // No service dependencies
+        this.apiClient = new ApiClient({
+            baseURL: authyoConfig.baseUrl,
+            defaultHeaders: {
+                'clientId': authyoConfig.clientId,
+                'clientSecret': authyoConfig.clientSecret,
+                'Content-Type': 'application/json'
+            },
+            defaultTimeout: 30000
+        });
     }
 
     /**
-     * Send OTP to the provided phone number
+     * Send OTP to the provided phone number using Authyo service
      */
     async sendOtp(request: SendOtpRequest): Promise<SendOtpResponse> {
         try {
             const { phone } = request;
 
-            // Generate a 6-digit OTP
-            const otp = this.generateOtp();
+            // For development/local environment, simulate OTP sending
+            if (config.NODE_ENV === 'development' || config.NODE_ENV === 'local') {
+                // Store a dummy maskId for development
+                await cache.set(MASK_ID_REDIS_KEY.replace("{phone}", phone), "dev-mask-id", 10 * 60);
+                return {
+                    success: true,
+                    message: "OTP sent successfully (development mode)"
+                };
+            }
 
-            // Store OTP in cache/database with expiration (5 minutes)
-            await cache.set(OTP_REDIS_KEY.replace("{phone}", phone), otp, 5 * 60);
+            // For production, use Authyo service
+            const authyoRequest: AuthyoSendOtpRequest = {
+                to: `91${phone}`,
+                expiry: 600, // 10 minutes
+                otplength: 6,
+                authway: 'SMS'
+            };
 
-            // Send OTP via SMS (implement actual SMS service)
-            await QueueService.sendOtpNotification("OTP Verification", "Your OTP is {otp}", phone, { otp: otp });
+            const authyoResponse = await this.sendOtpViaAuthyo(authyoRequest);
+
+            // Check if OTP was sent successfully
+            if (!authyoResponse.success || !authyoResponse.data.results.length) {
+                throw new Error('Failed to send OTP via Authyo');
+            }
+
+            // Get the first result (should be the only one for single phone number)
+            const result = authyoResponse.data.results[0];
+
+            if (!result.success) {
+                throw new Error(result.message || 'Failed to send OTP');
+            }
+
+            // Store maskId in cache for verification (10 minutes)
+            await cache.set(MASK_ID_REDIS_KEY.replace("{phone}", phone), result.maskId, 10 * 60);
 
             return {
                 success: true,
@@ -43,22 +121,35 @@ export class AuthService {
     }
 
     /**
-     * Verify OTP and return authentication response
-     * Note: User creation logic is handled by the controller based on userType
+     * Verify OTP using Authyo service
      */
     async verifyOtp(request: VerifyOtpRequest): Promise<boolean> {
         try {
             const { phone, otp } = request;
 
+            // For development/local environment, skip OTP verification
             if (config.NODE_ENV === 'development' || config.NODE_ENV === 'local') {
                 return true;
             }
 
-            // Verify OTP
-            const isValidOtp = await cache.get(OTP_REDIS_KEY.replace("{phone}", phone));
-            if (!isValidOtp || isValidOtp !== otp) {
-                throw new Error("Invalid OTP");
+            // Get maskId from cache
+            const maskId = await cache.get(MASK_ID_REDIS_KEY.replace("{phone}", phone));
+            if (!maskId) {
+                throw new Error("OTP session expired or invalid");
             }
+
+            // Verify OTP using Authyo service
+            const authyoResponse = await this.verifyOtpViaAuthyo({
+                maskId: maskId,
+                otp: otp
+            });
+
+            if (!authyoResponse.success) {
+                throw new Error(authyoResponse.error || 'Invalid OTP');
+            }
+
+            // Clear the maskId from cache after successful verification
+            await cache.delete(MASK_ID_REDIS_KEY.replace("{phone}", phone));
 
             return true;
         } catch (error) {
@@ -71,11 +162,56 @@ export class AuthService {
     }
 
     /**
-     * Generate a 6-digit OTP
+     * Send OTP using Authyo service
      */
-    private generateOtp(): string {
-        return Math.floor(100000 + Math.random() * 900000).toString();
+    private async sendOtpViaAuthyo(request: AuthyoSendOtpRequest): Promise<AuthyoSendOtpResponse> {
+        try {
+            const response: ExternalApiResponse<AuthyoSendOtpResponse> = await this.apiClient.post(
+                '/api/v1/auth/sendotp',
+                request
+            );
+
+            return response.data;
+        } catch (error) {
+            console.error('Authyo send OTP error:', error);
+            return {
+                success: false,
+                message: 'Failed to send OTP',
+                data: {
+                    isTried: 0,
+                    isSent: 0,
+                    results: []
+                }
+            };
+        }
     }
+
+    /**
+     * Verify OTP using Authyo service
+     */
+    private async verifyOtpViaAuthyo(request: AuthyoVerifyOtpRequest): Promise<AuthyoVerifyOtpResponse> {
+        try {
+            const response: ExternalApiResponse<AuthyoVerifyOtpResponse> = await this.apiClient.get(
+                '/api/v1/auth/verifyotp',
+                {
+                    params: {
+                        maskId: request.maskId,
+                        otp: request.otp
+                    }
+                }
+            );
+
+            return response.data;
+        } catch (error) {
+            console.error('Authyo verify OTP error:', error);
+            return {
+                success: false,
+                message: 'Failed to verify OTP',
+                error: error instanceof Error ? error.message : 'Unknown error'
+            };
+        }
+    }
+
 
     /**
      * Generate JWT tokens

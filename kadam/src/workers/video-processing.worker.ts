@@ -6,7 +6,7 @@ import { join, basename, extname } from 'path';
 import { tmpdir } from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { CoursesRepository } from '../repository/courses.repository';
+import { CoursesService } from '../service/courses.service';
 import { ContentWithModule } from '../shared/types/courses.types';
 import { ContentType } from '../shared/enums';
 
@@ -22,8 +22,6 @@ interface TranscodingConfig {
     }>;
     audioCodec?: string;
     audioBitrate?: string;
-    generateThumbnails?: boolean;
-    thumbnailCount?: number;
     removeOriginal?: boolean;
 }
 
@@ -36,7 +34,6 @@ interface TranscodingResult {
         size: number;
         duration: number;
     }>;
-    thumbnails?: string[];
     metadata?: {
         originalDuration: number;
         originalSize: number;
@@ -101,7 +98,6 @@ class FFmpegVideoProcessor {
 
             // Process each output format in parallel
             const outputFiles: TranscodingResult['outputFiles'] = [];
-            const thumbnails: string[] = [];
 
             // Create parallel processing promises for each output format
             const formatPromises = config.outputFormats.map(async (format) => {
@@ -136,18 +132,6 @@ class FFmpegVideoProcessor {
             const formatResults = await Promise.all(formatPromises);
             outputFiles.push(...formatResults.filter(result => result !== null));
 
-            // Generate thumbnails if requested (parallel with video processing)
-            let thumbnailPromise: Promise<string[]> = Promise.resolve([]);
-            if (config.generateThumbnails) {
-                thumbnailPromise = this.generateThumbnails(
-                    inputPath,
-                    outputDir,
-                    config.thumbnailCount || 5
-                );
-            }
-
-            const thumbnailPaths = await thumbnailPromise;
-            thumbnails.push(...thumbnailPaths);
 
             const processingTime = Date.now() - startTime;
             const totalOutputSize = this.calculateTotalSize(outputFiles.map(f => f.path));
@@ -155,7 +139,6 @@ class FFmpegVideoProcessor {
             const result: TranscodingResult = {
                 success: true,
                 outputFiles,
-                thumbnails,
                 metadata: {
                     originalDuration: inputMetadata.duration,
                     originalSize,
@@ -179,7 +162,6 @@ class FFmpegVideoProcessor {
 
             this.logOperation('transcode_success', {
                 outputCount: outputFiles.length,
-                thumbnailCount: thumbnails.length,
                 processingTime,
                 totalOutputSize,
             });
@@ -329,9 +311,6 @@ class FFmpegVideoProcessor {
             '480p': { width: 854, height: 480 },
             '720p': { width: 1280, height: 720 },
             '1080p': { width: 1920, height: 1080 },
-            '1440p': { width: 2560, height: 1440 },
-            '2160p': { width: 3840, height: 2160 },
-            '4k': { width: 3840, height: 2160 },
         };
 
         const parsed = resolutionMap[resolution.toLowerCase()];
@@ -438,32 +417,6 @@ class FFmpegVideoProcessor {
         }
     }
 
-    private async generateThumbnails(
-        videoPath: string,
-        outputDir: string,
-        count: number
-    ): Promise<string[]> {
-        try {
-            const baseName = basename(videoPath, extname(videoPath));
-            const thumbnailPattern = join(outputDir, `${baseName}_thumbnail_%03d.webp`);
-
-            const command = `${this.ffmpegPath} -i "${videoPath}" -vf "fps=1/${count}" -q:v 2 "${thumbnailPattern}" -y`;
-
-            await execAsync(command);
-
-            // Find generated thumbnail files
-            const fs = require('fs');
-            const files = fs.readdirSync(outputDir);
-            const thumbnails = files
-                .filter((f: string) => f.startsWith(`${baseName}_thumbnail_`) && f.endsWith('.webp'))
-                .map((f: string) => join(outputDir, f));
-
-            return thumbnails;
-        } catch (error) {
-            this.logError('generate_thumbnails', error, { videoPath, outputDir, count });
-            return [];
-        }
-    }
 
     private generateOutputFilename(inputPath: string, resolution: string, codec: string): string {
         const baseName = basename(inputPath, extname(inputPath));
@@ -583,8 +536,8 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
 
     try {
         // Fetch all video content for the course
-        const coursesRepository = new CoursesRepository();
-        const contents = await coursesRepository.getContentsByCourseId(courseId);
+        const coursesService = new CoursesService();
+        const contents = await coursesService.getContentsByCourseId(courseId);
 
         // Filter only video content
         const videoContents = contents.filter(content =>
@@ -735,16 +688,6 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
             }
         }
 
-        // Generate and upload thumbnail if requested
-        if (processingOptions.thumbnailGeneration) {
-            const thumbnailPromise = generateAndUploadThumbnail(
-                inputPath,
-                courseId,
-                videoId,
-                metadata
-            );
-            uploadPromises.push(thumbnailPromise);
-        }
 
         // Wait for all uploads to complete in parallel
         await Promise.all(uploadPromises);
@@ -864,52 +807,6 @@ async function uploadMasterPlaylist(
     }
 }
 
-// Helper function to generate and upload thumbnail
-async function generateAndUploadThumbnail(
-    videoPath: string,
-    courseId: number,
-    videoId: number,
-    metadata: any
-): Promise<void> {
-    try {
-        console.log(`🖼️ Generating thumbnail for video ${videoId}...`);
-
-        const tempDir = join(tmpdir(), 'thumbnails', `video-${videoId}`);
-        mkdirSync(tempDir, { recursive: true });
-
-        const thumbnailPath = join(tempDir, 'thumbnail.webp');
-        const command = `ffmpeg -i "${videoPath}" -ss 00:00:01 -vframes 1 -q:v 2 "${thumbnailPath}" -y`;
-
-        await execAsync(command);
-
-        if (existsSync(thumbnailPath)) {
-            const thumbnailBuffer = readFileSync(thumbnailPath);
-            const thumbnailKey = `${courseId}/${videoId}/Thumbnail.webp`;
-
-            await uploadFile({
-                bucket: 'PROCESSED_VIDEOS',
-                key: thumbnailKey,
-                body: thumbnailBuffer,
-                contentType: 'image/webp',
-                metadata: {
-                    courseId: courseId.toString(),
-                    videoId: videoId.toString(),
-                    thumbnailType: 'video_thumbnail',
-                    uploadedAt: new Date().toISOString()
-                }
-            });
-
-            console.log(`✅ Thumbnail uploaded for video ${videoId}`);
-        }
-
-        // Clean up thumbnail temp directory
-        const fs = require('fs');
-        fs.rmdirSync(tempDir, { recursive: true });
-    } catch (error) {
-        console.error(`❌ Error generating/uploading thumbnail:`, error);
-        throw error;
-    }
-}
 
 // Helper function to clean up temporary files
 async function cleanupTempFiles(
@@ -955,15 +852,21 @@ async function cleanupTempFiles(
 export function initializeVideoProcessingWorker(): void {
     console.log('🎬 Initializing Video Processing workers...');
 
-    // Create course video processing worker (creates individual video jobs)
-    bullMQManager.createWorker(QUEUE_NAMES.VIDEO_PROCESSING, courseVideoProcessingProcessor, {
-        concurrency: 2 // Lower concurrency for course-level processing
+    // Create worker that handles both course-level and individual video processing
+    // Job processor will route based on job type
+    const videoWorkerProcessor = async (job: Job<VideoProcessingJobData | CourseVideoProcessingJobData>) => {
+        if (job.name === JOB_TYPES.VIDEO_PROCESSING.PROCESS_COURSE_VIDEOS) {
+            return courseVideoProcessingProcessor(job as Job<CourseVideoProcessingJobData>);
+        } else if (job.name === JOB_TYPES.VIDEO_PROCESSING.PROCESS_VIDEO) {
+            return videoProcessingProcessor(job as Job<VideoProcessingJobData>);
+        } else {
+            throw new Error(`Unknown video processing job type: ${job.name}`);
+        }
+    };
+
+    bullMQManager.createWorker(QUEUE_NAMES.VIDEO_PROCESSING, videoWorkerProcessor, {
+        concurrency: 3 // Balanced concurrency for video processing
     });
 
-    // Create individual video processing worker (processes individual videos)
-    bullMQManager.createWorker(QUEUE_NAMES.VIDEO_PROCESSING, videoProcessingProcessor, {
-        concurrency: 3 // Higher concurrency for individual video processing
-    });
-
-    console.log('✅ Video Processing workers initialized with parallel processing support');
+    console.log('✅ Video Processing worker initialized with parallel processing support');
 }

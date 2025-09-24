@@ -1,5 +1,5 @@
 import { CoursesRepository } from "../repository/courses.repository";
-import { Tag, Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse } from "../shared/types/courses.types";
+import { Tag, Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
 import { CourseListData, UserStats } from "../schemas/course";
 
 export class CoursesService {
@@ -91,6 +91,15 @@ export class CoursesService {
         }
     }
 
+    async getNextCourses(courseId: number): Promise<Course[]> {
+        try {
+            return await this.repository.getNextCourses(courseId);
+        } catch (error) {
+            console.error("Error getting next courses:", error);
+            return [];
+        }
+    }
+
     async publishCourse(request: PublishCourseRequest): Promise<boolean> {
         try {
             return await this.repository.publishCourse(request.course_id);
@@ -154,6 +163,92 @@ export class CoursesService {
         } catch (error) {
             console.error("Error calculating course rankings:", error);
             throw error;
+        }
+    }
+
+    // Vector operations
+    async createVector(string: string, vector: number[], source: 'contents' | 'courses', sourceId: number): Promise<Vector> {
+        try {
+            return await this.repository.createVector(string, vector, source, sourceId);
+        } catch (error) {
+            console.error("Error creating vector:", error);
+            throw error;
+        }
+    }
+
+    async updateVector(id: number, string: string, vector: number[]): Promise<Vector | null> {
+        try {
+            return await this.repository.updateVector(id, string, vector);
+        } catch (error) {
+            console.error("Error updating vector:", error);
+            return null;
+        }
+    }
+
+    async getVectorBySourceId(source: 'contents' | 'courses', sourceId: number): Promise<Vector | null> {
+        try {
+            return await this.repository.getVectorBySourceId(source, sourceId);
+        } catch (error) {
+            console.error("Error getting vector by source ID:", error);
+            return null;
+        }
+    }
+
+    async searchSimilarVectors(queryVector: number[], source: 'contents' | 'courses', limit: number = 10): Promise<Vector[]> {
+        try {
+            return await this.repository.searchSimilarVectors(queryVector, source, limit);
+        } catch (error) {
+            console.error("Error searching similar vectors:", error);
+            return [];
+        }
+    }
+
+    async deleteVector(id: number): Promise<boolean> {
+        try {
+            return await this.repository.deleteVector(id);
+        } catch (error) {
+            console.error("Error deleting vector:", error);
+            return false;
+        }
+    }
+
+    async deleteVectorBySourceId(source: 'contents' | 'courses', sourceId: number): Promise<boolean> {
+        try {
+            return await this.repository.deleteVectorBySourceId(source, sourceId);
+        } catch (error) {
+            console.error("Error deleting vector by source ID:", error);
+            return false;
+        }
+    }
+
+    // Search methods
+    async fuzzySearchCourses(searchString: string, limit: number = 5): Promise<Course[]> {
+        try {
+            return await this.repository.fuzzySearchCourses(searchString, limit);
+        } catch (error) {
+            console.error("Error in fuzzy search courses:", error);
+            return [];
+        }
+    }
+
+    async fuzzySearchContents(searchString: string, limit: number = 5): Promise<ContentWithModule[]> {
+        try {
+            return await this.repository.fuzzySearchContents(searchString, limit);
+        } catch (error) {
+            console.error("Error in fuzzy search contents:", error);
+            return [];
+        }
+    }
+
+    async fuzzySearchCombined(searchString: string, limit: number = 5): Promise<{
+        courses: Course[];
+        contents: ContentWithModule[];
+    }> {
+        try {
+            return await this.repository.fuzzySearchCombined(searchString, limit);
+        } catch (error) {
+            console.error("Error in fuzzy search combined:", error);
+            return { courses: [], contents: [] };
         }
     }
 }

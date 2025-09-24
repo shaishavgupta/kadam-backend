@@ -1,5 +1,5 @@
 import { db } from "../infra/db";
-import { ContentType, Tag, Category, Module, Course, ContentWithModule, PaginatedCoursesResponse } from "../shared/types/courses.types";
+import { ContentType, Tag, Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
 import { CourseListItem, CourseListData, UserStats } from "../schemas/course";
 
 export class CoursesRepository {
@@ -131,7 +131,7 @@ export class CoursesRepository {
 
   async getContentsByCourseId(courseId: number): Promise<ContentWithModule[]> {
     const result = await db.query(
-      `SELECT c.*, m.title as module_title, m.description as module_description
+      `SELECT c.*, m.name as module_title, m.description as module_description
       FROM contents c
       LEFT JOIN modules m ON c.module_id = m.id
                  WHERE c.course_id = $1`,
@@ -261,9 +261,9 @@ export class CoursesRepository {
       await db.query('BEGIN');
 
       const courseResult = await db.query(
-        `INSERT INTO courses (title, description, creator_id, price, is_published, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
-        [courseData.title, courseData.description, courseData.creator_id, courseData.price, false]
+        `INSERT INTO courses (name, description, creator_id, price, is_published, next_course_ids, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+        [courseData.name, courseData.description, courseData.creator_id, courseData.price, false, courseData.next_course_ids || null]
       );
 
       if (courseResult.rows.length === 0) {
@@ -309,9 +309,9 @@ export class CoursesRepository {
           if (moduleData.contents && moduleData.contents.length > 0) {
             for (const contentData of moduleData.contents) {
               await db.query(
-                `INSERT INTO contents (title, content_type, content_data, module_id, course_id, created_at, updated_at)
+                `INSERT INTO contents (name, content_type, content_data, module_id, course_id, created_at, updated_at)
                                  VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-                [contentData.title, contentData.content_type, contentData.content_data, moduleResult.rows[0].id, course.id]
+                [contentData.name, contentData.content_type, contentData.content_data, moduleResult.rows[0].id, course.id]
               );
             }
           }
@@ -332,9 +332,9 @@ export class CoursesRepository {
       await db.query('BEGIN');
 
       const result = await db.query(
-        `UPDATE courses SET title = $1, description = $2, price = $3, updated_at = NOW()
-                 WHERE id = $4 RETURNING *`,
-        [courseData.title, courseData.description, courseData.price, id]
+        `UPDATE courses SET name = $1, description = $2, price = $3, next_course_ids = $4, updated_at = NOW()
+                 WHERE id = $5 RETURNING *`,
+        [courseData.name, courseData.description, courseData.price, courseData.next_course_ids || null, id]
       );
 
       if (result.rows.length === 0) {
@@ -371,6 +371,26 @@ export class CoursesRepository {
       await db.query('ROLLBACK');
       console.error("Error updating course:", error);
       return null;
+    }
+  }
+
+  async getNextCourses(courseId: number): Promise<Course[]> {
+    try {
+      const result = await db.query(
+        `SELECT c.* FROM courses c
+         WHERE c.id = ANY(
+           SELECT unnest(next_course_ids)
+           FROM courses
+           WHERE id = $1 AND next_course_ids IS NOT NULL
+         )
+         AND c.is_active = true AND c.published_at IS NOT NULL
+         ORDER BY c.rank DESC`,
+        [courseId]
+      );
+      return result.rows as Course[];
+    } catch (error) {
+      console.error("Error getting next courses:", error);
+      return [];
     }
   }
 
@@ -595,6 +615,214 @@ export class CoursesRepository {
     } catch (error) {
       console.error('❌ Error calculating course rankings:', error);
       throw error;
+    }
+  }
+
+  // Vector operations
+  async createVector(string: string, vector: number[], source: 'contents' | 'courses', sourceId: number): Promise<Vector> {
+    const result = await db.query(
+      `INSERT INTO vectors (string, vector, source, source_id, updated_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING *`,
+      [string, vector, source, sourceId]
+    );
+
+    return {
+      id: result.rows[0].id,
+      string: result.rows[0].string,
+      vector: result.rows[0].vector,
+      created_at: result.rows[0].created_at,
+      updated_at: result.rows[0].updated_at,
+      source: result.rows[0].source,
+      source_id: result.rows[0].source_id
+    };
+  }
+
+  async updateVector(id: number, string: string, vector: number[]): Promise<Vector | null> {
+    const result = await db.query(
+      `UPDATE vectors
+       SET string = $1, vector = $2, updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [string, vector, id]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return {
+      id: result.rows[0].id,
+      string: result.rows[0].string,
+      vector: result.rows[0].vector,
+      created_at: result.rows[0].created_at,
+      updated_at: result.rows[0].updated_at,
+      source: result.rows[0].source,
+      source_id: result.rows[0].source_id
+    };
+  }
+
+  async getVectorBySourceId(source: 'contents' | 'courses', sourceId: number): Promise<Vector | null> {
+    const result = await db.query(
+      `SELECT * FROM vectors WHERE source = $1 AND source_id = $2`,
+      [source, sourceId]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return {
+      id: result.rows[0].id,
+      string: result.rows[0].string,
+      vector: result.rows[0].vector,
+      created_at: result.rows[0].created_at,
+      updated_at: result.rows[0].updated_at,
+      source: result.rows[0].source,
+      source_id: result.rows[0].source_id
+    };
+  }
+
+  async searchSimilarVectors(queryVector: number[], source: 'contents' | 'courses', limit: number = 10): Promise<Vector[]> {
+    const result = await db.query(
+      `SELECT *, 1 - (vector <=> $1) as similarity
+       FROM vectors
+       WHERE source = $2
+       ORDER BY vector <=> $1
+       LIMIT $3`,
+      [queryVector, source, limit]
+    );
+
+    return result.rows.map(row => ({
+      id: row.id,
+      string: row.string,
+      vector: row.vector,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      source: row.source,
+      source_id: row.source_id
+    }));
+  }
+
+  async deleteVector(id: number): Promise<boolean> {
+    const result = await db.query(
+      `DELETE FROM vectors WHERE id = $1`,
+      [id]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async deleteVectorBySourceId(source: 'contents' | 'courses', sourceId: number): Promise<boolean> {
+    const result = await db.query(
+      `DELETE FROM vectors WHERE source = $1 AND source_id = $2`,
+      [source, sourceId]
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Search methods
+  async fuzzySearchCourses(searchString: string, limit: number = 5): Promise<Course[]> {
+    try {
+      const query = `
+        SELECT
+          c.id,
+          c.name,
+          c.description,
+          c.is_paid,
+          c.price,
+          c.thumbnail_url,
+          c.certificate_url,
+          c.rank,
+          c.published_at,
+          c.created_at,
+          c.updated_at,
+          c.next_course_ids,
+          cat.name as category_name,
+          SIMILARITY(c.name, $1) as similarity_score
+        FROM courses c
+        LEFT JOIN course_categories cc ON c.id = cc.course_id
+        LEFT JOIN categories cat ON cc.category_id = cat.id
+        WHERE c.is_active = true
+          AND c.published_at IS NOT NULL
+          AND (
+            SIMILARITY(c.name, $1) > 0.1
+            OR SIMILARITY(c.description, $1) > 0.1
+            OR c.name ILIKE $2
+            OR c.description ILIKE $2
+          )
+        ORDER BY similarity_score DESC, c.rank DESC
+        LIMIT $3
+      `;
+
+      const searchPattern = `%${searchString}%`;
+      const result = await db.query(query, [searchString, searchPattern, limit]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error in fuzzy search courses:', error);
+      return [];
+    }
+  }
+
+  async fuzzySearchContents(searchString: string, limit: number = 5): Promise<ContentWithModule[]> {
+    try {
+      const query = `
+        SELECT
+          c.id,
+          c.name,
+          c.module_id,
+          c.course_id,
+          c.content_type,
+          c.position,
+          c.is_paid,
+          c.is_active,
+          c.url,
+          c.duration,
+          c.thumbnail_url,
+          c.category_id,
+          c.next_content_id,
+          c.approved_at,
+          c.approved_by,
+          c.created_at,
+          c.updated_at,
+          m.name as module_name,
+          m.description as module_description,
+          SIMILARITY(c.name, $1) as similarity_score
+        FROM contents c
+        LEFT JOIN modules m ON c.module_id = m.id
+        WHERE c.is_active = true
+          AND (
+            SIMILARITY(c.name, $1) > 0.1
+            OR c.name ILIKE $2
+          )
+        ORDER BY similarity_score DESC, c.position ASC
+        LIMIT $3
+      `;
+
+      const searchPattern = `%${searchString}%`;
+      const result = await db.query(query, [searchString, searchPattern, limit]);
+      return result.rows;
+    } catch (error) {
+      console.error('Error in fuzzy search contents:', error);
+      return [];
+    }
+  }
+
+  async fuzzySearchCombined(searchString: string, limit: number = 5): Promise<{
+    courses: Course[];
+    contents: ContentWithModule[];
+  }> {
+    try {
+      const [courses, contents] = await Promise.all([
+        this.fuzzySearchCourses(searchString, limit),
+        this.fuzzySearchContents(searchString, limit)
+      ]);
+
+      return { courses, contents };
+    } catch (error) {
+      console.error('Error in fuzzy search combined:', error);
+      return { courses: [], contents: [] };
     }
   }
 }

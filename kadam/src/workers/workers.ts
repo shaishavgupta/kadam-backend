@@ -3,6 +3,7 @@ import { initializeEmailWorker } from './email.worker';
 import { initializeNotificationWorker } from './notification.worker';
 import { initializeCourseRankingWorker } from './course-ranking.worker';
 import { initializeVideoProcessingWorker } from './video-processing.worker';
+import { initializeVectorEmbeddingWorker } from './vector-embedding.worker';
 
 // Initialize all workers
 export function initializeWorkers(): void {
@@ -13,6 +14,7 @@ export function initializeWorkers(): void {
     initializeNotificationWorker();
     initializeCourseRankingWorker();
     initializeVideoProcessingWorker();
+    initializeVectorEmbeddingWorker();
 
     console.log('✅ All BullMQ workers initialized');
 }

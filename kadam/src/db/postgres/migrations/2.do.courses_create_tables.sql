@@ -29,7 +29,8 @@ CREATE TABLE courses (
   rejected_at TIMESTAMP,
   rejected_by BIGINT,
   rejected_reason TEXT,
-  published_at TIMESTAMP
+  published_at TIMESTAMP,
+  next_course_ids BIGINT[]
 );
 
 CREATE TABLE course_categories (
@@ -73,6 +74,7 @@ CREATE TABLE contents (
   created_at TIMESTAMP DEFAULT (now()),
   updated_at TIMESTAMP NOT NULL,
   is_active BOOLEAN DEFAULT true,
+  name TEXT NOT NULL,
   module_id BIGINT,
   course_id BIGINT NOT NULL,
   content_type TEXT NOT NULL,
@@ -87,11 +89,15 @@ CREATE TABLE contents (
   category_id BIGINT
 );
 
-CREATE TABLE course_vector (
+CREATE TABLE vectors (
   id BIGSERIAL PRIMARY KEY,
-  name vector(1536) UNIQUE NOT NULL,
-  description vector(1536) UNIQUE NOT NULL,
-  course_id BIGINT UNIQUE NOT NULL
+  string TEXT NOT NULL,
+  vector vector(1536) NOT NULL,
+  created_at TIMESTAMP DEFAULT (now()),
+  updated_at TIMESTAMP NOT NULL,
+  source TEXT NOT NULL CHECK (source IN ('contents', 'courses')),
+  source_id BIGINT NOT NULL,
+  UNIQUE(source, source_id)
 );
 
 CREATE TABLE user_enrollments (

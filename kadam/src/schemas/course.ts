@@ -38,6 +38,7 @@ export const ModuleSchema = Type.Object({
 
 export const ContentSchema = Type.Object({
     id: Type.Number(),
+    name: Type.String(),
     module_id: Type.Number(),
     course_id: Type.Number(),
     type: ContentTypeSchema,
@@ -66,18 +67,23 @@ export const CourseSchema = Type.Object({
     rank: Type.Number(),
     published_at: Type.Optional(Type.String({ format: 'date-time' })),
     created_at: Type.String({ format: 'date-time' }),
-    updated_at: Type.String({ format: 'date-time' })
+    updated_at: Type.String({ format: 'date-time' }),
+    next_course_ids: Type.Optional(Type.Array(Type.Number()))
 });
 
-export const CourseVectorSchema = Type.Object({
+export const VectorSchema = Type.Object({
     id: Type.Number(),
-    name: Type.String(),
-    description: Type.String(),
-    course_id: Type.Number()
+    string: Type.String(),
+    vector: Type.Array(Type.Number()),
+    created_at: Type.Date(),
+    updated_at: Type.Date(),
+    source: Type.Union([Type.Literal('contents'), Type.Literal('courses')]),
+    source_id: Type.Number()
 });
 
 // Request schemas
 export const CreateContentRequestSchema = Type.Object({
+    name: Type.String(),
     type: ContentTypeSchema,
     position: Type.Number(),
     is_paid: Type.Boolean(),
@@ -101,7 +107,8 @@ export const CreateCourseRequestSchema = Type.Object({
     price: Type.Number(),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
     certificate_url: Type.String({ format: 'uri' }),
-    contents: Type.Optional(Type.Array(CreateContentRequestSchema))
+    contents: Type.Optional(Type.Array(CreateContentRequestSchema)),
+    next_course_ids: Type.Optional(Type.Array(Type.Number()))
 });
 
 export const UpdateCourseRequestSchema = Type.Intersect([
@@ -204,7 +211,7 @@ export type Category = Static<typeof CategorySchema>;
 export type Module = Static<typeof ModuleSchema>;
 export type Content = Static<typeof ContentSchema>;
 export type Course = Static<typeof CourseSchema>;
-export type CourseVector = Static<typeof CourseVectorSchema>;
+export type Vector = Static<typeof VectorSchema>;
 export type CreateContentRequest = Static<typeof CreateContentRequestSchema>;
 export type CreateCourseRequest = Static<typeof CreateCourseRequestSchema>;
 export type UpdateCourseRequest = Static<typeof UpdateCourseRequestSchema>;

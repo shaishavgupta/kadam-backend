@@ -19,6 +19,7 @@ export const QUEUE_NAMES = {
     NOTIFICATIONS: 'notifications-queue',
     COURSE_RANKING: 'course-ranking-queue',
     VIDEO_PROCESSING: 'video-processing-queue',
+    VECTOR_EMBEDDING: 'vector-embedding-queue',
 } as const;
 
 // Job types
@@ -39,8 +40,10 @@ export const JOB_TYPES = {
     VIDEO_PROCESSING: {
         PROCESS_VIDEO: 'process-video',
         PROCESS_COURSE_VIDEOS: 'process-course-videos',
-        GENERATE_THUMBNAILS: 'generate-thumbnails',
-        EXTRACT_SUBTITLES: 'extract-subtitles',
+    },
+    VECTOR_EMBEDDING: {
+        GENERATE_COURSE_EMBEDDINGS: 'generate-course-embeddings',
+        GENERATE_CONTENT_EMBEDDINGS: 'generate-content-embeddings',
     },
 } as const;
 
@@ -83,8 +86,6 @@ export interface VideoProcessingJobData {
     processingOptions: {
         quality: '240p' | '360p' | '480p' | '720p';
         format: 'mp4';
-        thumbnailGeneration: boolean;
-        subtitleExtraction: boolean;
     };
     metadata: {
         originalFileName: string;
@@ -100,9 +101,20 @@ export interface CourseVideoProcessingJobData {
     processingOptions: {
         quality: '240p' | '360p' | '480p' | '720p';
         format: 'mp4';
-        thumbnailGeneration: boolean;
-        subtitleExtraction: boolean;
     };
+}
+
+export interface VectorEmbeddingJobData {
+    courseId: number;
+    source: 'contents' | 'courses';
+    sourceId?: number; // Optional, if not provided, will process all content for the course
+}
+
+export interface ContentEmbeddingJobData {
+    contentId: number;
+    courseId: number;
+    contentName: string;
+    contentType: 'VIDEO' | 'QUIZ' | 'NOTES';
 }
 
 // Queue Manager Class

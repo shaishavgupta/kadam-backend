@@ -46,6 +46,15 @@ export interface Config {
     AWS_S3_COURSES_BUCKET: string;
     AWS_S3_RAW_VIDEOS_BUCKET: string;
     AWS_S3_PROCESSED_VIDEOS_BUCKET: string;
+
+    // Authyo OTP Service
+    AUTHYO_CLIENT_ID: string;
+    AUTHYO_CLIENT_SECRET: string;
+    AUTHYO_BASE_URL: string;
+
+    // OpenAI API
+    OPENAI_API_KEY: string;
+    OPENAI_BASE_URL?: string;
 }
 
 /**
@@ -88,6 +97,15 @@ function loadConfig(): Config {
         AWS_S3_COURSES_BUCKET: process.env.AWS_S3_COURSES_BUCKET!,
         AWS_S3_RAW_VIDEOS_BUCKET: process.env.AWS_S3_RAW_VIDEOS_BUCKET!,
         AWS_S3_PROCESSED_VIDEOS_BUCKET: process.env.AWS_S3_PROCESSED_VIDEOS_BUCKET!,
+
+        // Authyo OTP Service
+        AUTHYO_CLIENT_ID: process.env.AUTHYO_CLIENT_ID!,
+        AUTHYO_CLIENT_SECRET: process.env.AUTHYO_CLIENT_SECRET!,
+        AUTHYO_BASE_URL: process.env.AUTHYO_BASE_URL!,
+
+        // OpenAI API
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY!,
+        OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
     };
 
     // Validate required configuration
@@ -133,6 +151,14 @@ function validateConfig(config: Config): void {
         'AWS_S3_COURSES_BUCKET',
         'AWS_S3_RAW_VIDEOS_BUCKET',
         'AWS_S3_PROCESSED_VIDEOS_BUCKET',
+
+        // Authyo OTP Service
+        'AUTHYO_CLIENT_ID',
+        'AUTHYO_CLIENT_SECRET',
+        'AUTHYO_BASE_URL',
+
+        // OpenAI API
+        'OPENAI_API_KEY',
     ];
 
     const missingFields = requiredFields.filter(field => {
@@ -218,4 +244,15 @@ export const awsConfig = {
         rawVideosBucket: config.AWS_S3_RAW_VIDEOS_BUCKET,
         processedVideosBucket: config.AWS_S3_PROCESSED_VIDEOS_BUCKET,
     },
+};
+
+export const authyoConfig = {
+    clientId: config.AUTHYO_CLIENT_ID,
+    clientSecret: config.AUTHYO_CLIENT_SECRET,
+    baseUrl: config.AUTHYO_BASE_URL,
+};
+
+export const openaiConfig = {
+    apiKey: config.OPENAI_API_KEY,
+    baseUrl: config.OPENAI_BASE_URL || 'https://api.openai.com/v1',
 };

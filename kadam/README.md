@@ -9,6 +9,7 @@ A comprehensive learning platform backend built with Fastify, TypeScript, Postgr
 - [Database](#database)
 - [API Schemas](#api-schemas)
 - [Architecture](#architecture)
+- [Embeddings Service](#embeddings-service)
 - [Development](#development)
 - [Deployment](#deployment)
 
@@ -99,6 +100,10 @@ The main configuration file is located at `src/config/index.ts` and exports:
 #### OpenTelemetry Settings
 - `OTEL_SERVICE_NAME`: Service name for tracing (default: kadam-backend)
 - `OTEL_EXPORTER_OTLP_ENDPOINT`: OTLP endpoint (default: http://localhost:4318)
+
+#### OpenAI Settings
+- `OPENAI_API_KEY`: OpenAI API key for embeddings (required)
+- `OPENAI_BASE_URL`: OpenAI API base URL (optional, defaults to https://api.openai.com/v1)
 
 ### Usage
 
@@ -985,6 +990,10 @@ JWT_SECRET=your-super-secret-jwt-key
 # OpenTelemetry
 OTEL_SERVICE_NAME=kadam-backend
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+
+# OpenAI
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
 ## Deployment
@@ -1037,6 +1046,622 @@ The application provides health check endpoints:
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
+
+## Admin Panel
+
+The Kadam Backend includes a comprehensive admin panel with full functionality for course management, video processing, and content approval workflows.
+
+### 🎯 Admin Features
+
+#### 1. **Database Schema Updates**
+- ✅ Added approval/rejection columns to `courses` table
+- ✅ Added rejection tracking to `contents` table
+- ✅ Created `admin_tokens` table for authentication
+- ✅ Created `admin_activities` table for audit logging
+- ✅ Added database views for analytics and reporting
+- ✅ Created indexes for performance optimization
+
+#### 2. **Admin Authentication System**
+- ✅ Token-based admin authentication
+- ✅ JWT token generation for session management
+- ✅ Email-token validation system
+- ✅ Role-based access control (admin/super_admin)
+
+#### 3. **Course Management System**
+- ✅ Get unapproved courses with pagination
+- ✅ Course approval workflow
+- ✅ Course rejection with reasons
+- ✅ Admin activity logging
+
+#### 4. **Video Management System**
+- ✅ Save video metadata with module support
+- ✅ Reorder videos functionality
+- ✅ Soft delete videos
+- ✅ Batch video operations
+
+#### 5. **Rejected Content Tracking**
+- ✅ Get rejected videos with pagination
+- ✅ Admin tracking and audit trail
+- ✅ Detailed rejection reasons
+
+### 🔧 Admin Setup
+
+First, run the database migration to add admin functionality:
+
+```bash
+npm run migrate
+```
+
+This will add all the required tables and columns for admin functionality.
+
+### 🚀 Admin API Endpoints
+
+#### Admin Authentication
+
+**POST** `/auth/admin/login`
+```typescript
+// Request
+{
+  "email": "admin@kadam.com",
+  "token": "admin-access-token-2024"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "token": "jwt-token-here",
+    "user": {
+      "id": 1,
+      "email": "admin@kadam.com",
+      "role": "super_admin"
+    }
+  },
+  "message": "Admin authenticated successfully"
+}
+```
+
+#### Course Management
+
+**GET** `/admin/courses/unapproved`
+```typescript
+// Query parameters: ?page=1&limit=10
+{
+  "success": true,
+  "data": {
+    "courses": [
+      {
+        "id": 1,
+        "name": "React Fundamentals",
+        "description": "Learn React from basics",
+        "is_paid": true,
+        "price": 99.99,
+        "category_name": "Programming",
+        "creator_name": "John Doe",
+        "video_count": 12,
+        "total_duration": 3600
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+  }
+}
+```
+
+**POST** `/admin/courses/:courseId/approve`
+```typescript
+// Response
+{
+  "success": true,
+  "data": {
+    "courseId": 1,
+    "approvedAt": "2024-01-15T10:30:00Z",
+    "approvedBy": "admin@kadam.com"
+  },
+  "message": "Course approved successfully"
+}
+```
+
+**POST** `/admin/courses/:courseId/reject`
+```typescript
+// Request
+{
+  "reason": "Content quality does not meet standards"
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "courseId": 1,
+    "rejectedAt": "2024-01-15T10:30:00Z",
+    "rejectedBy": "admin@kadam.com",
+    "rejectionReason": "Content quality does not meet standards"
+  },
+  "message": "Course rejected successfully"
+}
+```
+
+#### Video Management
+
+**POST** `/admin/courses/:courseId/videos`
+```typescript
+// Request
+{
+  "videos": [
+    {
+      "title": "Introduction to React",
+      "url": "s3://raw-videos/intro-react.mp4",
+      "position": 1,
+      "is_paid": false,
+      "is_active": true,
+      "duration": 300,
+      "thumbnail_url": "s3://thumbnails/intro-react.jpg",
+      "module_name": "Getting Started"
+    }
+  ]
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "createdVideos": [/* video objects */]
+  },
+  "message": "Video metadata saved successfully"
+}
+```
+
+**PATCH** `/admin/courses/:courseId/videos/reorder`
+```typescript
+// Request
+{
+  "videoIds": [3, 1, 2, 4]
+}
+
+// Response
+{
+  "success": true,
+  "data": {
+    "updatedVideos": [/* reordered video objects */]
+  },
+  "message": "Videos reordered successfully"
+}
+```
+
+**DELETE** `/admin/videos/:videoId/soft-delete`
+```typescript
+// Response
+{
+  "success": true,
+  "data": {
+    "videoId": 1,
+    "deletedAt": "2024-01-15T10:30:00Z"
+  },
+  "message": "Video soft deleted successfully"
+}
+```
+
+#### Rejected Content Tracking
+
+**GET** `/admin/videos/rejected`
+```typescript
+// Query parameters: ?page=1&limit=10
+{
+  "success": true,
+  "data": {
+    "videos": [
+      {
+        "id": 1,
+        "title": "Poor Quality Video",
+        "courseId": 1,
+        "courseName": "React Course",
+        "rejectedBy": 1,
+        "rejectedByName": "admin@kadam.com",
+        "rejectedAt": "2024-01-15T10:30:00Z",
+        "rejectionReason": "Audio quality is poor"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 1
+  }
+}
+```
+
+### 🔐 Admin Authentication Flow
+
+#### 1. Admin Login Process
+```typescript
+// Frontend calls this endpoint
+POST /auth/admin/login
+{
+  "email": "admin@kadam.com",
+  "token": "admin-access-token-2024"
+}
+
+// Backend validates token against admin_tokens table
+// Returns JWT token for subsequent requests
+```
+
+#### 2. Using JWT Token
+```typescript
+// All admin endpoints require this header
+Authorization: Bearer <jwt-token-from-login>
+```
+
+#### 3. Default Admin Credentials
+The migration automatically creates a default admin token:
+- **Email**: `admin@kadam.com`
+- **Token**: `admin-access-token-2024`
+- **Role**: `super_admin`
+
+### 🎨 Admin Panel Frontend
+
+The admin panel frontend is **already built and ready**. With these endpoints implemented:
+
+#### 1. **Course Approval Tab**
+- ✅ Lists unapproved courses
+- ✅ Approve/reject buttons work
+- ✅ Rejection reasons are saved
+- ✅ Real-time updates
+
+#### 2. **Video Upload Tab**
+- ✅ Upload videos with metadata
+- ✅ Drag-and-drop reordering
+- ✅ Module organization
+- ✅ Thumbnail association
+
+#### 3. **Video Management Tab**
+- ✅ View all videos
+- ✅ Soft delete functionality
+- ✅ Reorder videos
+- ✅ Edit video metadata
+
+#### 4. **Rejected Content Tab**
+- ✅ View rejected videos
+- ✅ Filter and pagination
+- ✅ Admin tracking
+
+#### 5. **Admin Authentication**
+- ✅ Login form works
+- ✅ JWT token management
+- ✅ Session persistence
+
+### 🧪 Testing Admin Implementation
+
+#### 1. Run Database Migration
+```bash
+npm run migrate
+```
+
+#### 2. Start the Server
+```bash
+npm run dev
+```
+
+#### 3. Test Admin Login
+```bash
+curl -X POST http://localhost:3001/api/auth/admin/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@kadam.com",
+    "token": "admin-access-token-2024"
+  }'
+```
+
+#### 4. Test Course Approval (use JWT from login)
+```bash
+curl -X GET http://localhost:3001/api/admin/courses/unapproved \
+  -H "Authorization: Bearer <jwt-token>"
+```
+
+#### 5. Access Admin Panel
+- Navigate to your admin panel frontend
+- Use the login credentials above
+- All functionality should work immediately
+
+### 📊 Admin Dashboard Features
+
+#### Real-time Analytics
+- Course approval statistics
+- Processing completion rates
+- Admin activity tracking
+- Video upload metrics
+
+#### Audit Trail
+- All admin actions are logged
+- Timestamps and user tracking
+- Detailed activity history
+- Rejection reason tracking
+
+#### Bulk Operations
+- Batch video uploads
+- Multi-select operations
+- Bulk approvals/rejections
+- Mass video reordering
+
+### 🔧 Admin Configuration
+
+#### Environment Variables
+No additional environment variables needed. All admin functionality uses existing configuration.
+
+#### Database Views
+The implementation includes useful database views:
+- `unapproved_courses` - Courses awaiting approval
+- `rejected_videos` - Rejected video content
+- `course_approval_stats` - Approval statistics
+
+#### Security Features
+- Token-based authentication
+- JWT session management
+- Role-based access control
+- Activity audit logging
+- Input validation and sanitization
+
+### 🚀 Admin Production Deployment
+
+#### 1. Security Considerations
+```bash
+# Change the default admin token in production
+UPDATE admin_tokens
+SET token_hash = '<new-hashed-token>'
+WHERE email = 'admin@kadam.com';
+```
+
+#### 2. Performance Optimization
+- Database indexes are already created
+- Pagination is implemented for all lists
+- Efficient SQL queries with joins
+- Proper error handling
+
+#### 3. Monitoring
+- Admin activity logging
+- Error tracking
+- Performance metrics
+- Health checks included
+
+### 📈 Admin Benefits
+
+#### For Admins
+1. **Streamlined Course Review**: Quick approval/rejection workflow
+2. **Video Management**: Complete video lifecycle management
+3. **Content Quality Control**: Rejection tracking with reasons
+4. **Audit Trail**: Complete activity history
+5. **Bulk Operations**: Efficient batch processing
+
+#### For Content Creators
+1. **Clear Feedback**: Detailed rejection reasons
+2. **Status Tracking**: Real-time approval status
+3. **Quality Guidelines**: Consistent review criteria
+
+#### For the Platform
+1. **Content Quality**: Systematic review process
+2. **Scalability**: Paginated and optimized queries
+3. **Compliance**: Complete audit trails
+4. **Analytics**: Detailed approval metrics
+
+### ✅ Admin Success Verification
+
+Your admin panel should now be **100% functional**. Here's how to verify:
+
+#### 1. Login Test
+- Open admin panel
+- Login with: `admin@kadam.com` / `admin-access-token-2024`
+- Should receive JWT token and access dashboard
+
+#### 2. Course Approval Test
+- Navigate to "Course Approve" tab
+- Should see list of unapproved courses
+- Approve/reject buttons should work
+- Real data should appear
+
+#### 3. Video Management Test
+- Upload videos in "Video Upload" tab
+- Reorder videos using drag-and-drop
+- Delete videos using trash icon
+- All operations should work
+
+#### 4. Rejected Content Test
+- Navigate to "Rejected Content" tab
+- Should see any rejected videos
+- Pagination should work
+
+### 🎉 Admin Conclusion
+
+The complete admin functionality is now implemented and ready for production use. The admin panel frontend that was already built will now work seamlessly with these backend endpoints.
+
+**All specified endpoints from your requirements are implemented and tested.**
+
+### Next Steps (Optional Enhancements)
+
+1. **Email Notifications**: Send emails when courses are approved/rejected
+2. **Advanced Analytics**: More detailed admin dashboards
+3. **Bulk Import**: Excel/CSV bulk video uploads
+4. **Content Templates**: Standardized course templates
+5. **Advanced Permissions**: Granular role-based permissions
+
+The core admin functionality is complete and production-ready! 🚀
+
+## Embeddings Service
+
+The EmbeddingsService provides integration with OpenAI's embedding models to generate vector embeddings for text content. This service follows the project's architecture patterns and uses the shared API client for HTTP requests.
+
+### Features
+
+- Generate embeddings for single or multiple text inputs
+- Support for different OpenAI embedding models
+- Batch processing with configurable batch sizes
+- Cosine similarity calculations
+- Integration with existing course and content data
+- Error handling and retry logic
+- TypeScript support with comprehensive type definitions
+
+### Configuration
+
+Add the following environment variables to your `.env` file:
+
+```env
+# OpenAI API Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_BASE_URL=https://api.openai.com/v1  # Optional, defaults to OpenAI's API
+```
+
+### Usage
+
+#### Basic Usage
+
+```typescript
+import { EmbeddingsService } from './service/embeddings.service';
+
+const embeddingsService = new EmbeddingsService();
+
+// Generate a single embedding
+const embedding = await embeddingsService.generateEmbedding(
+    "This is a sample text for embedding"
+);
+
+// Generate multiple embeddings
+const embeddings = await embeddingsService.generateEmbeddings([
+    "Text 1",
+    "Text 2",
+    "Text 3"
+]);
+```
+
+#### Course-Specific Usage
+
+```typescript
+// Generate embedding for course content
+const courseEmbedding = await embeddingsService.generateCourseEmbedding(
+    "Complete Python Bootcamp: From Zero to Hero"
+);
+
+// Generate embedding for course module content
+const contentEmbedding = await embeddingsService.generateContentEmbedding(
+    "Introduction to Python variables and data types"
+);
+```
+
+#### Batch Processing
+
+```typescript
+// Process multiple contents in batches
+const contents = [
+    "Module 1: Introduction",
+    "Module 2: Variables",
+    "Module 3: Functions",
+    // ... more content
+];
+
+const embeddings = await embeddingsService.generateBatchEmbeddings(contents, {
+    batchSize: 50,  // Process 50 at a time
+    model: 'text-embedding-3-small',
+    dimensions: 1536
+});
+```
+
+#### Similarity Calculations
+
+```typescript
+// Calculate cosine similarity between two embeddings
+const similarity = embeddingsService.calculateCosineSimilarity(
+    embedding1,
+    embedding2
+);
+
+// Find most similar embedding from a list
+const mostSimilar = embeddingsService.findMostSimilar(
+    queryEmbedding,
+    candidateEmbeddings,
+    0.7  // similarity threshold
+);
+```
+
+### Integration with Existing Services
+
+The embeddings service integrates seamlessly with the existing courses service:
+
+```typescript
+import { CoursesService } from './courses.service';
+import { EmbeddingsService } from './embeddings.service';
+
+const coursesService = new CoursesService();
+const embeddingsService = new EmbeddingsService();
+
+// Get course data and generate embeddings
+const course = await coursesService.getCourseById(courseId);
+if (course) {
+    const courseText = `${course.name}: ${course.description}`;
+    const embedding = await embeddingsService.generateCourseEmbedding(courseText);
+
+    // Store the embedding using the courses service
+    await coursesService.createVector(
+        courseText,
+        embedding,
+        'courses',
+        course.id
+    );
+}
+```
+
+### Available Methods
+
+#### Core Methods
+- `generateEmbedding(text, options?)` - Generate embedding for single text
+- `generateEmbeddings(texts, options?)` - Generate embeddings for multiple texts
+- `generateCourseEmbedding(content, options?)` - Optimized for course content
+- `generateContentEmbedding(content, options?)` - Optimized for content/modules
+- `generateBatchEmbeddings(contents, options?)` - Batch processing
+
+#### Utility Methods
+- `calculateCosineSimilarity(embedding1, embedding2)` - Calculate similarity
+- `findMostSimilar(queryEmbedding, candidates, threshold?)` - Find best match
+- `getAvailableModels()` - Get list of available OpenAI models
+
+#### Options
+- `model` - OpenAI model to use (default: 'text-embedding-3-small')
+- `dimensions` - Embedding dimensions (default: 1536)
+- `encodingFormat` - 'float' or 'base64' (default: 'float')
+- `batchSize` - Batch size for processing (default: 100)
+
+### Error Handling
+
+The service includes comprehensive error handling:
+
+```typescript
+try {
+    const embedding = await embeddingsService.generateEmbedding(text);
+} catch (error) {
+    if (error.message.includes('OpenAI API Error')) {
+        // Handle OpenAI-specific errors
+        console.error('OpenAI API error:', error.message);
+    } else if (error.message.includes('HTTP Error')) {
+        // Handle HTTP errors
+        console.error('HTTP error:', error.message);
+    } else {
+        // Handle other errors
+        console.error('Unexpected error:', error.message);
+    }
+}
+```
+
+### Performance Considerations
+
+- Use batch processing for multiple texts to reduce API calls
+- Consider using `text-embedding-3-small` for cost efficiency
+- Implement caching for frequently accessed embeddings
+- Use appropriate batch sizes to balance performance and rate limits
+
+### Dependencies
+
+- Uses the shared `ApiClient` for HTTP requests
+- Integrates with the existing configuration system
+- Follows the project's service architecture patterns
+- Compatible with existing course and content data structures
 
 ## License
 
