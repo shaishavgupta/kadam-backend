@@ -4,7 +4,6 @@ import {
     Category,
     ContentWithModule,
     Module,
-    Tag,
     CreateCourseRequest,
     UpdateCourseRequest,
     PaginatedCoursesResponse,
@@ -20,14 +19,11 @@ import {
     CourseCreatorIdParam,
     CourseIdParam2,
     CategoryIdParam,
-    TagsSearchQuery,
-    TagsSearchResponse,
     PublishCourseResponse,
     UnpublishCourseResponse,
     CategoriesResponseSchema,
     ContentsResponseSchema,
     ModulesResponseSchema,
-    TagsSearchResponseSchema,
     CourseResponseSchema,
     PopularCategoriesResponseSchema,
     CoursesByCategoryResponseSchema,
@@ -38,7 +34,6 @@ import {
     CourseCreatorIdParamSchema,
     CourseIdParamSchema2,
     CategoryIdParamSchema,
-    TagsSearchQuerySchema,
     CourseListItemSchema,
     CourseListDataSchema,
     CourseListResponseSchema,
@@ -50,7 +45,36 @@ import {
     UserStats,
     UserStatsResponse,
     Vector,
-    VectorSchema
+    VectorSchema,
+    // Module Management
+    CreateModuleRequestSchemaNew,
+    UpdateModuleRequestSchema,
+    ModuleIdParamSchema,
+    ModulesResponseSchemaNew,
+    ModuleResponseSchema,
+    DeleteModuleResponseSchema,
+    CreateModuleRequestNew,
+    UpdateModuleRequest,
+    ModuleIdParam,
+    ModulesResponseNew,
+    ModuleResponse,
+    DeleteModuleResponse,
+    // Content Management
+    CreateContentRequestSchemaNew,
+    UpdateContentRequestSchema,
+    ContentIdParamSchema,
+    ContentResponseSchema,
+    SingleContentResponseSchema,
+    DeleteContentResponseSchema,
+    CreateContentRequestNew,
+    UpdateContentRequest,
+    ContentIdParam,
+    ContentResponse,
+    SingleContentResponse,
+    DeleteContentResponse,
+    // Enhanced Course
+    CourseWithModulesResponseSchema,
+    CourseWithModulesResponse
 } from '../schemas/course';
 
 import { PaginationQuery, PaginationQuerySchema } from '../schemas/common';
@@ -153,39 +177,6 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 success: true,
                 data,
                 message: "Modules retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
-            return {
-                success: false,
-                data: [],
-                message: errorMessage
-            };
-        }
-    });
-
-    // Search tags
-    fastify.get('/tags/search', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Courses'],
-            summary: 'Search tags',
-            description: 'Search for tags based on content, course, or module names',
-            querystring: TagsSearchQuerySchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: TagsSearchResponseSchema
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Tag[]; message: string }> => {
-        try {
-            const { contentName, courseName, moduleName } = request.query as TagsSearchQuery;
-            const data = await coursesService.searchTags(contentName, courseName, moduleName);
-            return {
-                success: true,
-                data,
-                message: "Tags retrieved successfully"
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
@@ -1084,6 +1075,48 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             return {
                 success: false,
                 data: { courses: [], contents: [], testInfo: null },
+                message: errorMessage
+            };
+        }
+    });
+
+    // Module Management APIs
+    // GET /courses/{courseId}/modules
+    fastify.get('/courses/:courseId/modules', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Module Management'],
+            summary: 'Get modules by course ID',
+            description: 'Retrieve all modules for a specific course',
+            params: CourseIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: ModulesResponseSchemaNew
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<ModulesResponseNew> => {
+        try {
+            const courseId = parseInt((request.params as any).courseId, 10);
+            const raw = await coursesService.getModulesByCourseId(courseId);
+            const modules = serializeDates<Module[]>(raw);
+
+            return {
+                success: true,
+                data: {
+                    modules,
+                    total: modules.length
+                },
+                message: "Modules retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send({ success: false, message: errorMessage });
+            return {
+                success: false,
+                data: {
+                    modules: [],
+                    total: 0
+                },
                 message: errorMessage
             };
         }

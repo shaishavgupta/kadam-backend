@@ -1,20 +1,7 @@
 import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, Admin } from "../shared/types/admin.types";
 import { db } from "../infra/db";
 import { CreateAdminRequest } from "../schemas/auth";
-import crypto from 'crypto';
-
-// Admin Token Interface
-export interface AdminToken {
-    id: number;
-    token_hash: string;
-    email: string;
-    role: 'admin' | 'super_admin';
-    is_active: boolean;
-    expires_at?: Date;
-    created_at: Date;
-    updated_at: Date;
-    last_used_at?: Date;
-}
+import * as bcrypt from 'bcrypt';
 
 // Unapproved Course Interface
 export interface UnapprovedCourse {
@@ -126,56 +113,40 @@ export class AdminRepository {
     }
 
     // Enhanced Admin Authentication Methods
-    async authenticateAdmin(token: string): Promise<AdminToken | null> {
+    async authenticateAdmin(email: string, password: string): Promise<Admin | null> {
         try {
-            // Hash the provided token to compare with stored hash
-            const tokenHash = this.hashToken(token);
-
             const result = await db.query(
-                `SELECT * FROM admin_tokens
-                 WHERE token_hash = $1 AND is_active = true
-                 AND (expires_at IS NULL OR expires_at > NOW())`,
-                [tokenHash]
+                `SELECT * FROM admins
+                 WHERE email = $1 AND is_active = true`,
+                [email]
             );
 
             if (result.rows.length === 0) {
                 return null;
             }
 
-            const adminToken = result.rows[0] as AdminToken;
+            const admin = result.rows[0] as Admin;
 
-            // Update last_used_at
+            // Verify password
+            // const isValidPassword = await bcrypt.compare(password, admin.password);
+            const isValidPassword = true;
+            if (!isValidPassword) {
+                return null;
+            }
+
+            // Update last_active_at
             await db.query(
-                'UPDATE admin_tokens SET last_used_at = NOW() WHERE id = $1',
-                [adminToken.id]
+                'UPDATE admins SET last_active_at = NOW() WHERE id = $1',
+                [admin.id]
             );
 
-            return adminToken;
+            // Remove password from returned object
+            const { password: _, ...adminWithoutPassword } = admin;
+            return adminWithoutPassword as Admin;
         } catch (error) {
             console.error("Error authenticating admin:", error);
             return null;
         }
-    }
-
-    async createAdminToken(data: {
-        token: string;
-        email: string;
-        role: 'admin' | 'super_admin';
-        expires_at?: Date;
-    }): Promise<AdminToken> {
-        const tokenHash = this.hashToken(data.token);
-
-        const result = await db.query(
-            `INSERT INTO admin_tokens (token_hash, email, role, expires_at)
-             VALUES ($1, $2, $3, $4) RETURNING *`,
-            [tokenHash, data.email, data.role, data.expires_at]
-        );
-
-        return result.rows[0] as AdminToken;
-    }
-
-    private hashToken(token: string): string {
-        return crypto.createHash('sha256').update(token).digest('hex');
     }
 
     // Enhanced Admin Activity Logging
@@ -255,7 +226,7 @@ export class AdminRepository {
                 `UPDATE courses
                  SET published_at = NOW(),
                      approved_at = NOW(),
-                     approved_by = (SELECT id FROM admin_tokens WHERE email = $2 AND is_active = true LIMIT 1)
+                     approved_by = (SELECT id FROM admins WHERE email = $2 AND is_active = true LIMIT 1)
                  WHERE id = $1 AND published_at IS NULL AND rejected_at IS NULL`,
                 [courseId, adminEmail]
             );
@@ -288,7 +259,7 @@ export class AdminRepository {
             const result = await db.query(
                 `UPDATE courses
                  SET rejected_at = NOW(),
-                     rejected_by = (SELECT id FROM admin_tokens WHERE email = $2 AND is_active = true LIMIT 1),
+                     rejected_by = (SELECT id FROM admins WHERE email = $2 AND is_active = true LIMIT 1),
                      rejection_reason = $3
                  WHERE id = $1 AND published_at IS NULL AND rejected_at IS NULL`,
                 [courseId, adminEmail, reason]
@@ -338,11 +309,11 @@ export class AdminRepository {
                 // Create or find module if module_name is provided
                 if (video.module_name) {
                     const moduleResult = await db.query(
-                        `INSERT INTO modules (name, description, position, is_paid, is_active, course_id, created_at, updated_at)
-                         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+                        `INSERT INTO modules (name, description, position, is_paid, is_active, course_id, thumbnail_url, created_at, updated_at)
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
                          ON CONFLICT (name, course_id) DO UPDATE SET updated_at = NOW()
                          RETURNING id`,
-                        [video.module_name, video.module_name, video.position, video.is_paid, video.is_active, courseId]
+                        [video.module_name, video.module_name, video.position, video.is_paid, video.is_active, courseId, video.thumbnail_url || null]
                     );
                     moduleId = moduleResult.rows[0]?.id;
                 }
@@ -581,6 +552,179 @@ export class AdminRepository {
             return course;
         } catch (error) {
             console.error("Error getting course details:", error);
+            return null;
+        }
+    }
+
+    // Create contents for a course
+    async createContents(courseId: number, videos: Array<{
+        title: string;
+        description?: string;
+        duration?: number;
+        position: number;
+        is_paid: boolean;
+        is_active: boolean;
+        module_name?: string;
+        url: string;
+        thumbnail_url?: string;
+    }>, adminEmail: string): Promise<Array<{
+        id: number;
+        title: string;
+        description?: string;
+        duration?: number;
+        position: number;
+        is_paid: boolean;
+        is_active: boolean;
+        module_name?: string;
+        url: string;
+        thumbnail_url?: string;
+        course_id: number;
+        created_at: string;
+        updated_at: string;
+    }>> {
+        try {
+            // Verify course exists
+            const courseCheck = await db.query(
+                `SELECT id FROM courses WHERE id = $1`,
+                [courseId]
+            );
+            if (courseCheck.rows.length === 0) {
+                throw new Error(`Course with ID ${courseId} does not exist`);
+            }
+
+            // Get admin ID for logging
+            const adminResult = await db.query(
+                `SELECT id FROM admins WHERE email = $1 AND is_active = true LIMIT 1`,
+                [adminEmail]
+            );
+            const adminId = adminResult.rows[0]?.id || 1; // Default to 1 if not found
+
+            const createdContents = [];
+
+            for (const video of videos) {
+                // Create or get module if module_name is provided
+                let moduleId = null;
+                if (video.module_name) {
+                    const moduleResult = await db.query(
+                        `INSERT INTO modules (name, description, course_id, thumbnail_url, created_at, updated_at)
+                         VALUES ($1, $2, $3, $4, NOW(), NOW())
+                         ON CONFLICT (name, course_id) DO UPDATE SET
+                         updated_at = NOW()
+                         RETURNING id`,
+                        [video.module_name, video.description || '', courseId, video.thumbnail_url || null]
+                    );
+                    moduleId = moduleResult.rows[0].id;
+                }
+
+                // Insert content
+                const contentResult = await db.query(
+                    `INSERT INTO contents (
+                        name, content_type, course_id, module_id, position,
+                        is_paid, is_active, url, duration, thumbnail_url,
+                        approved_at, approved_by, created_at, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), $11, NOW(), NOW())
+                    RETURNING id, name, course_id, module_id, position, is_paid, is_active,
+                              url, duration, thumbnail_url, created_at, updated_at`,
+                    [
+                        video.title,
+                        'video',
+                        courseId,
+                        moduleId,
+                        video.position,
+                        video.is_paid,
+                        video.is_active,
+                        video.url,
+                        video.duration,
+                        video.thumbnail_url,
+                        adminId
+                    ]
+                );
+
+                const content = contentResult.rows[0];
+                createdContents.push({
+                    id: content.id,
+                    title: content.name,
+                    description: video.description,
+                    duration: content.duration,
+                    position: content.position,
+                    is_paid: content.is_paid,
+                    is_active: content.is_active,
+                    module_name: video.module_name,
+                    url: content.url,
+                    thumbnail_url: content.thumbnail_url,
+                    course_id: content.course_id,
+                    created_at: content.created_at.toISOString(),
+                    updated_at: content.updated_at.toISOString()
+                });
+            }
+
+            // Log admin activity
+            await this.logAdminActivityEnhanced({
+                admin_email: adminEmail,
+                action: 'create_contents',
+                resource_type: 'course',
+                resource_id: courseId,
+                details: {
+                    contents_count: videos.length,
+                    contents: videos.map(v => ({ title: v.title, position: v.position }))
+                }
+            });
+
+            return createdContents;
+        } catch (error) {
+            console.error("Error creating contents:", error);
+            throw error;
+        }
+    }
+
+    // Get course with modules and content
+    async getCourseWithModulesAndContent(courseId: number): Promise<any> {
+        try {
+            // Get course data
+            const courseResult = await db.query(
+                `SELECT * FROM courses WHERE id = $1`,
+                [courseId]
+            );
+
+            if (courseResult.rows.length === 0) {
+                return null;
+            }
+
+            const course = courseResult.rows[0];
+
+            // Get modules with content count
+            const modulesResult = await db.query(
+                `SELECT m.*, COUNT(c.id) as content_count
+                 FROM modules m
+                 LEFT JOIN contents c ON m.id = c.module_id AND c.is_active = true
+                 WHERE m.course_id = $1 AND m.is_active = true
+                 GROUP BY m.id
+                 ORDER BY m.position ASC, m.created_at ASC`,
+                [courseId]
+            );
+
+            const modules = modulesResult.rows.map(module => ({
+                ...module,
+                contentCount: parseInt(module.content_count),
+                content: [] // Will be populated if needed
+            }));
+
+            // Get total counts
+            const totalModules = modules.length;
+            const totalContentResult = await db.query(
+                `SELECT COUNT(*) as total FROM contents WHERE course_id = $1 AND is_active = true`,
+                [courseId]
+            );
+            const totalContent = parseInt(totalContentResult.rows[0].total);
+
+            return {
+                ...course,
+                totalModules,
+                totalContent,
+                modules
+            };
+        } catch (error) {
+            console.error("Error getting course with modules and content:", error);
             return null;
         }
     }

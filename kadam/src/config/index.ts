@@ -44,8 +44,6 @@ export interface Config {
     AWS_SECRET_ACCESS_KEY: string;
     AWS_REGION: string;
     AWS_S3_COURSES_BUCKET: string;
-    AWS_S3_RAW_VIDEOS_BUCKET: string;
-    AWS_S3_PROCESSED_VIDEOS_BUCKET: string;
 
     // Authyo OTP Service
     AUTHYO_CLIENT_ID: string;
@@ -95,8 +93,6 @@ function loadConfig(): Config {
         AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY!,
         AWS_REGION: process.env.AWS_REGION!,
         AWS_S3_COURSES_BUCKET: process.env.AWS_S3_COURSES_BUCKET!,
-        AWS_S3_RAW_VIDEOS_BUCKET: process.env.AWS_S3_RAW_VIDEOS_BUCKET!,
-        AWS_S3_PROCESSED_VIDEOS_BUCKET: process.env.AWS_S3_PROCESSED_VIDEOS_BUCKET!,
 
         // Authyo OTP Service
         AUTHYO_CLIENT_ID: process.env.AUTHYO_CLIENT_ID!,
@@ -149,8 +145,6 @@ function validateConfig(config: Config): void {
         'AWS_SECRET_ACCESS_KEY',
         'AWS_REGION',
         'AWS_S3_COURSES_BUCKET',
-        'AWS_S3_RAW_VIDEOS_BUCKET',
-        'AWS_S3_PROCESSED_VIDEOS_BUCKET',
 
         // Authyo OTP Service
         'AUTHYO_CLIENT_ID',
@@ -241,8 +235,14 @@ export const awsConfig = {
     region: config.AWS_REGION,
     s3: {
         coursesBucket: config.AWS_S3_COURSES_BUCKET,
-        rawVideosBucket: config.AWS_S3_RAW_VIDEOS_BUCKET,
-        processedVideosBucket: config.AWS_S3_PROCESSED_VIDEOS_BUCKET,
+        // S3 prefixes (folders) within the courses bucket
+        prefixes: {
+            rawVideos: 'RawVideos',
+            processedVideos: 'ProcessedVideos',
+            thumbnails: 'thumbnails',
+            certificates: 'certificates',
+            courseMaterials: 'course-materials'
+        }
     },
 };
 

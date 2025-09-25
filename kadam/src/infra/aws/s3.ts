@@ -7,7 +7,13 @@
 
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { config } from '../../config';
+import { config, awsConfig } from '../../config';
+
+console.log('AWS Region:', config.AWS_REGION);
+console.log('AWS Access Key ID:', config.AWS_ACCESS_KEY_ID);
+console.log('AWS Secret Access Key:', config.AWS_SECRET_ACCESS_KEY);
+console.log('AWS S3 Courses Bucket:', awsConfig.s3.coursesBucket);
+console.log('AWS S3 Prefixes:', awsConfig.s3.prefixes);
 
 // S3 Client Configuration
 const s3Client = new S3Client({
@@ -18,16 +24,40 @@ const s3Client = new S3Client({
     },
 });
 
-// S3 Bucket Names
-export const S3_BUCKETS = {
-    COURSES: config.AWS_S3_COURSES_BUCKET,
-    RAW_VIDEOS: config.AWS_S3_RAW_VIDEOS_BUCKET,
-    PROCESSED_VIDEOS: config.AWS_S3_PROCESSED_VIDEOS_BUCKET,
+// S3 Bucket and Prefixes
+export const S3_CONFIG = {
+    BUCKET: awsConfig.s3.coursesBucket,
+    PREFIXES: awsConfig.s3.prefixes,
 } as const;
+
+// Helper functions for generating S3 keys based on new hierarchical structure
+export function generateCourseThumbnailKey(courseId: number, fileName: string): string {
+    return `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/Thumbnail.${fileName.split('.').pop()}`;
+}
+
+export function generateModuleThumbnailKey(courseId: number, moduleId: number, fileName: string): string {
+    return `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/Thumbnail.${fileName.split('.').pop()}`;
+}
+
+export function generateContentVideoKey(courseId: number, moduleId: number, contentId: number, fileName: string): string {
+    return `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/${contentId}/Video.${fileName.split('.').pop()}`;
+}
+
+export function generateContentThumbnailKey(courseId: number, moduleId: number, contentId: number, fileName: string): string {
+    return `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/${contentId}/Thumbnail.${fileName.split('.').pop()}`;
+}
+
+export function generateProcessedVideoKey(courseId: number, moduleId: number, contentId: number, resolution: string, fileName: string): string {
+    return `${S3_CONFIG.PREFIXES.processedVideos}/${courseId}/${moduleId}/${contentId}/${resolution}/${fileName}`;
+}
+
+export function generateMasterPlaylistKey(courseId: number, moduleId: number, contentId: number): string {
+    return `${S3_CONFIG.PREFIXES.processedVideos}/${courseId}/${moduleId}/${contentId}/master.m3u8`;
+}
 
 // File Upload Types
 export interface UploadFileParams {
-    bucket: keyof typeof S3_BUCKETS;
+    prefix: keyof typeof S3_CONFIG.PREFIXES;
     key: string;
     body: Buffer | Uint8Array | string;
     contentType?: string;
@@ -36,13 +66,13 @@ export interface UploadFileParams {
 
 // File Download Types
 export interface DownloadFileParams {
-    bucket: keyof typeof S3_BUCKETS;
+    prefix: keyof typeof S3_CONFIG.PREFIXES;
     key: string;
 }
 
 // Presigned URL Types
 export interface PresignedUrlParams {
-    bucket: keyof typeof S3_BUCKETS;
+    prefix: keyof typeof S3_CONFIG.PREFIXES;
     key: string;
     expiresIn?: number; // seconds
     operation?: 'getObject' | 'putObject';
@@ -53,11 +83,13 @@ export interface PresignedUrlParams {
  */
 export async function uploadFile(params: UploadFileParams): Promise<string> {
     try {
-        const bucketName = S3_BUCKETS[params.bucket];
+        const bucketName = S3_CONFIG.BUCKET;
+        const prefix = S3_CONFIG.PREFIXES[params.prefix];
+        const fullKey = `${prefix}/${params.key}`;
 
         const command = new PutObjectCommand({
             Bucket: bucketName,
-            Key: params.key,
+            Key: fullKey,
             Body: params.body,
             ContentType: params.contentType || 'application/octet-stream',
             Metadata: params.metadata || {},
@@ -65,7 +97,7 @@ export async function uploadFile(params: UploadFileParams): Promise<string> {
 
         await s3Client.send(command);
 
-        const fileUrl = `https://${bucketName}.s3.${config.AWS_REGION}.amazonaws.com/${params.key}`;
+        const fileUrl = `https://${bucketName}.s3.${config.AWS_REGION}.amazonaws.com/${fullKey}`;
         console.log(`✅ File uploaded successfully: ${fileUrl}`);
 
         return fileUrl;
@@ -80,11 +112,13 @@ export async function uploadFile(params: UploadFileParams): Promise<string> {
  */
 export async function downloadFile(params: DownloadFileParams): Promise<Buffer> {
     try {
-        const bucketName = S3_BUCKETS[params.bucket];
+        const bucketName = S3_CONFIG.BUCKET;
+        const prefix = S3_CONFIG.PREFIXES[params.prefix];
+        const fullKey = `${prefix}/${params.key}`;
 
         const command = new GetObjectCommand({
             Bucket: bucketName,
-            Key: params.key,
+            Key: fullKey,
         });
 
         const response = await s3Client.send(command);
@@ -101,7 +135,7 @@ export async function downloadFile(params: DownloadFileParams): Promise<Buffer> 
         }
 
         const buffer = Buffer.concat(chunks);
-        console.log(`✅ File downloaded successfully: ${params.key}`);
+        console.log(`✅ File downloaded successfully: ${fullKey}`);
 
         return buffer;
     } catch (error) {
@@ -115,15 +149,17 @@ export async function downloadFile(params: DownloadFileParams): Promise<Buffer> 
  */
 export async function deleteFile(params: DownloadFileParams): Promise<void> {
     try {
-        const bucketName = S3_BUCKETS[params.bucket];
+        const bucketName = S3_CONFIG.BUCKET;
+        const prefix = S3_CONFIG.PREFIXES[params.prefix];
+        const fullKey = `${prefix}/${params.key}`;
 
         const command = new DeleteObjectCommand({
             Bucket: bucketName,
-            Key: params.key,
+            Key: fullKey,
         });
 
         await s3Client.send(command);
-        console.log(`✅ File deleted successfully: ${params.key}`);
+        console.log(`✅ File deleted successfully: ${fullKey}`);
     } catch (error) {
         console.error('❌ Error deleting file from S3:', error);
         throw error;
@@ -135,21 +171,25 @@ export async function deleteFile(params: DownloadFileParams): Promise<void> {
  */
 export async function generatePresignedUrl(params: PresignedUrlParams): Promise<string> {
     try {
-        const bucketName = S3_BUCKETS[params.bucket];
+        const bucketName = S3_CONFIG.BUCKET;
+        const prefix = S3_CONFIG.PREFIXES[params.prefix];
+        const fullKey = `${prefix}/${params.key}`;
         const expiresIn = params.expiresIn || 3600; // Default 1 hour
 
         const command = params.operation === 'putObject'
             ? new PutObjectCommand({
                 Bucket: bucketName,
-                Key: params.key,
+                Key: fullKey,
+                ContentType: 'video/mp4',
             })
             : new GetObjectCommand({
                 Bucket: bucketName,
-                Key: params.key,
+                Key: fullKey,
+                ResponseContentType: 'video/mp4',
             });
 
         const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn });
-        console.log(`✅ Presigned URL generated: ${params.key}`);
+        console.log(`✅ Presigned URL generated: ${fullKey}`);
 
         return presignedUrl;
     } catch (error) {
@@ -161,19 +201,21 @@ export async function generatePresignedUrl(params: PresignedUrlParams): Promise<
 /**
  * List files in a bucket with optional prefix
  */
-export async function listFiles(bucket: keyof typeof S3_BUCKETS, prefix?: string): Promise<string[]> {
+export async function listFiles(prefix: keyof typeof S3_CONFIG.PREFIXES, subPrefix?: string): Promise<string[]> {
     try {
-        const bucketName = S3_BUCKETS[bucket];
+        const bucketName = S3_CONFIG.BUCKET;
+        const basePrefix = S3_CONFIG.PREFIXES[prefix];
+        const fullPrefix = subPrefix ? `${basePrefix}/${subPrefix}` : basePrefix;
 
         const command = new ListObjectsV2Command({
             Bucket: bucketName,
-            Prefix: prefix,
+            Prefix: fullPrefix,
         });
 
         const response = await s3Client.send(command);
 
         const files = response.Contents?.map((obj: any) => obj.Key || '') || [];
-        console.log(`✅ Listed ${files.length} files from bucket: ${bucketName}`);
+        console.log(`✅ Listed ${files.length} files from prefix: ${fullPrefix}`);
 
         return files;
     } catch (error) {
@@ -183,45 +225,26 @@ export async function listFiles(bucket: keyof typeof S3_BUCKETS, prefix?: string
 }
 
 /**
- * Upload course content (images, documents, etc.)
- */
-export async function uploadCourseContent(
-    courseId: number,
-    fileName: string,
-    fileBuffer: Buffer,
-    contentType: string
-): Promise<string> {
-    const key = `courses/${courseId}/${fileName}`;
-
-    return uploadFile({
-        bucket: 'COURSES',
-        key,
-        body: fileBuffer,
-        contentType,
-        metadata: {
-            courseId: courseId.toString(),
-            uploadedAt: new Date().toISOString(),
-        },
-    });
-}
-
-/**
  * Upload raw video file
  */
 export async function uploadRawVideo(
     courseId: number,
+    moduleId: number,
+    contentId: number,
     fileName: string,
     videoBuffer: Buffer
 ): Promise<string> {
-    const key = `raw-videos/${courseId}/${fileName}`;
+    const key = generateContentVideoKey(courseId, moduleId, contentId, fileName);
 
     return uploadFile({
-        bucket: 'RAW_VIDEOS',
+        prefix: 'rawVideos',
         key,
         body: videoBuffer,
         contentType: 'video/mp4',
         metadata: {
             courseId: courseId.toString(),
+            moduleId: moduleId.toString(),
+            contentId: contentId.toString(),
             uploadedAt: new Date().toISOString(),
             status: 'raw',
         },
@@ -233,18 +256,24 @@ export async function uploadRawVideo(
  */
 export async function uploadProcessedVideo(
     courseId: number,
+    moduleId: number,
+    contentId: number,
     fileName: string,
-    videoBuffer: Buffer
+    videoBuffer: Buffer,
+    resolution: string
 ): Promise<string> {
-    const key = `processed-videos/${courseId}/${fileName}`;
+    const key = generateProcessedVideoKey(courseId, moduleId, contentId, resolution, fileName);
 
     return uploadFile({
-        bucket: 'PROCESSED_VIDEOS',
+        prefix: 'processedVideos',
         key,
         body: videoBuffer,
         contentType: 'video/mp4',
         metadata: {
             courseId: courseId.toString(),
+            moduleId: moduleId.toString(),
+            contentId: contentId.toString(),
+            resolution,
             uploadedAt: new Date().toISOString(),
             status: 'processed',
         },
@@ -256,13 +285,15 @@ export async function uploadProcessedVideo(
  */
 export async function generateVideoUploadUrl(
     courseId: number,
+    moduleId: number,
+    contentId: number,
     fileName: string,
     expiresIn: number = 3600
 ): Promise<string> {
-    const key = `raw-videos/${courseId}/${fileName}`;
+    const key = generateContentVideoKey(courseId, moduleId, contentId, fileName);
 
     return generatePresignedUrl({
-        bucket: 'RAW_VIDEOS',
+        prefix: 'rawVideos',
         key,
         expiresIn,
         operation: 'putObject',
@@ -274,13 +305,69 @@ export async function generateVideoUploadUrl(
  */
 export async function generateVideoDownloadUrl(
     courseId: number,
+    moduleId: number,
+    contentId: number,
     fileName: string,
     expiresIn: number = 3600
 ): Promise<string> {
-    const key = `processed-videos/${courseId}/${fileName}`;
+    const key = generateProcessedVideoKey(courseId, moduleId, contentId, 'master', fileName);
 
     return generatePresignedUrl({
-        bucket: 'PROCESSED_VIDEOS',
+        prefix: 'processedVideos',
+        key,
+        expiresIn,
+        operation: 'getObject',
+    });
+}
+
+/**
+ * Generate presigned URL for thumbnail upload
+ */
+export async function generateThumbnailUploadUrl(
+    courseId: number,
+    moduleId: number | null,
+    contentId: number | null,
+    fileName: string,
+    expiresIn: number = 3600
+): Promise<string> {
+    let key: string;
+    if (contentId && moduleId) {
+        key = generateContentThumbnailKey(courseId, moduleId, contentId, fileName);
+    } else if (moduleId) {
+        key = generateModuleThumbnailKey(courseId, moduleId, fileName);
+    } else {
+        key = generateCourseThumbnailKey(courseId, fileName);
+    }
+
+    return generatePresignedUrl({
+        prefix: 'rawVideos',
+        key,
+        expiresIn,
+        operation: 'putObject',
+    });
+}
+
+/**
+ * Generate presigned URL for thumbnail download
+ */
+export async function generateThumbnailDownloadUrl(
+    courseId: number,
+    moduleId: number | null,
+    contentId: number | null,
+    fileName: string,
+    expiresIn: number = 3600
+): Promise<string> {
+    let key: string;
+    if (contentId && moduleId) {
+        key = generateContentThumbnailKey(courseId, moduleId, contentId, fileName);
+    } else if (moduleId) {
+        key = generateModuleThumbnailKey(courseId, moduleId, fileName);
+    } else {
+        key = generateCourseThumbnailKey(courseId, fileName);
+    }
+
+    return generatePresignedUrl({
+        prefix: 'rawVideos',
         key,
         expiresIn,
         operation: 'getObject',
@@ -295,9 +382,7 @@ export function isS3Configured(): boolean {
         config.AWS_ACCESS_KEY_ID &&
         config.AWS_SECRET_ACCESS_KEY &&
         config.AWS_REGION &&
-        config.AWS_S3_COURSES_BUCKET &&
-        config.AWS_S3_RAW_VIDEOS_BUCKET &&
-        config.AWS_S3_PROCESSED_VIDEOS_BUCKET
+        config.AWS_S3_COURSES_BUCKET
     );
 }
 
@@ -308,11 +393,8 @@ export function getS3Status() {
     return {
         configured: isS3Configured(),
         region: config.AWS_REGION,
-        buckets: {
-            courses: config.AWS_S3_COURSES_BUCKET,
-            rawVideos: config.AWS_S3_RAW_VIDEOS_BUCKET,
-            processedVideos: config.AWS_S3_PROCESSED_VIDEOS_BUCKET,
-        },
+        bucket: config.AWS_S3_COURSES_BUCKET,
+        prefixes: S3_CONFIG.PREFIXES,
     };
 }
 

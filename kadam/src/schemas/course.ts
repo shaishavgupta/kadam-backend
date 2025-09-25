@@ -12,11 +12,6 @@ export const ContentTypeSchema = Type.Union([
 ]);
 
 // Base schemas matching existing interfaces
-export const TagSchema = Type.Object({
-    id: Type.Number(),
-    name: Type.String()
-});
-
 export const CategorySchema = Type.Object({
     id: Type.Number(),
     name: Type.String(),
@@ -30,6 +25,7 @@ export const ModuleSchema = Type.Object({
     position: Type.Number(),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
+    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
     approved_at: Type.Optional(Type.String({ format: 'date-time' })),
     approved_by: Type.Optional(Type.Number()),
     created_at: Type.String({ format: 'date-time' }),
@@ -75,8 +71,8 @@ export const VectorSchema = Type.Object({
     id: Type.Number(),
     string: Type.String(),
     vector: Type.Array(Type.Number()),
-    created_at: Type.Date(),
-    updated_at: Type.Date(),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' }),
     source: Type.Union([Type.Literal('contents'), Type.Literal('courses')]),
     source_id: Type.Number()
 });
@@ -101,7 +97,6 @@ export const CreateCourseRequestSchema = Type.Object({
     description: Type.String(),
     creator_id: Type.Number(),
     category_id: Type.Number(),
-    tags: Type.Array(Type.String()),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
     price: Type.Number(),
@@ -123,7 +118,8 @@ export const CreateModuleRequestSchema = Type.Object({
     description: Type.String(),
     position: Type.Number(),
     is_paid: Type.Boolean(),
-    is_active: Type.Boolean()
+    is_active: Type.Boolean(),
+    thumbnail_url: Type.Optional(Type.String({ format: 'uri' }))
 });
 
 export const PublishCourseRequestSchema = Type.Object({
@@ -179,18 +175,6 @@ export const CategoryIdParamSchema = Type.Object({
     categoryId: Type.String({ pattern: '^[0-9]+$' })
 });
 
-export const TagsSearchQuerySchema = Type.Object({
-    contentName: Type.Optional(Type.String()),
-    courseName: Type.Optional(Type.String()),
-    moduleName: Type.Optional(Type.String())
-});
-
-export const TagsSearchResponseSchema = Type.Object({
-    success: Type.Boolean(),
-    data: Type.Array(TagSchema),
-    message: Type.String()
-});
-
 export const ModulesResponseSchema = ApiResponseSchema(Type.Array(ModuleSchema));
 export const PopularCategoriesResponseSchema = ApiResponseSchema(Type.Array(CategorySchema));
 export const CoursesByCategoryResponseSchema = ApiResponseSchema(PaginatedCoursesResponseSchema);
@@ -206,7 +190,6 @@ export const UnpublishCourseResponseSchema = Type.Object({
 
 // Export inferred TypeScript types using Static
 export type ContentType = Static<typeof ContentTypeSchema>;
-export type Tag = Static<typeof TagSchema>;
 export type Category = Static<typeof CategorySchema>;
 export type Module = Static<typeof ModuleSchema>;
 export type Content = Static<typeof ContentSchema>;
@@ -224,7 +207,6 @@ export type CourseIdParam = Static<typeof CourseIdParamSchema>;
 export type CourseCreatorIdParam = Static<typeof CourseCreatorIdParamSchema>;
 export type CourseIdParam2 = Static<typeof CourseIdParamSchema2>;
 export type CategoryIdParam = Static<typeof CategoryIdParamSchema>;
-export type TagsSearchQuery = Static<typeof TagsSearchQuerySchema>;
 
 // Course list response schema based on tasks.txt structure
 export const CourseListItemSchema = Type.Object({
@@ -267,12 +249,172 @@ export const UserStatsResponseSchema = Type.Object({
     message: Type.String()
 });
 
+// Module Management Schemas
+export const CreateModuleRequestSchemaNew = Type.Object({
+    name: Type.String({ minLength: 1 }),
+    description: Type.String({ minLength: 1 }),
+    position: Type.Number({ minimum: 1 }),
+    is_paid: Type.Boolean(),
+    is_active: Type.Boolean(),
+    thumbnail_url: Type.Optional(Type.String({ format: 'uri' }))
+});
+
+export const UpdateModuleRequestSchema = Type.Object({
+    name: Type.Optional(Type.String({ minLength: 1 })),
+    description: Type.Optional(Type.String({ minLength: 1 })),
+    position: Type.Optional(Type.Number({ minimum: 1 })),
+    is_paid: Type.Optional(Type.Boolean()),
+    is_active: Type.Optional(Type.Boolean()),
+    thumbnail_url: Type.Optional(Type.String({ format: 'uri' }))
+});
+
+export const ModuleIdParamSchema = Type.Object({
+    moduleId: Type.String({ pattern: '^[0-9]+$' })
+});
+
+export const ModulesResponseSchemaNew = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        modules: Type.Array(ModuleSchema),
+        total: Type.Number()
+    }),
+    message: Type.String()
+});
+
+export const ModuleResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: ModuleSchema,
+    message: Type.String()
+});
+
+export const DeleteModuleResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        moduleId: Type.Number(),
+        deletedAt: Type.String({ format: 'date-time' })
+    }),
+    message: Type.String()
+});
+
+// Content Management Schemas
+export const CreateContentRequestSchemaNew = Type.Object({
+    name: Type.String({ minLength: 1 }),
+    content_type: Type.String({ minLength: 1 }),
+    position: Type.Number({ minimum: 1 }),
+    is_paid: Type.Boolean(),
+    is_active: Type.Boolean(),
+    url: Type.Optional(Type.String({ format: 'uri' })),
+    duration: Type.Optional(Type.Number({ minimum: 0 })),
+    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    category_id: Type.Optional(Type.Number()),
+    next_content_id: Type.Optional(Type.Number())
+});
+
+export const UpdateContentRequestSchema = Type.Object({
+    name: Type.Optional(Type.String({ minLength: 1 })),
+    content_type: Type.Optional(Type.String({ minLength: 1 })),
+    position: Type.Optional(Type.Number({ minimum: 1 })),
+    is_paid: Type.Optional(Type.Boolean()),
+    is_active: Type.Optional(Type.Boolean()),
+    url: Type.Optional(Type.String({ format: 'uri' })),
+    duration: Type.Optional(Type.Number({ minimum: 0 })),
+    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    category_id: Type.Optional(Type.Number()),
+    next_content_id: Type.Optional(Type.Number())
+});
+
+export const ContentIdParamSchema = Type.Object({
+    contentId: Type.String({ pattern: '^[0-9]+$' })
+});
+
+export const ContentResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        content: Type.Array(ContentWithModuleSchema),
+        total: Type.Number()
+    }),
+    message: Type.String()
+});
+
+export const SingleContentResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: ContentWithModuleSchema,
+    message: Type.String()
+});
+
+export const DeleteContentResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        contentId: Type.Number(),
+        deletedAt: Type.String({ format: 'date-time' })
+    }),
+    message: Type.String()
+});
+
+// Enhanced Course Schema
+export const CourseWithModulesSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    description: Type.String(),
+    is_paid: Type.Boolean(),
+    price: Type.Number(),
+    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    certificate_url: Type.String({ format: 'uri' }),
+    rank: Type.Number(),
+    published_at: Type.Optional(Type.String({ format: 'date-time' })),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' }),
+    totalModules: Type.Number(),
+    totalContent: Type.Number(),
+    modules: Type.Array(Type.Object({
+        id: Type.Number(),
+        name: Type.String(),
+        description: Type.String(),
+        position: Type.Number(),
+        course_id: Type.Number(),
+        is_paid: Type.Boolean(),
+        is_active: Type.Boolean(),
+        thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+        approved_at: Type.Optional(Type.String({ format: 'date-time' })),
+        approved_by: Type.Optional(Type.Number()),
+        created_at: Type.String({ format: 'date-time' }),
+        updated_at: Type.String({ format: 'date-time' }),
+        contentCount: Type.Number(),
+        content: Type.Array(ContentWithModuleSchema)
+    }))
+});
+
+export const CourseWithModulesResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: CourseWithModulesSchema,
+    message: Type.String()
+});
+
 export type CourseListItem = Static<typeof CourseListItemSchema>;
 export type CourseListData = Static<typeof CourseListDataSchema>;
 export type CourseListResponse = Static<typeof CourseListResponseSchema>;
 export type UserStats = Static<typeof UserStatsSchema>;
 export type UserStatsResponse = Static<typeof UserStatsResponseSchema>;
-export type TagsSearchResponse = Static<typeof TagsSearchResponseSchema>;
 export type PublishCourseResponse = Static<typeof PublishCourseResponseSchema>;
 export type UnpublishCourseResponse = Static<typeof UnpublishCourseResponseSchema>;
+
+// Module Management Types
+export type CreateModuleRequestNew = Static<typeof CreateModuleRequestSchemaNew>;
+export type UpdateModuleRequest = Static<typeof UpdateModuleRequestSchema>;
+export type ModuleIdParam = Static<typeof ModuleIdParamSchema>;
+export type ModulesResponseNew = Static<typeof ModulesResponseSchemaNew>;
+export type ModuleResponse = Static<typeof ModuleResponseSchema>;
+export type DeleteModuleResponse = Static<typeof DeleteModuleResponseSchema>;
+
+// Content Management Types
+export type CreateContentRequestNew = Static<typeof CreateContentRequestSchemaNew>;
+export type UpdateContentRequest = Static<typeof UpdateContentRequestSchema>;
+export type ContentIdParam = Static<typeof ContentIdParamSchema>;
+export type ContentResponse = Static<typeof ContentResponseSchema>;
+export type SingleContentResponse = Static<typeof SingleContentResponseSchema>;
+export type DeleteContentResponse = Static<typeof DeleteContentResponseSchema>;
+
+// Enhanced Course Types
+export type CourseWithModules = Static<typeof CourseWithModulesSchema>;
+export type CourseWithModulesResponse = Static<typeof CourseWithModulesResponseSchema>;
 

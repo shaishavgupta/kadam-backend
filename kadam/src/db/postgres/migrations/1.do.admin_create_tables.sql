@@ -7,6 +7,7 @@ CREATE TABLE admins (
   name TEXT NOT NULL,
   email TEXT UNIQUE NOT NULL,
   phone TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
   is_active BOOLEAN,
   last_active_at TIMESTAMP,
   profile_pic TEXT

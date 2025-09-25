@@ -1,5 +1,5 @@
 import { CoursesRepository } from "../repository/courses.repository";
-import { Tag, Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
+import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
 import { CourseListData, UserStats } from "../schemas/course";
 
 export class CoursesService {
@@ -38,15 +38,6 @@ export class CoursesService {
             return await this.repository.getModulesByCreatorId(creatorId);
         } catch (error) {
             console.error("Error getting modules by creator ID:", error);
-            return [];
-        }
-    }
-
-    async searchTags(contentName?: string, courseName?: string, moduleName?: string): Promise<Tag[]> {
-        try {
-            return await this.repository.searchTags(contentName, courseName, moduleName);
-        } catch (error) {
-            console.error("Error searching tags:", error);
             return [];
         }
     }
@@ -249,6 +240,126 @@ export class CoursesService {
         } catch (error) {
             console.error("Error in fuzzy search combined:", error);
             return { courses: [], contents: [] };
+        }
+    }
+
+    // Module Management Methods
+    async getModulesByCourseId(courseId: number): Promise<Module[]> {
+        try {
+            return await this.repository.getModulesByCourseId(courseId);
+        } catch (error) {
+            console.error("Error getting modules by course ID:", error);
+            return [];
+        }
+    }
+
+    async createModule(courseId: number, moduleData: {
+        name: string;
+        description: string;
+        position: number;
+        is_paid: boolean;
+        is_active: boolean;
+        thumbnail_url?: string;
+    }): Promise<Module | null> {
+        try {
+            return await this.repository.createModule(courseId, moduleData);
+        } catch (error) {
+            console.error("Error creating module:", error);
+            return null;
+        }
+    }
+
+    async updateModule(moduleId: number, moduleData: {
+        name?: string;
+        description?: string;
+        position?: number;
+        is_paid?: boolean;
+        is_active?: boolean;
+        thumbnail_url?: string;
+    }): Promise<Module | null> {
+        try {
+            return await this.repository.updateModule(moduleId, moduleData);
+        } catch (error) {
+            console.error("Error updating module:", error);
+            return null;
+        }
+    }
+
+    async deleteModule(moduleId: number): Promise<boolean> {
+        try {
+            return await this.repository.deleteModule(moduleId);
+        } catch (error) {
+            console.error("Error deleting module:", error);
+            return false;
+        }
+    }
+
+    // Content Management Methods
+    async getContentByModuleId(moduleId: number): Promise<ContentWithModule[]> {
+        try {
+            return await this.repository.getContentByModuleId(moduleId);
+        } catch (error) {
+            console.error("Error getting content by module ID:", error);
+            return [];
+        }
+    }
+
+    async createContent(moduleId: number, contentData: {
+        name: string;
+        content_type: string;
+        position: number;
+        is_paid: boolean;
+        is_active: boolean;
+        url?: string;
+        duration?: number;
+        thumbnail_url?: string;
+        category_id?: number;
+        next_content_id?: number;
+    }): Promise<ContentWithModule | null> {
+        try {
+            return await this.repository.createContent(moduleId, contentData);
+        } catch (error) {
+            console.error("Error creating content:", error);
+            return null;
+        }
+    }
+
+    async updateContent(contentId: number, contentData: {
+        name?: string;
+        content_type?: string;
+        position?: number;
+        is_paid?: boolean;
+        is_active?: boolean;
+        url?: string;
+        duration?: number;
+        thumbnail_url?: string;
+        category_id?: number;
+        next_content_id?: number;
+    }): Promise<ContentWithModule | null> {
+        try {
+            return await this.repository.updateContent(contentId, contentData);
+        } catch (error) {
+            console.error("Error updating content:", error);
+            return null;
+        }
+    }
+
+    async deleteContent(contentId: number): Promise<boolean> {
+        try {
+            return await this.repository.deleteContent(contentId);
+        } catch (error) {
+            console.error("Error deleting content:", error);
+            return false;
+        }
+    }
+
+    // Enhanced Course Data Method
+    async getCourseWithModulesAndContent(courseId: number): Promise<any> {
+        try {
+            return await this.repository.getCourseWithModulesAndContent(courseId);
+        } catch (error) {
+            console.error("Error getting course with modules and content:", error);
+            return null;
         }
     }
 }

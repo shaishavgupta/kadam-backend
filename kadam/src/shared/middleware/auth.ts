@@ -69,7 +69,7 @@ export const requireAdmin = async (request: AuthenticatedRequest, reply: Fastify
 };
 
 export const requireCreator = async (request: AuthenticatedRequest, reply: FastifyReply) => {
-	if (!request.user || request.user.userType !== 'creator') {
+	if (!request.user || (request.user.userType !== 'creator' && request.user.userType !== 'admin')) {
 		return reply.status(403).send({
 			success: false,
 			message: 'Creator access required'
@@ -78,7 +78,7 @@ export const requireCreator = async (request: AuthenticatedRequest, reply: Fasti
 };
 
 export const requireUser = async (request: AuthenticatedRequest, reply: FastifyReply) => {
-	if (!request.user || request.user.userType !== 'user') {
+	if (!request.user || (request.user.userType !== 'user' && request.user.userType !== 'admin')) {
 		return reply.status(403).send({
 			success: false,
 			message: 'User access required'

@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
 import { bullMQManager, QUEUE_NAMES, VideoProcessingJobData, CourseVideoProcessingJobData, JOB_TYPES } from '../infra';
-import { downloadFile, uploadFile, S3_BUCKETS } from '../infra/aws/s3';
+import { downloadFile, uploadFile, S3_CONFIG } from '../infra/aws/s3';
 import { existsSync, mkdirSync, unlinkSync, readFileSync, statSync } from 'fs';
 import { join, basename, extname } from 'path';
 import { tmpdir } from 'os';
@@ -622,11 +622,17 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
         outputDir = join(tempDir, 'output');
         mkdirSync(outputDir, { recursive: true });
 
-        // Download video from S3 raw-videos bucket
+        // Download video from S3 raw-videos prefix
         console.log(`📥 Downloading video from S3: ${videoUrl}`);
+
+        // Extract the key from the full URL (remove the bucket and prefix parts)
+        const urlParts = videoUrl.split('/');
+        const keyIndex = urlParts.findIndex(part => part === 'RawVideos') + 1;
+        const key = urlParts.slice(keyIndex).join('/');
+
         const videoBuffer = await downloadFile({
-            bucket: 'RAW_VIDEOS',
-            key: videoUrl
+            prefix: 'rawVideos',
+            key: key
         });
 
         // Save video to temporary file
@@ -733,16 +739,21 @@ async function uploadResolutionDirectory(
         const playlistPath = join(resolutionDir, 'playlist.m3u8');
         if (existsSync(playlistPath)) {
             const playlistBuffer = readFileSync(playlistPath);
-            const playlistKey = `${courseId}/${videoId}/${resolution}/playlist.m3u8`;
+            // For now, we'll use videoId as contentId and assume moduleId is 1
+            // TODO: Update this to get actual moduleId and contentId from database
+            const moduleId = 1; // This should be retrieved from the content record
+            const contentId = videoId;
+            const playlistKey = `${courseId}/${moduleId}/${contentId}/${resolution}/playlist.m3u8`;
 
             await uploadFile({
-                bucket: 'PROCESSED_VIDEOS',
+                prefix: 'processedVideos',
                 key: playlistKey,
                 body: playlistBuffer,
                 contentType: 'application/vnd.apple.mpegurl',
                 metadata: {
                     courseId: courseId.toString(),
-                    videoId: videoId.toString(),
+                    moduleId: moduleId.toString(),
+                    contentId: contentId.toString(),
                     resolution,
                     fileType: 'playlist'
                 }
@@ -753,16 +764,21 @@ async function uploadResolutionDirectory(
         for (const segmentFile of segmentFiles) {
             const segmentBuffer = readFileSync(segmentFile);
             const segmentFileName = basename(segmentFile);
-            const segmentKey = `${courseId}/${videoId}/${resolution}/${segmentFileName}`;
+            // For now, we'll use videoId as contentId and assume moduleId is 1
+            // TODO: Update this to get actual moduleId and contentId from database
+            const moduleId = 1; // This should be retrieved from the content record
+            const contentId = videoId;
+            const segmentKey = `${courseId}/${moduleId}/${contentId}/${resolution}/${segmentFileName}`;
 
             await uploadFile({
-                bucket: 'PROCESSED_VIDEOS',
+                prefix: 'processedVideos',
                 key: segmentKey,
                 body: segmentBuffer,
                 contentType: 'video/mp2t',
                 metadata: {
                     courseId: courseId.toString(),
-                    videoId: videoId.toString(),
+                    moduleId: moduleId.toString(),
+                    contentId: contentId.toString(),
                     resolution,
                     fileType: 'segment'
                 }
@@ -786,16 +802,21 @@ async function uploadMasterPlaylist(
         console.log(`📤 Uploading master playlist for video ${videoId}...`);
 
         const playlistBuffer = readFileSync(masterPlaylistPath);
-        const playlistKey = `${courseId}/${videoId}/master.m3u8`;
+        // For now, we'll use videoId as contentId and assume moduleId is 1
+        // TODO: Update this to get actual moduleId and contentId from database
+        const moduleId = 1; // This should be retrieved from the content record
+        const contentId = videoId;
+        const playlistKey = `${courseId}/${moduleId}/${contentId}/master.m3u8`;
 
         await uploadFile({
-            bucket: 'PROCESSED_VIDEOS',
+            prefix: 'processedVideos',
             key: playlistKey,
             body: playlistBuffer,
             contentType: 'application/vnd.apple.mpegurl',
             metadata: {
                 courseId: courseId.toString(),
-                videoId: videoId.toString(),
+                moduleId: moduleId.toString(),
+                contentId: contentId.toString(),
                 fileType: 'master_playlist'
             }
         });

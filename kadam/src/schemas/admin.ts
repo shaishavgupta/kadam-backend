@@ -29,7 +29,7 @@ export const DashboardDataSchema = Type.Object({
 // Admin Login Schemas
 export const AdminLoginRequestSchema = Type.Object({
     email: Type.String({ format: 'email' }),
-    token: Type.String()
+    password: Type.String({ minLength: 6 })
 });
 
 export const AdminLoginResponseSchema = Type.Object({
@@ -39,7 +39,7 @@ export const AdminLoginResponseSchema = Type.Object({
         user: Type.Object({
             id: Type.Number(),
             email: Type.String(),
-            role: Type.Union([Type.Literal('admin'), Type.Literal('super_admin')])
+            name: Type.String()
         })
     })),
     message: Type.String()
@@ -183,6 +183,45 @@ export const AdminCoursesResponseSchema = Type.Object({
     message: Type.String()
 });
 
+// Video Metadata Schemas
+export const VideoMetadataSchema = Type.Object({
+    title: Type.String({ minLength: 1 }),
+    description: Type.Optional(Type.String()),
+    duration: Type.Optional(Type.Number({ minimum: 0 })),
+    position: Type.Number({ minimum: 1 }),
+    is_paid: Type.Boolean(),
+    is_active: Type.Boolean(),
+    module_name: Type.Optional(Type.String()),
+    url: Type.String({ minLength: 1 }),
+    thumbnail_url: Type.Optional(Type.String())
+});
+
+export const CreateContentsRequestSchema = Type.Object({
+    videos: Type.Array(VideoMetadataSchema, { minItems: 1 })
+});
+
+export const CreateContentsResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        createdContents: Type.Array(Type.Object({
+            id: Type.Number(),
+            title: Type.String(),
+            description: Type.Optional(Type.String()),
+            duration: Type.Optional(Type.Number()),
+            position: Type.Number(),
+            is_paid: Type.Boolean(),
+            is_active: Type.Boolean(),
+            module_name: Type.Optional(Type.String()),
+            url: Type.String(),
+            thumbnail_url: Type.Optional(Type.String()),
+            course_id: Type.Number(),
+            created_at: Type.String({ format: 'date-time' }),
+            updated_at: Type.String({ format: 'date-time' })
+        }))
+    }),
+    message: Type.String()
+});
+
 // Export inferred TypeScript types using Static
 export type AdminConfigurationRequest = Static<typeof AdminConfigurationRequestSchema>;
 export type AdminConfigurationResponse = Static<typeof AdminConfigurationResponseSchema>;
@@ -202,4 +241,7 @@ export type ReorderVideosRequest = Static<typeof ReorderVideosRequestSchema>;
 export type ReorderVideosResponse = Static<typeof ReorderVideosResponseSchema>;
 export type SoftDeleteVideoResponse = Static<typeof SoftDeleteVideoResponseSchema>;
 export type RejectedVideosResponse = Static<typeof RejectedVideosResponseSchema>;
+export type VideoMetadata = Static<typeof VideoMetadataSchema>;
+export type CreateContentsRequest = Static<typeof CreateContentsRequestSchema>;
+export type CreateContentsResponse = Static<typeof CreateContentsResponseSchema>;
 

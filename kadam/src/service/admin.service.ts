@@ -1,4 +1,4 @@
-import { AdminRepository, AdminToken, UnapprovedCourse, RejectedVideo } from "../repository/admin.repository";
+import { AdminRepository, UnapprovedCourse, RejectedVideo } from "../repository/admin.repository";
 import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, DashboardData, Admin } from "../shared/types/admin.types";
 import { UserRepository } from "../repository/users.repository";
 import { CreatorRepository } from "../repository/creators.repository";
@@ -10,6 +10,7 @@ import { CreateAdminRequest, CreateUserWithAuthRequest } from "../schemas/auth";
 import { PlanType } from "../shared/enums";
 import jwt from 'jsonwebtoken';
 import { authConfig } from '../config';
+import { UserType as UserTypeEnum } from "../shared/enums";
 
 export class AdminService {
     private adminRepository: AdminRepository;
@@ -113,27 +114,22 @@ export class AdminService {
     }
 
     // Enhanced Admin Authentication
-    async authenticateAdmin(token: string): Promise<{ admin: AdminToken; jwtToken: string } | null> {
+    async authenticateAdmin(email: string, password: string): Promise<{ admin: Admin; jwtToken: string } | null> {
         try {
-            const adminToken = await this.adminRepository.authenticateAdmin(token);
-            if (!adminToken) {
+            const admin = await this.adminRepository.authenticateAdmin(email, password);
+            if (!admin) {
                 return null;
             }
 
             // Generate JWT token for session management
             const jwtToken = jwt.sign(
-                {
-                    sub: adminToken.id,
-                    email: adminToken.email,
-                    role: adminToken.role,
-                    userType: 'admin'
-                },
+                { sub: admin.id, userType: UserTypeEnum.ADMIN },
                 authConfig.JWT_SECRET,
                 { expiresIn: '24h' }
             );
 
             return {
-                admin: adminToken,
+                admin,
                 jwtToken
             };
         } catch (error) {
@@ -269,5 +265,61 @@ export class AdminService {
             console.error("Error getting course details:", error);
             return null;
         }
+    }
+
+    // Create contents for a course
+    async createContents(courseId: number, videos: Array<{
+        title: string;
+        description?: string;
+        duration?: number;
+        position: number;
+        is_paid: boolean;
+        is_active: boolean;
+        module_name?: string;
+        url: string;
+        thumbnail_url?: string;
+    }>, adminEmail: string): Promise<Array<{
+        id: number;
+        title: string;
+        description?: string;
+        duration?: number;
+        position: number;
+        is_paid: boolean;
+        is_active: boolean;
+        module_name?: string;
+        url: string;
+        thumbnail_url?: string;
+        course_id: number;
+        created_at: string;
+        updated_at: string;
+    }>> {
+        try {
+            return await this.adminRepository.createContents(courseId, videos, adminEmail);
+        } catch (error) {
+            console.error("Error creating contents:", error);
+            throw error;
+        }
+    }
+
+    // Get course with modules and content
+    async getCourseWithModulesAndContent(courseId: number): Promise<any> {
+        try {
+            return await this.adminRepository.getCourseWithModulesAndContent(courseId);
+        } catch (error) {
+            console.error("Error getting course with modules and content:", error);
+            return null;
+        }
+    }
+
+    // Helper function to generate S3 URLs in new hierarchical structure
+    generateS3Urls(courseId: number, moduleId: number, contentId: number, fileName: string): {
+        videoUrl: string;
+        thumbnailUrl: string;
+    } {
+        const bucket = process.env.AWS_S3_COURSES_BUCKET || 'kadam-courses';
+        const videoUrl = `s3://${bucket}/RawVideos/${courseId}/${moduleId}/${contentId}/Video.${fileName.split('.').pop()}`;
+        const thumbnailUrl = `s3://${bucket}/RawVideos/${courseId}/${moduleId}/${contentId}/Thumbnail.${fileName.split('.').pop()}`;
+
+        return { videoUrl, thumbnailUrl };
     }
 }

@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { Type } from '@sinclair/typebox';
 import { AdminService } from '../service/admin.service';
 import {
     LoginPageContentResponseSchema,
@@ -19,7 +20,16 @@ import {
 import { AdminConfigurations } from '../shared/types';
 import { CoursesService } from '../service/courses.service';
 import { authMiddleware, AuthenticatedRequest, requireAdmin, requireUser } from '../shared/middleware/auth';
-import { generatePresignedUrl, uploadCourseContent, uploadRawVideo, uploadProcessedVideo } from '../infra/aws/s3';
+import {
+    generatePresignedUrl,
+    uploadRawVideo,
+    uploadProcessedVideo,
+    S3_CONFIG,
+    generateVideoUploadUrl,
+    generateVideoDownloadUrl,
+    generateThumbnailUploadUrl,
+    generateThumbnailDownloadUrl
+} from '../infra/aws/s3';
 import { bullMQManager, QUEUE_NAMES, JOB_TYPES, CourseVideoProcessingJobData } from '../infra/bullmq';
 
 const adminService = new AdminService();
@@ -147,12 +157,28 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
 
                 // Generate file key based on file type
                 let fileKey: string;
-                let bucketType: 'RAW_VIDEOS';
+                let prefix: keyof typeof S3_CONFIG.PREFIXES;
 
                 switch (fileType) {
                     case 'raw-video':
-                        fileKey = `raw-videos/${courseId}/${fileName}`;
-                        bucketType = 'RAW_VIDEOS';
+                        fileKey = `${courseId}/${fileName}`;
+                        prefix = 'rawVideos';
+                        break;
+                    case 'processed-video':
+                        fileKey = `${courseId}/${fileName}`;
+                        prefix = 'processedVideos';
+                        break;
+                    case 'thumbnail':
+                        fileKey = `${courseId}/${fileName}`;
+                        prefix = 'thumbnails';
+                        break;
+                    case 'certificate':
+                        fileKey = `${courseId}/${fileName}`;
+                        prefix = 'certificates';
+                        break;
+                    case 'course-material':
+                        fileKey = `${courseId}/${fileName}`;
+                        prefix = 'courseMaterials';
                         break;
                     default:
                         reply.status(400).send({
@@ -172,7 +198,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
 
                 // Generate presigned URL (expires in 1 hour)
                 const presignedUrl = await generatePresignedUrl({
-                    bucket: bucketType,
+                    prefix: prefix,
                     key: fileKey,
                     expiresIn: 3600,
                     operation: 'putObject'
@@ -274,7 +300,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 // 1. Fetching all video URLs from the repository for the course
                 // 2. Creating individual video processing jobs for each video
                 // 3. Processing each video to HLS format with multiple resolutions
-                // 4. Uploading processed videos to S3 processed-videos bucket
+                // 4. Uploading processed videos to S3 processed-videos prefix
                 // 5. Generating and uploading thumbnails
                 // 6. Cleaning up temporary files
                 const videoJob = await bullMQManager.addJob(
@@ -356,5 +382,191 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 };
             }
         });
+    });
+
+    // New hierarchical structure endpoints
+    // POST /media/video-upload-url
+    fastify.post('/video-upload-url', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Media - Hierarchical Structure'],
+            summary: 'Generate presigned URL for video upload',
+            description: 'Generate presigned URL for uploading video files in the new hierarchical structure',
+            body: Type.Object({
+                courseId: Type.Number(),
+                moduleId: Type.Number(),
+                contentId: Type.Number(),
+                fileName: Type.String(),
+                expiresIn: Type.Optional(Type.Number({ minimum: 60, maximum: 3600 }))
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Object({
+                        uploadUrl: Type.String(),
+                        fileKey: Type.String(),
+                        expiresIn: Type.Number()
+                    }),
+                    message: Type.String()
+                }),
+                400: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Null(),
+                    message: Type.String()
+                })
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const { courseId, moduleId, contentId, fileName, expiresIn = 3600 } = request.body as any;
+
+            const uploadUrl = await generateVideoUploadUrl(courseId, moduleId, contentId, fileName, expiresIn);
+            const fileKey = `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/${contentId}/Video.${fileName.split('.').pop()}`;
+
+            return {
+                success: true,
+                data: {
+                    uploadUrl,
+                    fileKey,
+                    expiresIn
+                },
+                message: 'Video upload URL generated successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+            reply.status(400);
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // POST /media/thumbnail-upload-url
+    fastify.post('/thumbnail-upload-url', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Media - Hierarchical Structure'],
+            summary: 'Generate presigned URL for thumbnail upload',
+            description: 'Generate presigned URL for uploading thumbnail files in the new hierarchical structure',
+            body: Type.Object({
+                courseId: Type.Number(),
+                moduleId: Type.Optional(Type.Number()),
+                contentId: Type.Optional(Type.Number()),
+                fileName: Type.String(),
+                expiresIn: Type.Optional(Type.Number({ minimum: 60, maximum: 3600 }))
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Object({
+                        uploadUrl: Type.String(),
+                        fileKey: Type.String(),
+                        expiresIn: Type.Number()
+                    }),
+                    message: Type.String()
+                }),
+                400: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Null(),
+                    message: Type.String()
+                })
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const { courseId, moduleId, contentId, fileName, expiresIn = 3600 } = request.body as any;
+
+            const uploadUrl = await generateThumbnailUploadUrl(courseId, moduleId, contentId, fileName, expiresIn);
+
+            let fileKey: string;
+            if (contentId && moduleId) {
+                fileKey = `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/${contentId}/Thumbnail.${fileName.split('.').pop()}`;
+            } else if (moduleId) {
+                fileKey = `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/Thumbnail.${fileName.split('.').pop()}`;
+            } else {
+                fileKey = `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/Thumbnail.${fileName.split('.').pop()}`;
+            }
+
+            return {
+                success: true,
+                data: {
+                    uploadUrl,
+                    fileKey,
+                    expiresIn
+                },
+                message: 'Thumbnail upload URL generated successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+            reply.status(400);
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // POST /media/video-download-url
+    fastify.post('/video-download-url', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Media - Hierarchical Structure'],
+            summary: 'Generate presigned URL for video download',
+            description: 'Generate presigned URL for downloading processed video files',
+            body: Type.Object({
+                courseId: Type.Number(),
+                moduleId: Type.Number(),
+                contentId: Type.Number(),
+                fileName: Type.String(),
+                expiresIn: Type.Optional(Type.Number({ minimum: 60, maximum: 3600 }))
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Object({
+                        downloadUrl: Type.String(),
+                        fileKey: Type.String(),
+                        expiresIn: Type.Number()
+                    }),
+                    message: Type.String()
+                }),
+                400: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Null(),
+                    message: Type.String()
+                })
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const { courseId, moduleId, contentId, fileName, expiresIn = 3600 } = request.body as any;
+
+            const downloadUrl = await generateVideoDownloadUrl(courseId, moduleId, contentId, fileName, expiresIn);
+            const fileKey = `${S3_CONFIG.PREFIXES.processedVideos}/${courseId}/${moduleId}/${contentId}/master/${fileName}`;
+
+            return {
+                success: true,
+                data: {
+                    downloadUrl,
+                    fileKey,
+                    expiresIn
+                },
+                message: 'Video download URL generated successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+            reply.status(400);
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
     });
 }

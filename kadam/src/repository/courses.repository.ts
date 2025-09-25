@@ -1,5 +1,5 @@
 import { db } from "../infra/db";
-import { ContentType, Tag, Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
+import { ContentType, Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
 import { CourseListItem, CourseListData, UserStats } from "../schemas/course";
 
 export class CoursesRepository {
@@ -143,49 +143,16 @@ export class CoursesRepository {
   async getModulesByCreatorId(creatorId: number): Promise<Module[]> {
     try {
       const result = await db.query(
-        `SELECT * FROM modules WHERE creator_id = $1 ORDER BY created_at DESC`,
+        `SELECT m.* FROM modules m
+         INNER JOIN courses c ON m.course_id = c.id
+         INNER JOIN course_creators cc ON c.id = cc.course_id
+         WHERE cc.creator_id = $1 AND cc.is_active = true
+         ORDER BY m.created_at DESC`,
         [creatorId]
       );
       return result.rows as Module[];
     } catch (error) {
       console.error("Error getting modules by creator ID:", error);
-      return [];
-    }
-  }
-
-  async searchTags(contentName?: string, courseName?: string, moduleName?: string): Promise<Tag[]> {
-    try {
-      let query = `SELECT DISTINCT t.* FROM tags t`;
-      const conditions: string[] = [];
-      const params: any[] = [];
-      let paramCount = 1;
-
-      if (contentName) {
-        conditions.push(`t.name ILIKE $${paramCount}`);
-        params.push(`%${contentName}%`);
-        paramCount++;
-      }
-
-      if (courseName) {
-        conditions.push(`t.name ILIKE $${paramCount}`);
-        params.push(`%${courseName}%`);
-        paramCount++;
-      }
-
-      if (moduleName) {
-        conditions.push(`t.name ILIKE $${paramCount}`);
-        params.push(`%${moduleName}%`);
-        paramCount++;
-      }
-
-      if (conditions.length > 0) {
-        query += ` WHERE ${conditions.join(' OR ')}`;
-      }
-
-      const result = await db.query(query, params);
-      return result.rows as Tag[];
-    } catch (error) {
-      console.error("Error searching tags:", error);
       return [];
     }
   }
@@ -197,36 +164,6 @@ export class CoursesRepository {
     } catch (error) {
       console.error("Error getting categories:", error);
       return [];
-    }
-  }
-
-  async createTag(name: string, type: ContentType): Promise<Tag | null> {
-    try {
-      if (!Object.values(ContentType).includes(type)) {
-        throw new Error(`Invalid content type: ${type}`);
-      }
-
-      const existingTag = await db.query(
-        `SELECT * FROM tags WHERE name = $1 AND type = $2`,
-        [name, type]
-      );
-
-      if (existingTag.rows.length > 0) {
-        return existingTag.rows[0] as Tag;
-      }
-
-      const result = await db.query(
-        `INSERT INTO tags (name, type) VALUES ($1, $2) RETURNING *`,
-        [name, type]
-      );
-
-      if (result.rows.length > 0) {
-        return result.rows[0] as Tag;
-      }
-      return null;
-    } catch (error) {
-      console.error("Error creating tag:", error);
-      return null;
     }
   }
 
@@ -260,10 +197,20 @@ export class CoursesRepository {
     try {
       await db.query('BEGIN');
 
+      // Validate creator exists
+      const creatorCheck = await db.query(
+        `SELECT id FROM creators WHERE id = $1`,
+        [courseData.creator_id]
+      );
+
+      if (creatorCheck.rows.length === 0) {
+        throw new Error(`Creator with ID ${courseData.creator_id} does not exist`);
+      }
+
       const courseResult = await db.query(
-        `INSERT INTO courses (name, description, creator_id, price, is_published, next_course_ids, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
-        [courseData.name, courseData.description, courseData.creator_id, courseData.price, false, courseData.next_course_ids || null]
+        `INSERT INTO courses (name, description, price, next_course_ids, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
+        [courseData.name, courseData.description, courseData.price, courseData.next_course_ids || null]
       );
 
       if (courseResult.rows.length === 0) {
@@ -271,6 +218,13 @@ export class CoursesRepository {
       }
 
       const course = courseResult.rows[0] as Course;
+
+      // Handle creator relationship
+      await db.query(
+        `INSERT INTO course_creators (course_id, creator_id, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())`,
+        [course.id, courseData.creator_id, true]
+      );
 
       // Handle categories
       if (courseData.categories && courseData.categories.length > 0) {
@@ -282,23 +236,13 @@ export class CoursesRepository {
         }
       }
 
-      // Handle tags
-      if (courseData.tags && courseData.tags.length > 0) {
-        for (const tagId of courseData.tags) {
-          await db.query(
-            `INSERT INTO course_tags (course_id, tag_id) VALUES ($1, $2)`,
-            [course.id, tagId]
-          );
-        }
-      }
-
       // Handle modules
       if (courseData.modules && courseData.modules.length > 0) {
         for (const moduleData of courseData.modules) {
           const moduleResult = await db.query(
-            `INSERT INTO modules (title, description, course_id, created_at, updated_at)
-                         VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *`,
-            [moduleData.title, moduleData.description, course.id]
+            `INSERT INTO modules (name, description, course_id, thumbnail_url, created_at, updated_at)
+                         VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
+            [moduleData.name, moduleData.description, course.id, moduleData.thumbnail_url || null]
           );
 
           if (moduleResult.rows.length === 0) {
@@ -331,6 +275,18 @@ export class CoursesRepository {
     try {
       await db.query('BEGIN');
 
+      // Validate creator exists if creator_id is provided
+      if (courseData.creator_id) {
+        const creatorCheck = await db.query(
+          `SELECT id FROM creators WHERE id = $1`,
+          [courseData.creator_id]
+        );
+
+        if (creatorCheck.rows.length === 0) {
+          throw new Error(`Creator with ID ${courseData.creator_id} does not exist`);
+        }
+      }
+
       const result = await db.query(
         `UPDATE courses SET name = $1, description = $2, price = $3, next_course_ids = $4, updated_at = NOW()
                  WHERE id = $5 RETURNING *`,
@@ -343,6 +299,16 @@ export class CoursesRepository {
 
       const course = result.rows[0] as Course;
 
+      // Update creator relationship if creator_id is provided
+      if (courseData.creator_id) {
+        await db.query(`DELETE FROM course_creators WHERE course_id = $1`, [id]);
+        await db.query(
+          `INSERT INTO course_creators (course_id, creator_id, is_active, created_at, updated_at)
+           VALUES ($1, $2, $3, NOW(), NOW())`,
+          [id, courseData.creator_id, true]
+        );
+      }
+
       // Update categories
       await db.query(`DELETE FROM course_categories WHERE course_id = $1`, [id]);
       if (courseData.categories && courseData.categories.length > 0) {
@@ -350,17 +316,6 @@ export class CoursesRepository {
           await db.query(
             `INSERT INTO course_categories (course_id, category_id) VALUES ($1, $2)`,
             [id, categoryId]
-          );
-        }
-      }
-
-      // Update tags
-      await db.query(`DELETE FROM course_tags WHERE course_id = $1`, [id]);
-      if (courseData.tags && courseData.tags.length > 0) {
-        for (const tagId of courseData.tags) {
-          await db.query(
-            `INSERT INTO course_tags (course_id, tag_id) VALUES ($1, $2)`,
-            [id, tagId]
           );
         }
       }
@@ -413,7 +368,7 @@ export class CoursesRepository {
   async publishCourse(id: number): Promise<boolean> {
     try {
       const result = await db.query(
-        `UPDATE courses SET is_published = true, published_at = NOW() WHERE id = $1`,
+        `UPDATE courses SET published_at = NOW() WHERE id = $1`,
         [id]
       );
       return (result.rowCount || 0) > 0;
@@ -426,7 +381,7 @@ export class CoursesRepository {
   async unpublishCourse(id: number): Promise<boolean> {
     try {
       const result = await db.query(
-        `UPDATE courses SET is_published = false, published_at = NULL WHERE id = $1`,
+        `UPDATE courses SET published_at = NULL WHERE id = $1`,
         [id]
       );
       return (result.rowCount || 0) > 0;
@@ -444,7 +399,7 @@ export class CoursesRepository {
       const coursesResult = await db.query(
         `SELECT c.* FROM courses c
                  JOIN course_categories cc ON c.id = cc.course_id
-                 WHERE cc.category_id = $1 AND c.is_published = true
+                 WHERE cc.category_id = $1 AND c.published_at IS NOT NULL
                  ORDER BY c.created_at DESC
                  LIMIT $2 OFFSET $3`,
         [categoryId, limit, offset]
@@ -454,7 +409,7 @@ export class CoursesRepository {
       const totalResult = await db.query(
         `SELECT COUNT(*) FROM courses c
                  JOIN course_categories cc ON c.id = cc.course_id
-                 WHERE cc.category_id = $1 AND c.is_published = true`,
+                 WHERE cc.category_id = $1 AND c.published_at IS NOT NULL`,
         [categoryId]
       );
 
@@ -631,8 +586,8 @@ export class CoursesRepository {
       id: result.rows[0].id,
       string: result.rows[0].string,
       vector: result.rows[0].vector,
-      created_at: result.rows[0].created_at,
-      updated_at: result.rows[0].updated_at,
+      created_at: result.rows[0].created_at.toISOString(),
+      updated_at: result.rows[0].updated_at.toISOString(),
       source: result.rows[0].source,
       source_id: result.rows[0].source_id
     };
@@ -655,8 +610,8 @@ export class CoursesRepository {
       id: result.rows[0].id,
       string: result.rows[0].string,
       vector: result.rows[0].vector,
-      created_at: result.rows[0].created_at,
-      updated_at: result.rows[0].updated_at,
+      created_at: result.rows[0].created_at.toISOString(),
+      updated_at: result.rows[0].updated_at.toISOString(),
       source: result.rows[0].source,
       source_id: result.rows[0].source_id
     };
@@ -676,8 +631,8 @@ export class CoursesRepository {
       id: result.rows[0].id,
       string: result.rows[0].string,
       vector: result.rows[0].vector,
-      created_at: result.rows[0].created_at,
-      updated_at: result.rows[0].updated_at,
+      created_at: result.rows[0].created_at.toISOString(),
+      updated_at: result.rows[0].updated_at.toISOString(),
       source: result.rows[0].source,
       source_id: result.rows[0].source_id
     };
@@ -697,8 +652,8 @@ export class CoursesRepository {
       id: row.id,
       string: row.string,
       vector: row.vector,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      created_at: row.created_at.toISOString(),
+      updated_at: row.updated_at.toISOString(),
       source: row.source,
       source_id: row.source_id
     }));
@@ -823,6 +778,343 @@ export class CoursesRepository {
     } catch (error) {
       console.error('Error in fuzzy search combined:', error);
       return { courses: [], contents: [] };
+    }
+  }
+
+  // Module Management Methods
+  async getModulesByCourseId(courseId: number): Promise<Module[]> {
+    try {
+      const result = await db.query(
+        `SELECT * FROM modules
+         WHERE course_id = $1 AND is_active = true
+         ORDER BY position ASC, created_at ASC`,
+        [courseId]
+      );
+      return result.rows as Module[];
+    } catch (error) {
+      console.error("Error getting modules by course ID:", error);
+      return [];
+    }
+  }
+
+  async createModule(courseId: number, moduleData: {
+    name: string;
+    description: string;
+    position: number;
+    is_paid: boolean;
+    is_active: boolean;
+    thumbnail_url?: string;
+  }): Promise<Module | null> {
+    try {
+      const result = await db.query(
+        `INSERT INTO modules (name, description, course_id, position, is_paid, is_active, thumbnail_url, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+         RETURNING *`,
+        [moduleData.name, moduleData.description, courseId, moduleData.position, moduleData.is_paid, moduleData.is_active, moduleData.thumbnail_url || null]
+      );
+      return result.rows[0] as Module;
+    } catch (error) {
+      console.error("Error creating module:", error);
+      return null;
+    }
+  }
+
+  async updateModule(moduleId: number, moduleData: {
+    name?: string;
+    description?: string;
+    position?: number;
+    is_paid?: boolean;
+    is_active?: boolean;
+    thumbnail_url?: string;
+  }): Promise<Module | null> {
+    try {
+      const updateFields = [];
+      const values = [];
+      let paramCount = 1;
+
+      if (moduleData.name !== undefined) {
+        updateFields.push(`name = $${paramCount}`);
+        values.push(moduleData.name);
+        paramCount++;
+      }
+      if (moduleData.description !== undefined) {
+        updateFields.push(`description = $${paramCount}`);
+        values.push(moduleData.description);
+        paramCount++;
+      }
+      if (moduleData.position !== undefined) {
+        updateFields.push(`position = $${paramCount}`);
+        values.push(moduleData.position);
+        paramCount++;
+      }
+      if (moduleData.is_paid !== undefined) {
+        updateFields.push(`is_paid = $${paramCount}`);
+        values.push(moduleData.is_paid);
+        paramCount++;
+      }
+      if (moduleData.is_active !== undefined) {
+        updateFields.push(`is_active = $${paramCount}`);
+        values.push(moduleData.is_active);
+        paramCount++;
+      }
+      if (moduleData.thumbnail_url !== undefined) {
+        updateFields.push(`thumbnail_url = $${paramCount}`);
+        values.push(moduleData.thumbnail_url);
+        paramCount++;
+      }
+
+      if (updateFields.length === 0) {
+        return null;
+      }
+
+      updateFields.push(`updated_at = NOW()`);
+      values.push(moduleId);
+
+      const result = await db.query(
+        `UPDATE modules SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+        values
+      );
+
+      return result.rows[0] as Module;
+    } catch (error) {
+      console.error("Error updating module:", error);
+      return null;
+    }
+  }
+
+  async deleteModule(moduleId: number): Promise<boolean> {
+    try {
+      const result = await db.query(
+        `UPDATE modules SET is_active = false, updated_at = NOW() WHERE id = $1`,
+        [moduleId]
+      );
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error("Error deleting module:", error);
+      return false;
+    }
+  }
+
+  // Content Management Methods
+  async getContentByModuleId(moduleId: number): Promise<ContentWithModule[]> {
+    try {
+      const result = await db.query(
+        `SELECT c.*, m.name as module_title, m.description as module_description
+         FROM contents c
+         LEFT JOIN modules m ON c.module_id = m.id
+         WHERE c.module_id = $1 AND c.is_active = true
+         ORDER BY c.position ASC, c.created_at ASC`,
+        [moduleId]
+      );
+      return result.rows as ContentWithModule[];
+    } catch (error) {
+      console.error("Error getting content by module ID:", error);
+      return [];
+    }
+  }
+
+  async createContent(moduleId: number, contentData: {
+    name: string;
+    content_type: string;
+    position: number;
+    is_paid: boolean;
+    is_active: boolean;
+    url?: string;
+    duration?: number;
+    thumbnail_url?: string;
+    category_id?: number;
+    next_content_id?: number;
+  }): Promise<ContentWithModule | null> {
+    try {
+      // Get course_id from module
+      const moduleResult = await db.query(
+        `SELECT course_id FROM modules WHERE id = $1`,
+        [moduleId]
+      );
+
+      if (moduleResult.rows.length === 0) {
+        throw new Error(`Module with ID ${moduleId} does not exist`);
+      }
+
+      const courseId = moduleResult.rows[0].course_id;
+
+      const result = await db.query(
+        `INSERT INTO contents (name, content_type, module_id, course_id, position, is_paid, is_active, url, duration, thumbnail_url, category_id, next_content_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+         RETURNING *`,
+        [contentData.name, contentData.content_type, moduleId, courseId, contentData.position, contentData.is_paid, contentData.is_active, contentData.url, contentData.duration, contentData.thumbnail_url, contentData.category_id, contentData.next_content_id]
+      );
+
+      const content = result.rows[0];
+      return {
+        ...content,
+        module_title: null,
+        module_description: null
+      } as ContentWithModule;
+    } catch (error) {
+      console.error("Error creating content:", error);
+      return null;
+    }
+  }
+
+  async updateContent(contentId: number, contentData: {
+    name?: string;
+    content_type?: string;
+    position?: number;
+    is_paid?: boolean;
+    is_active?: boolean;
+    url?: string;
+    duration?: number;
+    thumbnail_url?: string;
+    category_id?: number;
+    next_content_id?: number;
+  }): Promise<ContentWithModule | null> {
+    try {
+      const updateFields = [];
+      const values = [];
+      let paramCount = 1;
+
+      if (contentData.name !== undefined) {
+        updateFields.push(`name = $${paramCount}`);
+        values.push(contentData.name);
+        paramCount++;
+      }
+      if (contentData.content_type !== undefined) {
+        updateFields.push(`content_type = $${paramCount}`);
+        values.push(contentData.content_type);
+        paramCount++;
+      }
+      if (contentData.position !== undefined) {
+        updateFields.push(`position = $${paramCount}`);
+        values.push(contentData.position);
+        paramCount++;
+      }
+      if (contentData.is_paid !== undefined) {
+        updateFields.push(`is_paid = $${paramCount}`);
+        values.push(contentData.is_paid);
+        paramCount++;
+      }
+      if (contentData.is_active !== undefined) {
+        updateFields.push(`is_active = $${paramCount}`);
+        values.push(contentData.is_active);
+        paramCount++;
+      }
+      if (contentData.url !== undefined) {
+        updateFields.push(`url = $${paramCount}`);
+        values.push(contentData.url);
+        paramCount++;
+      }
+      if (contentData.duration !== undefined) {
+        updateFields.push(`duration = $${paramCount}`);
+        values.push(contentData.duration);
+        paramCount++;
+      }
+      if (contentData.thumbnail_url !== undefined) {
+        updateFields.push(`thumbnail_url = $${paramCount}`);
+        values.push(contentData.thumbnail_url);
+        paramCount++;
+      }
+      if (contentData.category_id !== undefined) {
+        updateFields.push(`category_id = $${paramCount}`);
+        values.push(contentData.category_id);
+        paramCount++;
+      }
+      if (contentData.next_content_id !== undefined) {
+        updateFields.push(`next_content_id = $${paramCount}`);
+        values.push(contentData.next_content_id);
+        paramCount++;
+      }
+
+      if (updateFields.length === 0) {
+        return null;
+      }
+
+      updateFields.push(`updated_at = NOW()`);
+      values.push(contentId);
+
+      const result = await db.query(
+        `UPDATE contents SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+        values
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const content = result.rows[0];
+      return {
+        ...content,
+        module_title: null,
+        module_description: null
+      } as ContentWithModule;
+    } catch (error) {
+      console.error("Error updating content:", error);
+      return null;
+    }
+  }
+
+  async deleteContent(contentId: number): Promise<boolean> {
+    try {
+      const result = await db.query(
+        `UPDATE contents SET is_active = false, updated_at = NOW() WHERE id = $1`,
+        [contentId]
+      );
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error("Error deleting content:", error);
+      return false;
+    }
+  }
+
+  // Enhanced Course Data Method
+  async getCourseWithModulesAndContent(courseId: number): Promise<any> {
+    try {
+      // Get course data
+      const courseResult = await db.query(
+        `SELECT * FROM courses WHERE id = $1`,
+        [courseId]
+      );
+
+      if (courseResult.rows.length === 0) {
+        return null;
+      }
+
+      const course = courseResult.rows[0];
+
+      // Get modules with content count
+      const modulesResult = await db.query(
+        `SELECT m.*, COUNT(c.id) as content_count
+         FROM modules m
+         LEFT JOIN contents c ON m.id = c.module_id AND c.is_active = true
+         WHERE m.course_id = $1 AND m.is_active = true
+         GROUP BY m.id
+         ORDER BY m.position ASC, m.created_at ASC`,
+        [courseId]
+      );
+
+      const modules = modulesResult.rows.map(module => ({
+        ...module,
+        contentCount: parseInt(module.content_count),
+        content: [] // Will be populated if needed
+      }));
+
+      // Get total counts
+      const totalModules = modules.length;
+      const totalContentResult = await db.query(
+        `SELECT COUNT(*) as total FROM contents WHERE course_id = $1 AND is_active = true`,
+        [courseId]
+      );
+      const totalContent = parseInt(totalContentResult.rows[0].total);
+
+      return {
+        ...course,
+        totalModules,
+        totalContent,
+        modules
+      };
+    } catch (error) {
+      console.error("Error getting course with modules and content:", error);
+      return null;
     }
   }
 }

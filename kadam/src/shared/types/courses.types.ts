@@ -2,11 +2,6 @@ import { ContentType } from '../enums';
 
 export { ContentType };
 
-export interface Tag {
-    id: number;
-    name: string;
-}
-
 export interface Category {
     id: number;
     name: string;
@@ -20,6 +15,7 @@ export interface Module {
     position: number;
     is_paid: boolean;
     is_active: boolean;
+    thumbnail_url?: string;
     approved_at?: Date;
     approved_by?: number;
     created_at: Date;
@@ -65,8 +61,8 @@ export interface Vector {
     id: number;
     string: string;
     vector: number[];
-    created_at: Date;
-    updated_at: Date;
+    created_at: string;
+    updated_at: string;
     source: 'contents' | 'courses';
     source_id: number;
 }
@@ -76,7 +72,6 @@ export interface CreateCourseRequest {
     description: string;
     creator_id: number;
     category_id: number;
-    tags: string[];
     is_paid: boolean;
     is_active: boolean;
     price: number;
@@ -92,6 +87,7 @@ export interface CreateModuleRequest {
     position: number;
     is_paid: boolean;
     is_active: boolean;
+    thumbnail_url?: string;
 }
 
 export interface CreateContentRequest {
@@ -114,7 +110,6 @@ export interface UpdateCourseRequest {
     description: string;
     creator_id: number;
     category_id: number;
-    tags: string[];
     is_paid: boolean;
     is_active: boolean;
     price: number;

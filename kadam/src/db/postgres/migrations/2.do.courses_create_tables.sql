@@ -1,8 +1,3 @@
-CREATE TABLE tags (
-  id BIGSERIAL PRIMARY KEY,
-  name TEXT UNIQUE NOT NULL
-);
-
 CREATE TABLE categories (
   id BIGSERIAL PRIMARY KEY,
   created_at TIMESTAMP DEFAULT (now()),
@@ -23,7 +18,7 @@ CREATE TABLE courses (
   is_active BOOLEAN,
   price decimal DEFAULT 0,
   thumbnail_url TEXT,
-  certificate_url TEXT NOT NULL,
+  certificate_url TEXT,
   priority FLOAT DEFAULT 0,
   rank FLOAT DEFAULT 0,
   rejected_at TIMESTAMP,
@@ -37,13 +32,6 @@ CREATE TABLE course_categories (
   id BIGSERIAL PRIMARY KEY,
   course_id BIGINT NOT NULL,
   category_id BIGINT NOT NULL,
-  created_at TIMESTAMP DEFAULT (now())
-);
-
-CREATE TABLE course_tags (
-  id BIGSERIAL PRIMARY KEY,
-  course_id BIGINT NOT NULL,
-  tag_id BIGINT NOT NULL,
   created_at TIMESTAMP DEFAULT (now())
 );
 
@@ -62,6 +50,8 @@ CREATE TABLE modules (
   updated_at TIMESTAMP NOT NULL,
   name TEXT NOT NULL,
   description TEXT NOT NULL,
+  course_id BIGINT NOT NULL,
+  thumbnail_url TEXT,
   approved_at TIMESTAMP,
   approved_by BIGINT,
   is_paid BOOLEAN NOT NULL DEFAULT true,
@@ -86,7 +76,10 @@ CREATE TABLE contents (
   url TEXT,
   duration INTEGER,
   thumbnail_url TEXT,
-  category_id BIGINT
+  category_id BIGINT,
+  rejected_at TIMESTAMP NULL,
+  rejected_by BIGINT NULL,
+  rejection_reason TEXT NULL
 );
 
 CREATE TABLE vectors (

@@ -38,6 +38,10 @@ export const PresignedUrlRequestSchema = Type.Object({
     courseId: Type.Number({ minimum: 1 }),
     fileType: Type.Union([
         Type.Literal('raw-video'),
+        Type.Literal('processed-video'),
+        Type.Literal('thumbnail'),
+        Type.Literal('certificate'),
+        Type.Literal('course-material')
     ])
 });
 

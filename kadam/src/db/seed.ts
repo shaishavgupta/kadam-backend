@@ -26,7 +26,6 @@ async function seedDatabase() {
         // Core entities first
         const adminIds = await seedAdmins();
         const categoryIds = await seedCategories();
-        const tagIds = await seedTags();
         const creatorIds = await seedCreators();
         const userIds = await seedUsers();
 
@@ -38,7 +37,6 @@ async function seedDatabase() {
 
         const courseIds = await seedCourses(categoryIds);
         await seedCourseCategories(courseIds, categoryIds);
-        await seedCourseTags(courseIds, tagIds);
         await seedCourseCreators(courseIds, creatorIds);
 
         const moduleIds = await seedModules(courseIds);
@@ -78,7 +76,6 @@ async function clearExistingData() {
         'contents',
         'modules',
         'course_creators',
-        'course_tags',
         'course_categories',
         'courses',
         'creator_achievements',
@@ -87,7 +84,6 @@ async function clearExistingData() {
         'qualifications',
         'users',
         'creators',
-        'tags',
         'categories',
         'admins'
     ];
@@ -151,29 +147,6 @@ async function seedCategories(): Promise<number[]> {
 
     console.log(`✅ Seeded ${categoryIds.length} categories`);
     return categoryIds;
-}
-
-async function seedTags(): Promise<number[]> {
-    console.log('🏷️ Seeding tags...');
-    const tags = [
-        'JavaScript', 'TypeScript', 'React', 'Node.js', 'Python',
-        'UI/UX', 'Figma', 'Photoshop', 'HTML', 'CSS',
-        'SEO', 'Social Media', 'Content Marketing', 'Analytics',
-        'Entrepreneurship', 'Leadership', 'Strategy', 'Finance',
-        'Machine Learning', 'Statistics', 'SQL', 'Excel'
-    ];
-
-    const tagIds: number[] = [];
-    for (const tag of tags) {
-        const result = await client.query(
-            `INSERT INTO tags (name) VALUES ($1) RETURNING id`,
-            [tag]
-        );
-        tagIds.push(result.rows[0].id);
-    }
-
-    console.log(`✅ Seeded ${tagIds.length} tags`);
-    return tagIds;
 }
 
 async function seedCreators(): Promise<number[]> {
@@ -473,25 +446,6 @@ async function seedCourseCategories(courseIds: number[], categoryIds: number[]):
     console.log(`✅ Linked ${courseIds.length} course-category relationships`);
 }
 
-async function seedCourseTags(courseIds: number[], tagIds: number[]): Promise<void> {
-    console.log('🔗 Linking courses with tags...');
-
-    // Link each course with 2-3 random tags
-    for (const courseId of courseIds) {
-        const numTags = Math.floor(Math.random() * 2) + 2; // 2-3 tags per course
-        const shuffledTags = [...tagIds].sort(() => 0.5 - Math.random());
-
-        for (let i = 0; i < numTags && i < shuffledTags.length; i++) {
-            await client.query(
-                `INSERT INTO course_tags (course_id, tag_id) VALUES ($1, $2)`,
-                [courseId, shuffledTags[i]]
-            );
-        }
-    }
-
-    console.log(`✅ Linked courses with tags`);
-}
-
 async function seedCourseCreators(courseIds: number[], creatorIds: number[]): Promise<void> {
     console.log('🔗 Linking courses with creators...');
 
@@ -695,7 +649,7 @@ async function printSeedingSummary(): Promise<void> {
     console.log('\n📊 === SEEDING SUMMARY ===');
 
     const tables = [
-        'admins', 'categories', 'tags', 'creators', 'users',
+        'admins', 'categories', 'creators', 'users',
         'qualifications', 'achievements', 'courses', 'modules', 'contents',
         'user_enrollments', 'user_badges', 'user_certificates', 'user_quiz_attempts',
         'admin_configurations', 'admin_activities'

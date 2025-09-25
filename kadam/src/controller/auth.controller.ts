@@ -170,7 +170,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         schema: {
             tags: ['Admin Authentication'],
             summary: 'Admin Login',
-            description: 'Authenticate admin user with token and generate JWT',
+            description: 'Authenticate admin user with email and password',
             body: AdminLoginRequestSchema,
             response: {
                 200: AdminLoginResponseSchema,
@@ -180,25 +180,16 @@ export default async function authRoutes(fastify: FastifyInstance) {
         }
     }, async (request: FastifyRequest<{ Body: AdminLoginRequest }>, reply: FastifyReply): Promise<AdminLoginResponse> => {
         try {
-            const { email, token } = request.body;
+            const { email, password } = request.body;
 
-            // Authenticate admin using the token
-            const authResult = await adminService.authenticateAdmin(token);
+            // Authenticate admin using email and password
+            const authResult = await adminService.authenticateAdmin(email, password);
 
             if (!authResult) {
                 reply.status(401);
                 return {
                     success: false,
-                    message: 'Invalid admin token or credentials'
-                };
-            }
-
-            // Verify email matches (optional additional check)
-            if (authResult.admin.email !== email) {
-                reply.status(401);
-                return {
-                    success: false,
-                    message: 'Email does not match admin token'
+                    message: 'Invalid email or password'
                 };
             }
 
@@ -209,7 +200,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
                     user: {
                         id: authResult.admin.id,
                         email: authResult.admin.email,
-                        role: authResult.admin.role
+                        name: authResult.admin.name
                     }
                 },
                 message: 'Admin authenticated successfully'

@@ -20,6 +20,8 @@ import {
     ReorderVideosResponseSchema,
     SoftDeleteVideoResponseSchema,
     RejectedVideosResponseSchema,
+    CreateContentsRequestSchema,
+    CreateContentsResponseSchema,
     UnapprovedCoursesResponse,
     CourseApprovalRequest,
     CourseApprovalResponse,
@@ -28,7 +30,9 @@ import {
     ReorderVideosRequest,
     ReorderVideosResponse,
     SoftDeleteVideoResponse,
-    RejectedVideosResponse
+    RejectedVideosResponse,
+    CreateContentsRequest,
+    CreateContentsResponse
 } from '../schemas/admin';
 import { PaginationQuerySchema } from '../schemas/common';
 import { Type } from '@sinclair/typebox';
@@ -555,6 +559,187 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                     limit: 10,
                     totalPages: 0
                 },
+                message: errorMessage
+            };
+        }
+    });
+
+    // Create contents for a course
+    fastify.post('/courses/:courseId/contents', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Admin - Content Management'],
+            summary: 'Create contents for a course',
+            description: 'Create video contents for a specific course',
+            params: Type.Object({
+                courseId: Type.String({ pattern: '^[0-9]+$' })
+            }),
+            body: CreateContentsRequestSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: CreateContentsResponseSchema,
+                400: CreateContentsResponseSchema,
+                404: CreateContentsResponseSchema,
+                500: CreateContentsResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CreateContentsResponse> => {
+        try {
+            const courseId = parseInt((request.params as any).courseId, 10);
+            const { videos } = request.body as CreateContentsRequest;
+            const adminEmail = request.user?.userID;
+
+            if (!adminEmail) {
+                reply.status(401);
+                return {
+                    success: false,
+                    data: {
+                        createdContents: []
+                    },
+                    message: 'Admin authentication required'
+                };
+            }
+
+            if (!videos || videos.length === 0) {
+                reply.status(400);
+                return {
+                    success: false,
+                    data: {
+                        createdContents: []
+                    },
+                    message: 'At least one video is required'
+                };
+            }
+
+            const createdContents = await adminService.createContents(courseId, videos, adminEmail);
+
+            return {
+                success: true,
+                data: {
+                    createdContents
+                },
+                message: 'Contents created successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500);
+            return {
+                success: false,
+                data: {
+                    createdContents: []
+                },
+                message: errorMessage
+            };
+        }
+    });
+
+    // Get course with modules and content
+    fastify.get('/courses/:courseId/full', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Admin - Course Management'],
+            summary: 'Get complete course data',
+            description: 'Get complete course data including modules and content',
+            params: Type.Object({
+                courseId: Type.String({ pattern: '^[0-9]+$' })
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Any(),
+                    message: Type.String()
+                }),
+                404: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Null(),
+                    message: Type.String()
+                }),
+                500: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Null(),
+                    message: Type.String()
+                })
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<any> => {
+        try {
+            const courseId = parseInt((request.params as any).courseId, 10);
+
+            const courseData = await adminService.getCourseWithModulesAndContent(courseId);
+
+            if (!courseData) {
+                reply.status(404);
+                return {
+                    success: false,
+                    data: null,
+                    message: 'Course not found'
+                };
+            }
+
+            return {
+                success: true,
+                data: courseData,
+                message: 'Course data retrieved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500);
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Generate S3 URLs in new hierarchical structure
+    fastify.post('/generate-s3-urls', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Admin - Content Management'],
+            summary: 'Generate S3 URLs for new hierarchical structure',
+            description: 'Generate S3 URLs for video and thumbnail files in the new hierarchical structure',
+            body: Type.Object({
+                courseId: Type.Number(),
+                moduleId: Type.Number(),
+                contentId: Type.Number(),
+                fileName: Type.String()
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Object({
+                        videoUrl: Type.String(),
+                        thumbnailUrl: Type.String()
+                    }),
+                    message: Type.String()
+                }),
+                400: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Null(),
+                    message: Type.String()
+                })
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<any> => {
+        try {
+            const { courseId, moduleId, contentId, fileName } = request.body as any;
+
+            const urls = adminService.generateS3Urls(courseId, moduleId, contentId, fileName);
+
+            return {
+                success: true,
+                data: urls,
+                message: 'S3 URLs generated successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(400);
+            return {
+                success: false,
+                data: null,
                 message: errorMessage
             };
         }

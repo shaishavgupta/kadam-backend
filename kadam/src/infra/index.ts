@@ -256,8 +256,6 @@ export function getInfrastructureConfig() {
             region: config.AWS_REGION,
             buckets: {
                 courses: config.AWS_S3_COURSES_BUCKET,
-                rawVideos: config.AWS_S3_RAW_VIDEOS_BUCKET,
-                processedVideos: config.AWS_S3_PROCESSED_VIDEOS_BUCKET
             }
         }
     };

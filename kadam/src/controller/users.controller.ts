@@ -114,6 +114,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
         });
 
         fastify.get('/:id', {
+            preHandler: [authMiddleware, requireAdminOrUser],
             schema: {
                 tags: ['Users'],
                 summary: 'Get user by ID',
