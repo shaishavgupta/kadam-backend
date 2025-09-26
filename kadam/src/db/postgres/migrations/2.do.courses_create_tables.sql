@@ -18,14 +18,23 @@ CREATE TABLE courses (
   is_active BOOLEAN,
   price decimal DEFAULT 0,
   thumbnail_url TEXT,
-  certificate_url TEXT,
+  certificate_id BIGINT,
   priority FLOAT DEFAULT 0,
   rank FLOAT DEFAULT 0,
   rejected_at TIMESTAMP,
   rejected_by BIGINT,
-  rejected_reason TEXT,
-  published_at TIMESTAMP,
-  next_course_ids BIGINT[]
+  rejection_reason TEXT
+  creator_published_at TIMESTAMP,
+  next_course_ids BIGINT[],
+);
+
+CREATE TABLE certificates (
+  id BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMP DEFAULT (now()),
+  updated_at TIMESTAMP NOT NULL,
+  name TEXT NOT NULL,
+  html_content TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE course_categories (
@@ -56,7 +65,10 @@ CREATE TABLE modules (
   approved_by BIGINT,
   is_paid BOOLEAN NOT NULL DEFAULT true,
   is_active BOOLEAN,
-  position INTEGER DEFAULT 0
+  position INTEGER DEFAULT 0,
+  rejected_at TIMESTAMP NULL,
+  rejected_by BIGINT NULL,
+  rejection_reason TEXT NULL
 );
 
 CREATE TABLE contents (
@@ -66,7 +78,6 @@ CREATE TABLE contents (
   is_active BOOLEAN DEFAULT true,
   name TEXT NOT NULL,
   module_id BIGINT,
-  course_id BIGINT NOT NULL,
   content_type TEXT NOT NULL,
   next_content_id BIGINT UNIQUE,
   is_paid BOOLEAN NOT NULL DEFAULT true,
@@ -74,6 +85,7 @@ CREATE TABLE contents (
   approved_by BIGINT,
   position INTEGER DEFAULT 0,
   url TEXT,
+  abs_url TEXT,
   duration INTEGER,
   thumbnail_url TEXT,
   category_id BIGINT,

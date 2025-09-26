@@ -6,36 +6,60 @@ import {
     AdminDashboardResponse,
     AdminUsersResponse,
     AdminCreatorsResponse,
-    AdminCoursesResponse,
+    AdminCoursesQuerySchema,
     AdminDashboardResponseSchema,
     AdminUsersResponseSchema,
     AdminCreatorsResponseSchema,
-    AdminCoursesResponseSchema,
+    AdminResponseSchema,
+    AdminByIdResponseSchema,
     UnapprovedCoursesResponseSchema,
     CourseApprovalRequestSchema,
     CourseApprovalResponseSchema,
+    ModuleApprovalResponseSchema,
+    ContentApprovalResponseSchema,
+    UnifiedRejectRequestSchema,
+    UnifiedRejectResponseSchema,
     SaveVideoMetadataRequestSchema,
     SaveVideoMetadataResponseSchema,
     ReorderVideosRequestSchema,
     ReorderVideosResponseSchema,
-    SoftDeleteVideoResponseSchema,
-    RejectedVideosResponseSchema,
+    ReorderContentsRequestSchema,
+    ReorderContentsResponseSchema,
+    SoftDeleteVideoResponseSchema as DeleteVideoResponseSchema,
     CreateContentsRequestSchema,
     CreateContentsResponseSchema,
+    CourseWithModulesAndContentResponseSchema,
     UnapprovedCoursesResponse,
     CourseApprovalRequest,
     CourseApprovalResponse,
+    ModuleApprovalResponse,
+    ContentApprovalResponse,
+    UnifiedRejectRequest,
+    UnifiedRejectResponse,
     SaveVideoMetadataRequest,
     SaveVideoMetadataResponse,
     ReorderVideosRequest,
     ReorderVideosResponse,
-    SoftDeleteVideoResponse,
-    RejectedVideosResponse,
+    ReorderContentsRequest,
+    ReorderContentsResponse,
+    SoftDeleteVideoResponse as DeleteVideoResponse,
     CreateContentsRequest,
-    CreateContentsResponse
+    CreateContentsResponse,
+    CourseWithModulesAndContentResponse,
+    AdminResponse,
+    AdminByIdResponse
 } from '../schemas/admin';
 import { PaginationQuerySchema } from '../schemas/common';
 import { Type } from '@sinclair/typebox';
+
+// Helper to create error responses
+function createErrorResponse(message: string, statusCode: number = 500) {
+    return {
+        success: false,
+        message,
+        statusCode
+    };
+}
 
 export default async function adminRoutes(fastify: FastifyInstance) {
     const adminService = new AdminService();
@@ -61,7 +85,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {
@@ -70,6 +94,64 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                     totalCourses: 0,
                     totalRevenue: 0
                 },
+                message: errorMessage
+            };
+        }
+    });
+
+    // Get admin by ID
+    fastify.get('/:adminId', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Admin'],
+            summary: 'Get admin by ID',
+            description: 'Retrieve admin details by admin ID',
+            params: Type.Object({
+                adminId: Type.String({ pattern: '^[0-9]+$' })
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: AdminByIdResponseSchema,
+                404: AdminByIdResponseSchema,
+                500: AdminByIdResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<AdminByIdResponse> => {
+        try {
+            const adminId = parseInt((request.params as any).adminId, 10);
+
+            const admin = await adminService.getAdminById(adminId);
+
+            if (!admin) {
+                reply.status(404);
+                return {
+                    success: false,
+                    data: undefined,
+                    message: 'Admin not found'
+                };
+            }
+
+            return {
+                success: true,
+                data: {
+                    id: admin.id,
+                    email: admin.email,
+                    name: admin.name,
+                    phone: admin.phone,
+                    is_active: true, // Since we filter by is_active = true in repository
+                    created_at: admin.created_at.toISOString(),
+                    updated_at: admin.updated_at.toISOString(),
+                    last_active_at: admin.last_active_at?.toISOString(),
+                    profile_pic: admin.profile_pic
+                },
+                message: 'Admin retrieved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500);
+            return {
+                success: false,
+                data: undefined,
                 message: errorMessage
             };
         }
@@ -100,7 +182,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {
@@ -142,7 +224,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {
@@ -165,18 +247,25 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         schema: {
             tags: ['Admin'],
             summary: 'Get all courses',
-            description: 'Retrieve a paginated list of all courses for admin management',
-            querystring: PaginationQuerySchema,
+            description: 'Retrieve a paginated list of all courses for admin management with optional rejected courses filter',
+            querystring: AdminCoursesQuerySchema,
             security: [{ bearerAuth: [] }],
             response: {
-                200: AdminCoursesResponseSchema
+                200: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Any(),
+                    message: Type.String()
+                })
             }
         }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<AdminCoursesResponse> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<any> => {
         try {
-            const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
-            const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
-            const data = await adminService.getCourses(page, limit);
+            const query = request.query as any;
+            const page = query?.page ? parseInt(query.page, 10) : 1;
+            const limit = query?.limit ? parseInt(query.limit, 10) : 10;
+            const rejected = query?.rejected === 'true';
+
+            const data = await adminService.getCourses(page, limit, rejected);
             return {
                 success: true,
                 data,
@@ -184,7 +273,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {
@@ -228,7 +317,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {
@@ -263,23 +352,42 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CourseApprovalResponse> => {
         try {
             const courseId = parseInt((request.params as any).courseId, 10);
-            const adminEmail = request.user?.userID; // Assuming this contains admin email
+            const adminId = parseInt(request.user?.userID || '0', 10);
 
-            if (!adminEmail) {
-                reply.status(401);
+            if (!adminId) {
+                reply.status(401).send(createErrorResponse('Admin authentication required', 401));
                 return {
                     success: false,
                     message: 'Admin authentication required'
                 };
             }
 
-            const success = await adminService.approveCourse(courseId, adminEmail);
+            const success = await adminService.approveCourse(courseId, adminId);
 
             if (!success) {
-                reply.status(404);
+                // Get detailed status to provide better error message
+                const status = await adminService.getCourseStatus(courseId);
+
+                if (!status.exists) {
+                    reply.status(404);
+                    return {
+                        success: false,
+                        message: 'Course not found'
+                    };
+                }
+
+                if (!status.canBeApproved) {
+                    reply.status(400);
+                    return {
+                        success: false,
+                        message: status.reason || 'Course cannot be approved'
+                    };
+                }
+
+                reply.status(500);
                 return {
                     success: false,
-                    message: 'Course not found or already processed'
+                    message: 'Failed to approve course'
                 };
             }
 
@@ -288,13 +396,13 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 data: {
                     courseId,
                     approvedAt: new Date().toISOString(),
-                    approvedBy: 1 // TODO: Get actual admin ID
+                    approvedBy: adminId
                 },
                 message: 'Course approved successfully'
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 message: errorMessage
@@ -302,61 +410,108 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Reject course
-    fastify.post('/courses/:courseId/reject', {
+    // Get available courses for testing
+    fastify.get('/courses/available', {
         preHandler: [authMiddleware, requireAdmin],
         schema: {
-            tags: ['Admin - Course Management'],
-            summary: 'Reject course',
-            description: 'Reject a course with reason',
-            params: Type.Object({
-                courseId: Type.String({ pattern: '^[0-9]+$' })
-            }),
-            body: CourseApprovalRequestSchema,
+            tags: ['Admin - Debug'],
+            summary: 'Get available courses',
+            description: 'Get a list of all courses with their IDs and status for testing purposes',
             security: [{ bearerAuth: [] }],
             response: {
-                200: CourseApprovalResponseSchema,
-                404: CourseApprovalResponseSchema,
-                500: CourseApprovalResponseSchema
+                200: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Array(Type.Object({
+                        id: Type.Number(),
+                        name: Type.String(),
+                        creator_published_at: Type.Optional(Type.String()),
+                        approved_at: Type.Optional(Type.String()),
+                        rejected_at: Type.Optional(Type.String())
+                    })),
+                    message: Type.String()
+                })
             }
         }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CourseApprovalResponse> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<any> => {
         try {
-            const courseId = parseInt((request.params as any).courseId, 10);
-            const { reason } = request.body as CourseApprovalRequest;
-            const adminEmail = request.user?.userID;
+            const courses = await adminService.getAvailableCourses();
+            return {
+                success: true,
+                data: courses,
+                message: "Available courses retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
+    });
+    fastify.post('/reject', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Admin - Unified Management'],
+            summary: 'Reject course, module, or content',
+            description: 'Reject a course, module, or content with automatic cascading updates',
+            body: UnifiedRejectRequestSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: UnifiedRejectResponseSchema,
+                400: Type.Object({
+                    success: Type.Boolean(),
+                    message: Type.String()
+                }),
+                404: Type.Object({
+                    success: Type.Boolean(),
+                    message: Type.String()
+                }),
+                500: Type.Object({
+                    success: Type.Boolean(),
+                    message: Type.String()
+                })
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<UnifiedRejectResponse> => {
+        try {
+            const { type, id, reason } = request.body as UnifiedRejectRequest;
+            const adminId = parseInt(request.user?.userID || '0', 10);
 
-            if (!adminEmail) {
-                reply.status(401);
+            if (!adminId) {
+                reply.status(401).send(createErrorResponse('Admin authentication required', 401));
                 return {
                     success: false,
                     message: 'Admin authentication required'
                 };
             }
 
-            const success = await adminService.rejectCourse(courseId, adminEmail, reason || 'No reason provided');
+            const result = await adminService.rejectItem(type as 'course' | 'module' | 'content', id, adminId, reason || 'No reason provided');
 
-            if (!success) {
+            if (!result.success) {
                 reply.status(404);
                 return {
                     success: false,
-                    message: 'Course not found or already processed'
+                    message: result.message || `${type} not found or already processed`
                 };
             }
 
             return {
                 success: true,
                 data: {
-                    courseId,
+                    type,
+                    id,
                     rejectedAt: new Date().toISOString(),
-                    rejectedBy: 1, // TODO: Get actual admin ID
-                    rejectionReason: reason || 'No reason provided'
+                    rejectedBy: adminId,
+                    rejectionReason: reason || 'No reason provided',
+                    cascadedUpdates: result.cascadedUpdates
                 },
-                message: 'Course rejected successfully'
+                message: result.message || `${type} rejected successfully`
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 message: errorMessage
@@ -385,17 +540,17 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         try {
             const courseId = parseInt((request.params as any).courseId, 10);
             const { videos } = request.body as SaveVideoMetadataRequest;
-            const adminEmail = request.user?.userID;
+            const adminId = parseInt(request.user?.userID || '0', 10);
 
-            if (!adminEmail) {
-                reply.status(401);
+            if (!adminId) {
+                reply.status(401).send(createErrorResponse('Admin authentication required', 401));
                 return {
                     success: false,
                     message: 'Admin authentication required'
                 };
             }
 
-            const createdVideos = await adminService.saveVideoMetadata(courseId, videos, adminEmail);
+            const createdVideos = await adminService.saveVideoMetadata(courseId, videos, adminId);
 
             return {
                 success: true,
@@ -406,7 +561,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 message: errorMessage
@@ -414,49 +569,49 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Reorder videos
-    fastify.patch('/courses/:courseId/videos/reorder', {
+    // Reorder module contents
+    fastify.patch('/modules/:moduleId/contents/reorder', {
         preHandler: [authMiddleware, requireAdmin],
         schema: {
-            tags: ['Admin - Video Management'],
-            summary: 'Reorder videos',
-            description: 'Reorder videos in a course',
+            tags: ['Admin - Content Management'],
+            summary: 'Reorder module contents',
+            description: 'Reorder contents within a module',
             params: Type.Object({
-                courseId: Type.String({ pattern: '^[0-9]+$' })
+                moduleId: Type.String({ pattern: '^[0-9]+$' })
             }),
-            body: ReorderVideosRequestSchema,
+            body: ReorderContentsRequestSchema,
             security: [{ bearerAuth: [] }],
             response: {
-                200: ReorderVideosResponseSchema,
-                500: ReorderVideosResponseSchema
+                200: ReorderContentsResponseSchema,
+                500: ReorderContentsResponseSchema
             }
         }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<ReorderVideosResponse> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<ReorderContentsResponse> => {
         try {
-            const courseId = parseInt((request.params as any).courseId, 10);
-            const { videoIds } = request.body as ReorderVideosRequest;
-            const adminEmail = request.user?.userID;
+            const moduleId = parseInt((request.params as any).moduleId, 10);
+            const { contentIds } = request.body as ReorderContentsRequest;
+            const adminId = parseInt(request.user?.userID || '0', 10);
 
-            if (!adminEmail) {
-                reply.status(401);
+            if (!adminId) {
+                reply.status(401).send(createErrorResponse('Admin authentication required', 401));
                 return {
                     success: false,
                     message: 'Admin authentication required'
                 };
             }
 
-            const updatedVideos = await adminService.reorderVideos(courseId, videoIds, adminEmail);
+            const updatedContents = await adminService.reorderContents(moduleId, contentIds, adminId);
 
             return {
                 success: true,
                 data: {
-                    updatedVideos
+                    updatedContents
                 },
-                message: 'Videos reordered successfully'
+                message: 'Contents reordered successfully'
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 message: errorMessage
@@ -464,8 +619,8 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Soft delete video
-    fastify.delete('/videos/:videoId/soft-delete', {
+    // delete video
+    fastify.delete('/videos/:videoId', {
         preHandler: [authMiddleware, requireAdmin],
         schema: {
             tags: ['Admin - Video Management'],
@@ -476,25 +631,25 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             }),
             security: [{ bearerAuth: [] }],
             response: {
-                200: SoftDeleteVideoResponseSchema,
-                404: SoftDeleteVideoResponseSchema,
-                500: SoftDeleteVideoResponseSchema
+                200: DeleteVideoResponseSchema,
+                404: DeleteVideoResponseSchema,
+                500: DeleteVideoResponseSchema
             }
         }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<SoftDeleteVideoResponse> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<DeleteVideoResponse> => {
         try {
             const videoId = parseInt((request.params as any).videoId, 10);
-            const adminEmail = request.user?.userID;
+            const adminId = parseInt(request.user?.userID || '0', 10);
 
-            if (!adminEmail) {
-                reply.status(401);
+            if (!adminId) {
+                reply.status(401).send(createErrorResponse('Admin authentication required', 401));
                 return {
                     success: false,
                     message: 'Admin authentication required'
                 };
             }
 
-            const success = await adminService.softDeleteVideo(videoId, adminEmail);
+            const success = await adminService.softDeleteVideo(videoId, adminId);
 
             if (!success) {
                 reply.status(404);
@@ -514,120 +669,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
-                message: errorMessage
-            };
-        }
-    });
-
-    // Get rejected videos
-    fastify.get('/videos/rejected', {
-        preHandler: [authMiddleware, requireAdmin],
-        schema: {
-            tags: ['Admin - Video Management'],
-            summary: 'Get rejected videos',
-            description: 'Retrieve a paginated list of rejected videos',
-            querystring: PaginationQuerySchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: RejectedVideosResponseSchema
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<any> => {
-        try {
-            const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
-            const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
-
-            const data = await adminService.getRejectedVideos(page, limit);
-
-            return {
-                success: true,
-                data,
-                message: "Rejected videos retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            reply.status(500).send({ success: false, message: errorMessage });
-            return {
-                success: false,
-                data: {
-                    videos: [],
-                    total: 0,
-                    page: 1,
-                    limit: 10,
-                    totalPages: 0
-                },
-                message: errorMessage
-            };
-        }
-    });
-
-    // Create contents for a course
-    fastify.post('/courses/:courseId/contents', {
-        preHandler: [authMiddleware, requireAdmin],
-        schema: {
-            tags: ['Admin - Content Management'],
-            summary: 'Create contents for a course',
-            description: 'Create video contents for a specific course',
-            params: Type.Object({
-                courseId: Type.String({ pattern: '^[0-9]+$' })
-            }),
-            body: CreateContentsRequestSchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: CreateContentsResponseSchema,
-                400: CreateContentsResponseSchema,
-                404: CreateContentsResponseSchema,
-                500: CreateContentsResponseSchema
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CreateContentsResponse> => {
-        try {
-            const courseId = parseInt((request.params as any).courseId, 10);
-            const { videos } = request.body as CreateContentsRequest;
-            const adminEmail = request.user?.userID;
-
-            if (!adminEmail) {
-                reply.status(401);
-                return {
-                    success: false,
-                    data: {
-                        createdContents: []
-                    },
-                    message: 'Admin authentication required'
-                };
-            }
-
-            if (!videos || videos.length === 0) {
-                reply.status(400);
-                return {
-                    success: false,
-                    data: {
-                        createdContents: []
-                    },
-                    message: 'At least one video is required'
-                };
-            }
-
-            const createdContents = await adminService.createContents(courseId, videos, adminEmail);
-
-            return {
-                success: true,
-                data: {
-                    createdContents
-                },
-                message: 'Contents created successfully'
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            reply.status(500);
-            return {
-                success: false,
-                data: {
-                    createdContents: []
-                },
                 message: errorMessage
             };
         }
@@ -645,11 +689,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             }),
             security: [{ bearerAuth: [] }],
             response: {
-                200: Type.Object({
-                    success: Type.Boolean(),
-                    data: Type.Any(),
-                    message: Type.String()
-                }),
+                200: CourseWithModulesAndContentResponseSchema,
                 404: Type.Object({
                     success: Type.Boolean(),
                     data: Type.Null(),
@@ -662,7 +702,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 })
             }
         }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<any> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CourseWithModulesAndContentResponse> => {
         try {
             const courseId = parseInt((request.params as any).courseId, 10);
 
@@ -672,7 +712,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 reply.status(404);
                 return {
                     success: false,
-                    data: null,
+                    data: undefined,
                     message: 'Course not found'
                 };
             }
@@ -687,7 +727,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             reply.status(500);
             return {
                 success: false,
-                data: null,
+                data: undefined,
                 message: errorMessage
             };
         }
@@ -740,6 +780,124 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             return {
                 success: false,
                 data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Approve module
+    fastify.post('/modules/:moduleId/approve', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Admin - Module Management'],
+            summary: 'Approve module',
+            description: 'Approve an individual module',
+            params: Type.Object({
+                moduleId: Type.String({ pattern: '^[0-9]+$' })
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: ModuleApprovalResponseSchema,
+                404: ModuleApprovalResponseSchema,
+                500: ModuleApprovalResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<ModuleApprovalResponse> => {
+        try {
+            const moduleId = parseInt((request.params as any).moduleId, 10);
+            const adminId = parseInt(request.user?.userID || '0', 10);
+
+            if (!adminId) {
+                reply.status(401).send(createErrorResponse('Admin authentication required', 401));
+                return {
+                    success: false,
+                    message: 'Admin authentication required'
+                };
+            }
+
+            const success = await adminService.approveModule(moduleId, adminId);
+
+            if (!success) {
+                reply.status(404);
+                return {
+                    success: false,
+                    message: 'Module not found or could not be approved'
+                };
+            }
+
+            return {
+                success: true,
+                data: {
+                    moduleId,
+                    approvedAt: new Date().toISOString(),
+                    approvedBy: adminId
+                },
+                message: 'Module approved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Approve content
+    fastify.post('/contents/:contentId/approve', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Admin - Content Management'],
+            summary: 'Approve content',
+            description: 'Approve an individual content item',
+            params: Type.Object({
+                contentId: Type.String({ pattern: '^[0-9]+$' })
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: ContentApprovalResponseSchema,
+                404: ContentApprovalResponseSchema,
+                500: ContentApprovalResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<ContentApprovalResponse> => {
+        try {
+            const contentId = parseInt((request.params as any).contentId, 10);
+            const adminId = parseInt(request.user?.userID || '0', 10);
+
+            if (!adminId) {
+                reply.status(401).send(createErrorResponse('Admin authentication required', 401));
+                return {
+                    success: false,
+                    message: 'Admin authentication required'
+                };
+            }
+
+            const success = await adminService.approveContent(contentId, adminId);
+
+            if (!success) {
+                reply.status(404);
+                return {
+                    success: false,
+                    message: 'Content not found or could not be approved'
+                };
+            }
+
+            return {
+                success: true,
+                data: {
+                    contentId,
+                    approvedAt: new Date().toISOString(),
+                    approvedBy: adminId
+                },
+                message: 'Content approved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
                 message: errorMessage
             };
         }

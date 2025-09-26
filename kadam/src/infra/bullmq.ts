@@ -83,9 +83,9 @@ export interface VideoProcessingJobData {
     courseId: number;
     videoId: number;
     videoUrl: string;
-    processingOptions: {
-        quality: '240p' | '360p' | '480p' | '720p';
-        format: 'mp4';
+    processingOptions?: {
+        resolutions?: string[];
+        format?: string;
     };
     metadata: {
         originalFileName: string;
@@ -98,9 +98,9 @@ export interface VideoProcessingJobData {
 
 export interface CourseVideoProcessingJobData {
     courseId: number;
-    processingOptions: {
-        quality: '240p' | '360p' | '480p' | '720p';
-        format: 'mp4';
+    processingOptions?: {
+        resolutions?: string[];
+        format?: string;
     };
 }
 

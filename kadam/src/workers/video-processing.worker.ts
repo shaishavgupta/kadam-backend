@@ -306,6 +306,7 @@ class FFmpegVideoProcessor {
 
     private parseResolution(resolution: string): { width: number; height: number } {
         const resolutionMap: { [key: string]: { width: number; height: number } } = {
+            '144p': { width: 256, height: 144 },
             '240p': { width: 426, height: 240 },
             '360p': { width: 640, height: 360 },
             '480p': { width: 854, height: 480 },
@@ -470,6 +471,7 @@ class FFmpegVideoProcessor {
 
     private getBitrateForResolution(resolution: string): string {
         const bitrateMap: { [key: string]: string } = {
+            '144p': '300k',
             '240p': '500k',
             '360p': '1000k',
             '480p': '2000k',
@@ -532,7 +534,6 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
     const { courseId, processingOptions } = job.data;
 
     console.log(`🎬 Processing all videos for course ${courseId}`);
-    console.log(`📋 Processing options:`, processingOptions);
 
     try {
         // Fetch all video content for the course
@@ -608,7 +609,7 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
 
 // Individual Video Processing Worker Processor
 const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
-    const { courseId, videoId, videoUrl, processingOptions, metadata } = job.data;
+    const { courseId, videoId, videoUrl, processingOptions } = job.data;
 
     console.log(`🎬 Processing video ${videoId} for course ${courseId}: ${videoUrl}`);
 
@@ -649,8 +650,9 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
         }
 
         // Process video to HLS format with multiple resolutions
-        const resolutions = ['360p', '480p', '720p'];
-        console.log(`🔄 Starting HLS transcoding for video ${videoId}...`);
+        const defaultResolutions = ['144p', '240p', '360p', '480p', '720p'];
+        const resolutions = processingOptions?.resolutions || defaultResolutions;
+        console.log(`🔄 Starting HLS transcoding for video ${videoId} with resolutions: ${resolutions.join(', ')}...`);
 
         const result = await videoProcessor.transcodeToHLS(
             inputPath,

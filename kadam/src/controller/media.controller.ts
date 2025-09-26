@@ -8,27 +8,25 @@ import {
     HomePageContentResponse,
     Banners,
     Categories,
-    PresignedUrlRequestSchema,
+    UnifiedPresignedUrlRequestSchema,
     PresignedUrlResponseSchema,
-    PresignedUrlRequest,
+    UnifiedPresignedUrlRequest,
     PresignedUrlResponse,
     VideoProcessingRequestSchema,
     VideoProcessingResponseSchema,
     VideoProcessingRequest,
-    VideoProcessingResponse
+    VideoProcessingResponse,
+    VideoUploadRequestSchema,
+    VideoUploadResponseSchema,
+    VideoUploadRequest,
+    VideoUploadResponse
 } from '../schemas/media';
 import { AdminConfigurations } from '../shared/types';
 import { CoursesService } from '../service/courses.service';
 import { authMiddleware, AuthenticatedRequest, requireAdmin, requireUser } from '../shared/middleware/auth';
 import {
-    generatePresignedUrl,
-    uploadRawVideo,
-    uploadProcessedVideo,
-    S3_CONFIG,
-    generateVideoUploadUrl,
-    generateVideoDownloadUrl,
-    generateThumbnailUploadUrl,
-    generateThumbnailDownloadUrl
+    generateHierarchicalPresignedUrl,
+    S3_CONFIG
 } from '../infra/aws/s3';
 import { bullMQManager, QUEUE_NAMES, JOB_TYPES, CourseVideoProcessingJobData } from '../infra/bullmq';
 
@@ -99,149 +97,94 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
             }
         });
 
-        // Generate presigned URL for S3 uploads
+        // Simplified presigned URL endpoint for hierarchical uploads only
         fastify.post('/presigned-url', {
-            preHandler: [authMiddleware, requireAdmin],
+            preHandler: [authMiddleware, requireUser],
             schema: {
-                tags: ['Media', 'Admin'],
-                summary: 'Generate presigned URL for S3 upload',
-                description: 'Generate a presigned URL for uploading files to S3 (Admin only)',
+                tags: ['Media'],
+                summary: 'Generate presigned URL for file uploads',
+                description: 'Generate presigned URL for uploading files in hierarchical structure',
                 security: [{ bearerAuth: [] }],
-                body: PresignedUrlRequestSchema,
+                body: UnifiedPresignedUrlRequestSchema,
                 response: {
                     200: PresignedUrlResponseSchema,
-                    400: {
-                        type: 'object',
-                        properties: {
-                            success: { type: 'boolean' },
-                            message: { type: 'string' }
-                        }
-                    },
-                    403: {
-                        type: 'object',
-                        properties: {
-                            success: { type: 'boolean' },
-                            message: { type: 'string' }
-                        }
-                    },
-                    500: {
-                        type: 'object',
-                        properties: {
-                            success: { type: 'boolean' },
-                            message: { type: 'string' }
-                        }
-                    }
+                    400: Type.Object({
+                        success: Type.Boolean(),
+                        data: Type.Null(),
+                        message: Type.String()
+                    }),
+                    500: Type.Object({
+                        success: Type.Boolean(),
+                        data: Type.Null(),
+                        message: Type.String()
+                    })
                 }
             }
         }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<PresignedUrlResponse> => {
             try {
-                const { fileName, contentType, courseId, fileType } = request.body as PresignedUrlRequest;
+                const { courseId, moduleId, contentId, fileType, operation, expiresIn = 3600 } = request.body as UnifiedPresignedUrlRequest;
 
                 // Validate course exists
                 const course = await coursesService.getCourseById(courseId);
                 if (!course) {
-                    reply.status(400).send({
-                        success: false,
-                        message: 'Course not found'
-                    });
+                    reply.status(400);
                     return {
                         success: false,
                         data: {
                             presignedUrl: '',
-                            fileKey: '',
+                            s3Key: '',
                             expiresIn: 0
                         },
                         message: 'Course not found'
                     };
                 }
 
-                // Generate file key based on file type
-                let fileKey: string;
-                let prefix: keyof typeof S3_CONFIG.PREFIXES;
-
-                switch (fileType) {
-                    case 'raw-video':
-                        fileKey = `${courseId}/${fileName}`;
-                        prefix = 'rawVideos';
-                        break;
-                    case 'processed-video':
-                        fileKey = `${courseId}/${fileName}`;
-                        prefix = 'processedVideos';
-                        break;
-                    case 'thumbnail':
-                        fileKey = `${courseId}/${fileName}`;
-                        prefix = 'thumbnails';
-                        break;
-                    case 'certificate':
-                        fileKey = `${courseId}/${fileName}`;
-                        prefix = 'certificates';
-                        break;
-                    case 'course-material':
-                        fileKey = `${courseId}/${fileName}`;
-                        prefix = 'courseMaterials';
-                        break;
-                    default:
-                        reply.status(400).send({
-                            success: false,
-                            message: 'Invalid file type'
-                        });
-                        return {
-                            success: false,
-                            data: {
-                                presignedUrl: '',
-                                fileKey: '',
-                                expiresIn: 0
-                            },
-                            message: 'Invalid file type'
-                        };
-                }
-
-                // Generate presigned URL (expires in 1 hour)
-                const presignedUrl = await generatePresignedUrl({
-                    prefix: prefix,
-                    key: fileKey,
-                    expiresIn: 3600,
-                    operation: 'putObject'
-                });
+                // Generate hierarchical presigned URL
+                const result = await generateHierarchicalPresignedUrl(
+                    courseId,
+                    moduleId,
+                    contentId,
+                    fileType,
+                    operation,
+                    expiresIn
+                );
 
                 return {
                     success: true,
                     data: {
-                        presignedUrl,
-                        fileKey,
-                        expiresIn: 3600
+                        presignedUrl: result.presignedUrl,
+                        s3Key: result.s3Key,
+                        expiresIn
                     },
                     message: 'Presigned URL generated successfully'
                 };
             } catch (error) {
                 console.error('Error generating presigned URL:', error);
-                reply.status(500).send({
-                    success: false,
-                    message: 'Internal server error'
-                });
+                const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+                reply.status(500);
                 return {
                     success: false,
                     data: {
                         presignedUrl: '',
-                        fileKey: '',
+                        s3Key: '',
                         expiresIn: 0
                     },
-                    message: 'Internal server error'
+                    message: errorMessage
                 };
             }
         });
 
-        // Queue video processing job
-        fastify.post('/video-processing', {
+        // Queue video upload and processing job
+        fastify.post('/upload', {
             preHandler: [authMiddleware, requireAdmin],
             schema: {
                 tags: ['Media', 'Admin'],
-                summary: 'Queue video processing job',
-                description: 'Add a video processing job to the queue. The job will handle downloading from S3, processing, and uploading results back to S3 (Admin only)',
+                summary: 'Upload and process videos',
+                description: 'Upload videos and add processing jobs to the queue. The job will handle downloading from S3, processing, and uploading results back to S3 (Admin only)',
                 security: [{ bearerAuth: [] }],
-                body: VideoProcessingRequestSchema,
+                body: VideoUploadRequestSchema,
                 response: {
-                    200: VideoProcessingResponseSchema,
+                    200: VideoUploadResponseSchema,
                     400: {
                         type: 'object',
                         properties: {
@@ -265,9 +208,9 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                     }
                 }
             }
-        }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<VideoProcessingResponse> => {
+        }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<VideoUploadResponse> => {
             try {
-                const { courseId, processingOptions } = request.body as VideoProcessingRequest;
+                const { courseId, processingOptions } = request.body as VideoUploadRequest;
 
                 // Validate course exists
                 const course = await coursesService.getCourseById(courseId);
@@ -289,10 +232,17 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                     };
                 }
 
+                // Default processing options if not provided
+                const defaultResolutions = ['144p', '240p', '360p', '480p', '720p'];
+                const finalProcessingOptions = {
+                    resolutions: processingOptions?.resolutions || defaultResolutions,
+                    format: processingOptions?.format || 'mp4'
+                };
+
                 // Prepare job data for course video processing
                 const jobData: CourseVideoProcessingJobData = {
                     courseId,
-                    processingOptions
+                    processingOptions: finalProcessingOptions
                 };
 
                 // Add job to video processing queue
@@ -361,10 +311,10 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                         status: 'queued',
                         message: 'Jobs added to processing queues'
                     },
-                    message: 'Video processing and vector embedding jobs queued successfully. Workers will handle all processing operations in parallel.'
+                    message: 'Video upload and processing jobs queued successfully. Workers will handle all processing operations in parallel.'
                 };
             } catch (error) {
-                console.error('Error queuing video processing job:', error);
+                console.error('Error queuing video upload job:', error);
                 reply.status(500).send({
                     success: false,
                     message: 'Internal server error'
@@ -382,191 +332,5 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 };
             }
         });
-    });
-
-    // New hierarchical structure endpoints
-    // POST /media/video-upload-url
-    fastify.post('/video-upload-url', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Media - Hierarchical Structure'],
-            summary: 'Generate presigned URL for video upload',
-            description: 'Generate presigned URL for uploading video files in the new hierarchical structure',
-            body: Type.Object({
-                courseId: Type.Number(),
-                moduleId: Type.Number(),
-                contentId: Type.Number(),
-                fileName: Type.String(),
-                expiresIn: Type.Optional(Type.Number({ minimum: 60, maximum: 3600 }))
-            }),
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: Type.Object({
-                    success: Type.Boolean(),
-                    data: Type.Object({
-                        uploadUrl: Type.String(),
-                        fileKey: Type.String(),
-                        expiresIn: Type.Number()
-                    }),
-                    message: Type.String()
-                }),
-                400: Type.Object({
-                    success: Type.Boolean(),
-                    data: Type.Null(),
-                    message: Type.String()
-                })
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-        try {
-            const { courseId, moduleId, contentId, fileName, expiresIn = 3600 } = request.body as any;
-
-            const uploadUrl = await generateVideoUploadUrl(courseId, moduleId, contentId, fileName, expiresIn);
-            const fileKey = `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/${contentId}/Video.${fileName.split('.').pop()}`;
-
-            return {
-                success: true,
-                data: {
-                    uploadUrl,
-                    fileKey,
-                    expiresIn
-                },
-                message: 'Video upload URL generated successfully'
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-            reply.status(400);
-            return {
-                success: false,
-                data: null,
-                message: errorMessage
-            };
-        }
-    });
-
-    // POST /media/thumbnail-upload-url
-    fastify.post('/thumbnail-upload-url', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Media - Hierarchical Structure'],
-            summary: 'Generate presigned URL for thumbnail upload',
-            description: 'Generate presigned URL for uploading thumbnail files in the new hierarchical structure',
-            body: Type.Object({
-                courseId: Type.Number(),
-                moduleId: Type.Optional(Type.Number()),
-                contentId: Type.Optional(Type.Number()),
-                fileName: Type.String(),
-                expiresIn: Type.Optional(Type.Number({ minimum: 60, maximum: 3600 }))
-            }),
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: Type.Object({
-                    success: Type.Boolean(),
-                    data: Type.Object({
-                        uploadUrl: Type.String(),
-                        fileKey: Type.String(),
-                        expiresIn: Type.Number()
-                    }),
-                    message: Type.String()
-                }),
-                400: Type.Object({
-                    success: Type.Boolean(),
-                    data: Type.Null(),
-                    message: Type.String()
-                })
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-        try {
-            const { courseId, moduleId, contentId, fileName, expiresIn = 3600 } = request.body as any;
-
-            const uploadUrl = await generateThumbnailUploadUrl(courseId, moduleId, contentId, fileName, expiresIn);
-
-            let fileKey: string;
-            if (contentId && moduleId) {
-                fileKey = `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/${contentId}/Thumbnail.${fileName.split('.').pop()}`;
-            } else if (moduleId) {
-                fileKey = `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/Thumbnail.${fileName.split('.').pop()}`;
-            } else {
-                fileKey = `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/Thumbnail.${fileName.split('.').pop()}`;
-            }
-
-            return {
-                success: true,
-                data: {
-                    uploadUrl,
-                    fileKey,
-                    expiresIn
-                },
-                message: 'Thumbnail upload URL generated successfully'
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-            reply.status(400);
-            return {
-                success: false,
-                data: null,
-                message: errorMessage
-            };
-        }
-    });
-
-    // POST /media/video-download-url
-    fastify.post('/video-download-url', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Media - Hierarchical Structure'],
-            summary: 'Generate presigned URL for video download',
-            description: 'Generate presigned URL for downloading processed video files',
-            body: Type.Object({
-                courseId: Type.Number(),
-                moduleId: Type.Number(),
-                contentId: Type.Number(),
-                fileName: Type.String(),
-                expiresIn: Type.Optional(Type.Number({ minimum: 60, maximum: 3600 }))
-            }),
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: Type.Object({
-                    success: Type.Boolean(),
-                    data: Type.Object({
-                        downloadUrl: Type.String(),
-                        fileKey: Type.String(),
-                        expiresIn: Type.Number()
-                    }),
-                    message: Type.String()
-                }),
-                400: Type.Object({
-                    success: Type.Boolean(),
-                    data: Type.Null(),
-                    message: Type.String()
-                })
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-        try {
-            const { courseId, moduleId, contentId, fileName, expiresIn = 3600 } = request.body as any;
-
-            const downloadUrl = await generateVideoDownloadUrl(courseId, moduleId, contentId, fileName, expiresIn);
-            const fileKey = `${S3_CONFIG.PREFIXES.processedVideos}/${courseId}/${moduleId}/${contentId}/master/${fileName}`;
-
-            return {
-                success: true,
-                data: {
-                    downloadUrl,
-                    fileKey,
-                    expiresIn
-                },
-                message: 'Video download URL generated successfully'
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-            reply.status(400);
-            return {
-                success: false,
-                data: null,
-                message: errorMessage
-            };
-        }
     });
 }

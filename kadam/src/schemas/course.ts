@@ -11,6 +11,47 @@ export const ContentTypeSchema = Type.Union([
     Type.Literal(ContentTypeEnum.NOTES)
 ]);
 
+// Certificate schemas
+export const CertificateSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    html_content: Type.String(),
+    is_active: Type.Boolean(),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' })
+});
+
+export const CreateCertificateRequestSchema = Type.Object({
+    name: Type.String({ minLength: 1 }),
+    html_content: Type.String({ minLength: 1 }),
+    is_active: Type.Optional(Type.Boolean())
+});
+
+export const UpdateCertificateRequestSchema = Type.Object({
+    name: Type.Optional(Type.String({ minLength: 1 })),
+    html_content: Type.Optional(Type.String({ minLength: 1 })),
+    is_active: Type.Optional(Type.Boolean())
+});
+
+export const CertificateIdParamSchema = Type.Object({
+    certificateId: Type.String({ pattern: '^[0-9]+$' })
+});
+
+export const CertificateResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: CertificateSchema,
+    message: Type.String()
+});
+
+export const CertificatesResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        certificates: Type.Array(CertificateSchema),
+        total: Type.Number()
+    }),
+    message: Type.String()
+});
+
 // Base schemas matching existing interfaces
 export const CategorySchema = Type.Object({
     id: Type.Number(),
@@ -36,12 +77,12 @@ export const ContentSchema = Type.Object({
     id: Type.Number(),
     name: Type.String(),
     module_id: Type.Number(),
-    course_id: Type.Number(),
     type: ContentTypeSchema,
     position: Type.Number(),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
     url: Type.Optional(Type.String({ format: 'uri' })),
+    abs_url: Type.Optional(Type.String({ format: 'uri' })),
     duration: Type.Optional(Type.Number()),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
     category_id: Type.Optional(Type.Number()),
@@ -59,7 +100,7 @@ export const CourseSchema = Type.Object({
     is_paid: Type.Boolean(),
     price: Type.Number(),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
-    certificate_url: Type.String({ format: 'uri' }),
+    certificate_id: Type.Optional(Type.Number()),
     rank: Type.Number(),
     published_at: Type.Optional(Type.String({ format: 'date-time' })),
     created_at: Type.String({ format: 'date-time' }),
@@ -85,6 +126,7 @@ export const CreateContentRequestSchema = Type.Object({
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
     url: Type.Optional(Type.String({ format: 'uri' })),
+    abs_url: Type.Optional(Type.String({ format: 'uri' })),
     duration: Type.Optional(Type.Number()),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
     category_id: Type.Optional(Type.Number()),
@@ -101,7 +143,7 @@ export const CreateCourseRequestSchema = Type.Object({
     is_active: Type.Boolean(),
     price: Type.Number(),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
-    certificate_url: Type.String({ format: 'uri' }),
+    certificate_id: Type.Optional(Type.Number()),
     contents: Type.Optional(Type.Array(CreateContentRequestSchema)),
     next_course_ids: Type.Optional(Type.Array(Type.Number()))
 });
@@ -188,6 +230,14 @@ export const UnpublishCourseResponseSchema = Type.Object({
     message: Type.String()
 });
 
+// Certificate Types
+export type Certificate = Static<typeof CertificateSchema>;
+export type CreateCertificateRequest = Static<typeof CreateCertificateRequestSchema>;
+export type UpdateCertificateRequest = Static<typeof UpdateCertificateRequestSchema>;
+export type CertificateIdParam = Static<typeof CertificateIdParamSchema>;
+export type CertificateResponse = Static<typeof CertificateResponseSchema>;
+export type CertificatesResponse = Static<typeof CertificatesResponseSchema>;
+
 // Export inferred TypeScript types using Static
 export type ContentType = Static<typeof ContentTypeSchema>;
 export type Category = Static<typeof CategorySchema>;
@@ -256,7 +306,7 @@ export const CreateModuleRequestSchemaNew = Type.Object({
     position: Type.Number({ minimum: 1 }),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' }))
+    thumbnail_url: Type.String({ format: 'uri' })
 });
 
 export const UpdateModuleRequestSchema = Type.Object({
@@ -299,11 +349,12 @@ export const DeleteModuleResponseSchema = Type.Object({
 // Content Management Schemas
 export const CreateContentRequestSchemaNew = Type.Object({
     name: Type.String({ minLength: 1 }),
-    content_type: Type.String({ minLength: 1 }),
+    content_type: ContentTypeSchema,
     position: Type.Number({ minimum: 1 }),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
     url: Type.Optional(Type.String({ format: 'uri' })),
+    abs_url: Type.Optional(Type.String({ format: 'uri' })),
     duration: Type.Optional(Type.Number({ minimum: 0 })),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
     category_id: Type.Optional(Type.Number()),
@@ -312,11 +363,12 @@ export const CreateContentRequestSchemaNew = Type.Object({
 
 export const UpdateContentRequestSchema = Type.Object({
     name: Type.Optional(Type.String({ minLength: 1 })),
-    content_type: Type.Optional(Type.String({ minLength: 1 })),
+    content_type: Type.Optional(ContentTypeSchema),
     position: Type.Optional(Type.Number({ minimum: 1 })),
     is_paid: Type.Optional(Type.Boolean()),
     is_active: Type.Optional(Type.Boolean()),
     url: Type.Optional(Type.String({ format: 'uri' })),
+    abs_url: Type.Optional(Type.String({ format: 'uri' })),
     duration: Type.Optional(Type.Number({ minimum: 0 })),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
     category_id: Type.Optional(Type.Number()),
@@ -359,7 +411,7 @@ export const CourseWithModulesSchema = Type.Object({
     is_paid: Type.Boolean(),
     price: Type.Number(),
     thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
-    certificate_url: Type.String({ format: 'uri' }),
+    certificate_id: Type.Optional(Type.Number()),
     rank: Type.Number(),
     published_at: Type.Optional(Type.String({ format: 'date-time' })),
     created_at: Type.String({ format: 'date-time' }),

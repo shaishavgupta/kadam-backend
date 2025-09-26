@@ -1,5 +1,5 @@
 import { db } from "../infra/db";
-import { ContentType, Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
+import { Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector, ContentType } from "../shared/types/courses.types";
 import { CourseListItem, CourseListData, UserStats } from "../schemas/course";
 
 export class CoursesRepository {
@@ -36,7 +36,10 @@ export class CoursesRepository {
         WHERE is_active = true
         GROUP BY course_id
       ) duration_sum ON c.id = duration_sum.course_id
-      WHERE c.is_active = true AND c.published_at IS NOT NULL
+      WHERE c.is_active = true
+        AND c.creator_published_at IS NOT NULL
+        AND c.approved_at IS NOT NULL
+        AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
     `;
 
     // Get keep_watching courses (from user_enrollments)
@@ -114,10 +117,23 @@ export class CoursesRepository {
     }
   }
 
-  async getAllCourses(page: number, limit: number): Promise<PaginatedCoursesResponse> {
+  async getAllCourses(page: number, limit: number, rejected: boolean = false): Promise<PaginatedCoursesResponse> {
     const offset = (page - 1) * limit;
-    const coursesResult = await db.query('SELECT * FROM courses LIMIT $1 OFFSET $2', [limit, offset]);
-    const totalResult = await db.query('SELECT COUNT(*) FROM courses');
+
+    let coursesQuery = 'SELECT * FROM courses';
+    let countQuery = 'SELECT COUNT(*) FROM courses';
+
+    if (rejected) {
+      // Filter out rejected courses: approved_at IS NULL OR approved_at < rejected_at
+      const whereClause = 'WHERE (approved_at IS NULL OR approved_at < rejected_at)';
+      coursesQuery += ` ${whereClause}`;
+      countQuery += ` ${whereClause}`;
+    }
+
+    coursesQuery += ' ORDER BY created_at DESC LIMIT $1 OFFSET $2';
+
+    const coursesResult = await db.query(coursesQuery, [limit, offset]);
+    const totalResult = await db.query(countQuery);
     const total = parseInt(totalResult.rows[0].count, 10);
 
     return {
@@ -131,10 +147,29 @@ export class CoursesRepository {
 
   async getContentsByCourseId(courseId: number): Promise<ContentWithModule[]> {
     const result = await db.query(
-      `SELECT c.*, m.name as module_title, m.description as module_description
+      `SELECT
+        c.id,
+        c.name,
+        c.module_id,
+        c.content_type as type,
+        c.position,
+        c.is_paid,
+        c.is_active,
+        c.url,
+        c.abs_url,
+        c.duration,
+        c.thumbnail_url,
+        c.category_id,
+        c.next_content_id,
+        c.approved_at,
+        c.approved_by,
+        c.created_at,
+        c.updated_at,
+        m.name as module_title,
+        m.description as module_description
       FROM contents c
       LEFT JOIN modules m ON c.module_id = m.id
-                 WHERE c.course_id = $1`,
+      WHERE m.course_id = $1`,
       [courseId]
     );
     return result.rows as ContentWithModule[];
@@ -253,9 +288,9 @@ export class CoursesRepository {
           if (moduleData.contents && moduleData.contents.length > 0) {
             for (const contentData of moduleData.contents) {
               await db.query(
-                `INSERT INTO contents (name, content_type, content_data, module_id, course_id, created_at, updated_at)
-                                 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
-                [contentData.name, contentData.content_type, contentData.content_data, moduleResult.rows[0].id, course.id]
+                `INSERT INTO contents (name, content_type, content_data, module_id, created_at, updated_at)
+                                 VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+                [contentData.name, contentData.content_type, contentData.content_data, moduleResult.rows[0].id]
               );
             }
           }
@@ -338,7 +373,10 @@ export class CoursesRepository {
            FROM courses
            WHERE id = $1 AND next_course_ids IS NOT NULL
          )
-         AND c.is_active = true AND c.published_at IS NOT NULL
+         AND c.is_active = true
+         AND c.creator_published_at IS NOT NULL
+         AND c.approved_at IS NOT NULL
+         AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
          ORDER BY c.rank DESC`,
         [courseId]
       );
@@ -368,7 +406,14 @@ export class CoursesRepository {
   async publishCourse(id: number): Promise<boolean> {
     try {
       const result = await db.query(
-        `UPDATE courses SET published_at = NOW() WHERE id = $1`,
+        `UPDATE courses
+         SET creator_published_at = NOW(),
+             approved_by = NULL,
+             approved_at = NULL,
+             rejected_by = NULL,
+             rejected_at = NULL,
+             rejection_reason = NULL
+         WHERE id = $1`,
         [id]
       );
       return (result.rowCount || 0) > 0;
@@ -399,7 +444,11 @@ export class CoursesRepository {
       const coursesResult = await db.query(
         `SELECT c.* FROM courses c
                  JOIN course_categories cc ON c.id = cc.course_id
-                 WHERE cc.category_id = $1 AND c.published_at IS NOT NULL
+                 WHERE cc.category_id = $1
+                   AND c.is_active = true
+                   AND c.creator_published_at IS NOT NULL
+                   AND c.approved_at IS NOT NULL
+                   AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
                  ORDER BY c.created_at DESC
                  LIMIT $2 OFFSET $3`,
         [categoryId, limit, offset]
@@ -409,7 +458,11 @@ export class CoursesRepository {
       const totalResult = await db.query(
         `SELECT COUNT(*) FROM courses c
                  JOIN course_categories cc ON c.id = cc.course_id
-                 WHERE cc.category_id = $1 AND c.published_at IS NOT NULL`,
+                 WHERE cc.category_id = $1
+                   AND c.is_active = true
+                   AND c.creator_published_at IS NOT NULL
+                   AND c.approved_at IS NOT NULL
+                   AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))`,
         [categoryId]
       );
 
@@ -458,7 +511,8 @@ export class CoursesRepository {
               END
             ), 0) as avg_hours_per_course
           FROM user_enrollments ue
-          LEFT JOIN contents c ON ue.course_id = c.course_id AND c.is_active = true
+          LEFT JOIN modules m ON ue.course_id = m.course_id
+          LEFT JOIN contents c ON m.id = c.module_id AND c.is_active = true
           WHERE ue.user_id = $1
         ),
         user_activity_days AS (
@@ -535,12 +589,16 @@ export class CoursesRepository {
               END
             ), 0) as total_shares
           FROM courses c
-          LEFT JOIN contents ct ON c.id = ct.course_id AND ct.is_active = true
+          LEFT JOIN modules m ON c.id = m.course_id
+          LEFT JOIN contents ct ON m.id = ct.module_id AND ct.is_active = true
           LEFT JOIN views v ON ct.id = v.parent_id AND v.parent_type = 'content' AND v.created_at >= NOW() - INTERVAL '30 days'
           LEFT JOIN likes l ON ct.id = l.parent_id AND l.parent_type = 'content' AND l.is_active = true AND l.created_at >= NOW() - INTERVAL '30 days'
           LEFT JOIN comments cm ON ct.id = cm.parent_id AND cm.parent_type = 'content' AND cm.is_active = true AND cm.created_at >= NOW() - INTERVAL '30 days'
           LEFT JOIN shares s ON ct.id = s.parent_id AND s.parent_type = 'content' AND s.created_at >= NOW() - INTERVAL '30 days'
-          WHERE c.is_active = true AND c.published_at IS NOT NULL
+          WHERE c.is_active = true
+            AND c.creator_published_at IS NOT NULL
+            AND c.approved_at IS NOT NULL
+            AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
           GROUP BY c.id, c.name
         ),
         course_scores AS (
@@ -688,7 +746,7 @@ export class CoursesRepository {
           c.is_paid,
           c.price,
           c.thumbnail_url,
-          c.certificate_url,
+          c.certificate_id,
           c.rank,
           c.published_at,
           c.created_at,
@@ -700,7 +758,9 @@ export class CoursesRepository {
         LEFT JOIN course_categories cc ON c.id = cc.course_id
         LEFT JOIN categories cat ON cc.category_id = cat.id
         WHERE c.is_active = true
-          AND c.published_at IS NOT NULL
+          AND c.creator_published_at IS NOT NULL
+          AND c.approved_at IS NOT NULL
+          AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
           AND (
             SIMILARITY(c.name, $1) > 0.1
             OR SIMILARITY(c.description, $1) > 0.1
@@ -727,8 +787,7 @@ export class CoursesRepository {
           c.id,
           c.name,
           c.module_id,
-          c.course_id,
-          c.content_type,
+          c.content_type as type,
           c.position,
           c.is_paid,
           c.is_active,
@@ -803,7 +862,7 @@ export class CoursesRepository {
     position: number;
     is_paid: boolean;
     is_active: boolean;
-    thumbnail_url?: string;
+    thumbnail_url: string;
   }): Promise<Module | null> {
     try {
       const result = await db.query(
@@ -899,7 +958,25 @@ export class CoursesRepository {
   async getContentByModuleId(moduleId: number): Promise<ContentWithModule[]> {
     try {
       const result = await db.query(
-        `SELECT c.*, m.name as module_title, m.description as module_description
+        `SELECT
+          c.id,
+          c.name,
+          c.module_id,
+          c.content_type as type,
+          c.position,
+          c.is_paid,
+          c.is_active,
+          c.url,
+          c.duration,
+          c.thumbnail_url,
+          c.category_id,
+          c.next_content_id,
+          c.approved_at,
+          c.approved_by,
+          c.created_at,
+          c.updated_at,
+          m.name as module_title,
+          m.description as module_description
          FROM contents c
          LEFT JOIN modules m ON c.module_id = m.id
          WHERE c.module_id = $1 AND c.is_active = true
@@ -915,11 +992,12 @@ export class CoursesRepository {
 
   async createContent(moduleId: number, contentData: {
     name: string;
-    content_type: string;
+    content_type: ContentType;
     position: number;
     is_paid: boolean;
     is_active: boolean;
     url?: string;
+    abs_url?: string;
     duration?: number;
     thumbnail_url?: string;
     category_id?: number;
@@ -932,17 +1010,32 @@ export class CoursesRepository {
         [moduleId]
       );
 
-      if (moduleResult.rows.length === 0) {
-        throw new Error(`Module with ID ${moduleId} does not exist`);
+      if (moduleResult.rows.length === 0 || moduleResult.rows[0].course_id === null) {
+        throw new Error(`Module with ID ${moduleId} does not exist or does not belong to a course`);
       }
 
-      const courseId = moduleResult.rows[0].course_id;
-
       const result = await db.query(
-        `INSERT INTO contents (name, content_type, module_id, course_id, position, is_paid, is_active, url, duration, thumbnail_url, category_id, next_content_id, created_at, updated_at)
+        `INSERT INTO contents (name, content_type, module_id, position, is_paid, is_active, url, abs_url, duration, thumbnail_url, category_id, next_content_id, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
-         RETURNING *`,
-        [contentData.name, contentData.content_type, moduleId, courseId, contentData.position, contentData.is_paid, contentData.is_active, contentData.url, contentData.duration, contentData.thumbnail_url, contentData.category_id, contentData.next_content_id]
+         RETURNING
+           id,
+           name,
+           module_id,
+           content_type as type,
+           position,
+           is_paid,
+           is_active,
+           url,
+           abs_url,
+           duration,
+           thumbnail_url,
+           category_id,
+           next_content_id,
+           approved_at,
+           approved_by,
+           created_at,
+           updated_at`,
+        [contentData.name, contentData.content_type, moduleId, contentData.position, contentData.is_paid, contentData.is_active, contentData.url, contentData.abs_url, contentData.duration, contentData.thumbnail_url, contentData.category_id, contentData.next_content_id]
       );
 
       const content = result.rows[0];
@@ -959,11 +1052,12 @@ export class CoursesRepository {
 
   async updateContent(contentId: number, contentData: {
     name?: string;
-    content_type?: string;
+    content_type?: ContentType;
     position?: number;
     is_paid?: boolean;
     is_active?: boolean;
     url?: string;
+    abs_url?: string;
     duration?: number;
     thumbnail_url?: string;
     category_id?: number;
@@ -1004,6 +1098,11 @@ export class CoursesRepository {
         values.push(contentData.url);
         paramCount++;
       }
+      if (contentData.abs_url !== undefined) {
+        updateFields.push(`abs_url = $${paramCount}`);
+        values.push(contentData.abs_url);
+        paramCount++;
+      }
       if (contentData.duration !== undefined) {
         updateFields.push(`duration = $${paramCount}`);
         values.push(contentData.duration);
@@ -1033,7 +1132,24 @@ export class CoursesRepository {
       values.push(contentId);
 
       const result = await db.query(
-        `UPDATE contents SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+        `UPDATE contents SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING
+          id,
+          name,
+          module_id,
+          content_type as type,
+          position,
+          is_paid,
+          is_active,
+          url,
+          abs_url,
+          duration,
+          thumbnail_url,
+          category_id,
+          next_content_id,
+          approved_at,
+          approved_by,
+          created_at,
+          updated_at`,
         values
       );
 
@@ -1101,7 +1217,9 @@ export class CoursesRepository {
       // Get total counts
       const totalModules = modules.length;
       const totalContentResult = await db.query(
-        `SELECT COUNT(*) as total FROM contents WHERE course_id = $1 AND is_active = true`,
+        `SELECT COUNT(*) as total FROM contents c
+         JOIN modules m ON c.module_id = m.id
+         WHERE m.course_id = $1 AND c.is_active = true`,
         [courseId]
       );
       const totalContent = parseInt(totalContentResult.rows[0].total);
@@ -1114,6 +1232,32 @@ export class CoursesRepository {
       };
     } catch (error) {
       console.error("Error getting course with modules and content:", error);
+      return null;
+    }
+  }
+
+  // Get course details by video ID (content ID)
+  async getCourseWithModulesAndContentByVideoId(videoId: number): Promise<any> {
+    try {
+      // First, get the course ID from the video ID
+      const courseIdResult = await db.query(
+        `SELECT m.course_id
+         FROM contents c
+         JOIN modules m ON c.module_id = m.id
+         WHERE c.id = $1`,
+        [videoId]
+      );
+
+      if (courseIdResult.rows.length === 0) {
+        return null;
+      }
+
+      const courseId = courseIdResult.rows[0].course_id;
+
+      // Now get the full course details using the existing method
+      return await this.getCourseWithModulesAndContent(courseId);
+    } catch (error) {
+      console.error("Error getting course with modules and content by video ID:", error);
       return null;
     }
   }

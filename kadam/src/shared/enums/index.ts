@@ -51,3 +51,15 @@ export enum UserType {
     ADMIN = 'admin',
     CREATOR = 'creator'
 }
+
+// File Types
+export enum FileType {
+    THUMBNAIL = 'thumbnail',
+    VIDEO = 'video'
+}
+
+// S3 Operations
+export enum S3Operation {
+    PUT_OBJECT = 'putObject',
+    GET_OBJECT = 'getObject'
+}

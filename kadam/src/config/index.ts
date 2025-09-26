@@ -237,11 +237,8 @@ export const awsConfig = {
         coursesBucket: config.AWS_S3_COURSES_BUCKET,
         // S3 prefixes (folders) within the courses bucket
         prefixes: {
-            rawVideos: 'RawVideos',
-            processedVideos: 'ProcessedVideos',
-            thumbnails: 'thumbnails',
-            certificates: 'certificates',
-            courseMaterials: 'course-materials'
+            rawVideos: 'raw-videos',
+            processedVideos: 'processed-videos',
         }
     },
 };

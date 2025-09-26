@@ -1,4 +1,4 @@
-import { AdminRepository, UnapprovedCourse, RejectedVideo } from "../repository/admin.repository";
+import { AdminRepository, UnapprovedCourse } from "../repository/admin.repository";
 import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, DashboardData, Admin } from "../shared/types/admin.types";
 import { UserRepository } from "../repository/users.repository";
 import { CreatorRepository } from "../repository/creators.repository";
@@ -28,6 +28,15 @@ export class AdminService {
     /**
      * Create a new admin user
      */
+    async getAdminById(adminId: number): Promise<Admin & { created_at: Date; updated_at: Date; last_active_at?: Date; profile_pic?: string } | null> {
+        try {
+            return await this.adminRepository.getAdminById(adminId);
+        } catch (error) {
+            console.error("Error getting admin by ID:", error);
+            return null;
+        }
+    }
+
     async getOrCreateAdmin(adminData: CreateAdminRequest): Promise<{ entity: Admin, newEntity: boolean }> {
         try {
             // First create the base user
@@ -109,8 +118,13 @@ export class AdminService {
         return this.creatorRepository.getAllCreators(page, limit);
     }
 
-    async getCourses(page: number, limit: number): Promise<PaginatedCoursesResponse> {
-        return this.coursesRepository.getAllCourses(page, limit);
+    async getCourses(page: number, limit: number, rejected: boolean = false): Promise<any> {
+        if (rejected) {
+            // Return rejected courses with hierarchical structure
+            return this.adminRepository.getRejectedCoursesWithHierarchy(page, limit);
+        } else {
+            return this.coursesRepository.getAllCourses(page, limit, rejected);
+        }
     }
 
     // Enhanced Admin Authentication
@@ -160,21 +174,140 @@ export class AdminService {
         }
     }
 
-    async approveCourse(courseId: number, adminEmail: string): Promise<boolean> {
+    async getAvailableCourses(): Promise<Array<{
+        id: number;
+        name: string;
+        creator_published_at?: Date;
+        approved_at?: Date;
+        rejected_at?: Date;
+    }>> {
         try {
-            return await this.adminRepository.approveCourse(courseId, adminEmail);
+            return await this.adminRepository.getAvailableCourses();
+        } catch (error) {
+            console.error("Error getting available courses:", error);
+            return [];
+        }
+    }
+
+    async getCourseStatus(courseId: number): Promise<{
+        exists: boolean;
+        name?: string;
+        creator_published_at?: Date;
+        approved_at?: Date;
+        rejected_at?: Date;
+        canBeApproved: boolean;
+        reason?: string;
+    }> {
+        try {
+            return await this.adminRepository.getCourseStatus(courseId);
+        } catch (error) {
+            console.error("Error getting course status:", error);
+            return {
+                exists: false,
+                canBeApproved: false,
+                reason: 'Service error'
+            };
+        }
+    }
+
+    async approveCourse(courseId: number, adminId: number): Promise<boolean> {
+        try {
+            return await this.adminRepository.approveCourse(courseId, adminId);
         } catch (error) {
             console.error("Error approving course:", error);
             return false;
         }
     }
 
-    async rejectCourse(courseId: number, adminEmail: string, reason: string): Promise<boolean> {
+    async rejectCourse(courseId: number, adminId: number, reason: string): Promise<boolean> {
         try {
-            return await this.adminRepository.rejectCourse(courseId, adminEmail, reason);
+            return await this.adminRepository.rejectCourse(courseId, adminId, reason);
         } catch (error) {
             console.error("Error rejecting course:", error);
             return false;
+        }
+    }
+
+    async rejectModule(moduleId: number, adminId: number, reason: string): Promise<boolean> {
+        try {
+            return await this.adminRepository.rejectModule(moduleId, adminId, reason);
+        } catch (error) {
+            console.error("Error rejecting module:", error);
+            return false;
+        }
+    }
+
+    async rejectContent(contentId: number, adminId: number, reason: string): Promise<boolean> {
+        try {
+            return await this.adminRepository.rejectContent(contentId, adminId, reason);
+        } catch (error) {
+            console.error("Error rejecting content:", error);
+            return false;
+        }
+    }
+
+    // Unified reject method for course, module, or content
+    async rejectItem(type: 'course' | 'module' | 'content', id: number, adminId: number, reason: string): Promise<{
+        success: boolean;
+        message: string;
+        cascadedUpdates?: {
+            courseUpdated?: boolean;
+            moduleUpdated?: boolean;
+            contentUpdated?: boolean;
+        };
+    }> {
+        try {
+            console.log(`Attempting to reject ${type} with ID ${id}, adminId: ${adminId}, reason: ${reason}`);
+
+            switch (type) {
+                case 'course':
+                    const courseSuccess = await this.adminRepository.rejectCourse(id, adminId, reason);
+                    console.log(`Course rejection result: ${courseSuccess}`);
+                    return {
+                        success: courseSuccess,
+                        message: courseSuccess ? 'Course rejected successfully' : 'Course not found or already processed',
+                        cascadedUpdates: {
+                            courseUpdated: courseSuccess
+                        }
+                    };
+
+                case 'module':
+                    const moduleResult = await this.adminRepository.rejectModuleWithCascade(id, adminId, reason);
+                    console.log(`Module rejection result:`, moduleResult);
+                    return {
+                        success: moduleResult.success,
+                        message: moduleResult.success ? 'Module rejected successfully (course also rejected)' : 'Module not found or already processed',
+                        cascadedUpdates: {
+                            moduleUpdated: moduleResult.success,
+                            courseUpdated: moduleResult.courseUpdated
+                        }
+                    };
+
+                case 'content':
+                    const contentResult = await this.adminRepository.rejectContentWithCascade(id, adminId, reason);
+                    console.log(`Content rejection result:`, contentResult);
+                    return {
+                        success: contentResult.success,
+                        message: contentResult.success ? 'Content rejected successfully (module and course also rejected)' : 'Content not found or already processed',
+                        cascadedUpdates: {
+                            contentUpdated: contentResult.success,
+                            moduleUpdated: contentResult.moduleUpdated,
+                            courseUpdated: contentResult.courseUpdated
+                        }
+                    };
+
+                default:
+                    return {
+                        success: false,
+                        message: 'Invalid rejection type'
+                    };
+            }
+        } catch (error) {
+            console.error(`Error rejecting ${type}:`, error);
+            return {
+                success: false,
+                message: `Error rejecting ${type}`
+            };
         }
     }
 
@@ -185,6 +318,7 @@ export class AdminService {
             name: string;
             description?: string;
             url: string;
+            abs_url?: string;
             position: number;
             is_paid: boolean;
             is_active: boolean;
@@ -192,55 +326,43 @@ export class AdminService {
             thumbnail_url?: string;
             module_name?: string;
         }>,
-        adminEmail: string
+        adminId: number
     ): Promise<any[]> {
         try {
-            return await this.adminRepository.saveVideoMetadata(courseId, videos, adminEmail);
+            return await this.adminRepository.saveVideoMetadata(courseId, videos, adminId);
         } catch (error) {
             console.error("Error saving video metadata:", error);
             throw error;
         }
     }
 
-    async reorderVideos(courseId: number, videoIds: number[], adminEmail: string): Promise<any[]> {
+    async reorderVideos(courseId: number, videoIds: number[], adminId: number): Promise<any[]> {
         try {
-            return await this.adminRepository.reorderVideos(courseId, videoIds, adminEmail);
+            return await this.adminRepository.reorderVideos(courseId, videoIds, adminId);
         } catch (error) {
             console.error("Error reordering videos:", error);
             throw error;
         }
     }
 
-    async softDeleteVideo(videoId: number, adminEmail: string): Promise<boolean> {
+    async reorderContents(moduleId: number, contentIds: number[], adminId: number): Promise<any[]> {
         try {
-            return await this.adminRepository.softDeleteVideo(videoId, adminEmail);
+            return await this.adminRepository.reorderContents(moduleId, contentIds, adminId);
+        } catch (error) {
+            console.error("Error reordering contents:", error);
+            throw error;
+        }
+    }
+
+    async softDeleteVideo(videoId: number, adminId: number): Promise<boolean> {
+        try {
+            return await this.adminRepository.softDeleteVideo(videoId, adminId);
         } catch (error) {
             console.error("Error soft deleting video:", error);
             return false;
         }
     }
 
-    // Rejected Content
-    async getRejectedVideos(page: number = 1, limit: number = 10): Promise<{
-        videos: RejectedVideo[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
-    }> {
-        try {
-            return await this.adminRepository.getRejectedVideos(page, limit);
-        } catch (error) {
-            console.error("Error getting rejected videos:", error);
-            return {
-                videos: [],
-                total: 0,
-                page,
-                limit,
-                totalPages: 0
-            };
-        }
-    }
 
     // Analytics
     async getCourseApprovalStats(): Promise<any> {
@@ -275,26 +397,13 @@ export class AdminService {
         position: number;
         is_paid: boolean;
         is_active: boolean;
-        module_name?: string;
+        module_id?: number;
         url: string;
+        abs_url?: string;
         thumbnail_url?: string;
-    }>, adminEmail: string): Promise<Array<{
-        id: number;
-        title: string;
-        description?: string;
-        duration?: number;
-        position: number;
-        is_paid: boolean;
-        is_active: boolean;
-        module_name?: string;
-        url: string;
-        thumbnail_url?: string;
-        course_id: number;
-        created_at: string;
-        updated_at: string;
-    }>> {
+    }>, adminId: number): Promise<Array<any>> {
         try {
-            return await this.adminRepository.createContents(courseId, videos, adminEmail);
+            return await this.adminRepository.createContents(courseId, videos, adminId);
         } catch (error) {
             console.error("Error creating contents:", error);
             throw error;
@@ -308,6 +417,26 @@ export class AdminService {
         } catch (error) {
             console.error("Error getting course with modules and content:", error);
             return null;
+        }
+    }
+
+    // Individual module approval
+    async approveModule(moduleId: number, adminId: number): Promise<boolean> {
+        try {
+            return await this.adminRepository.approveModule(moduleId, adminId);
+        } catch (error) {
+            console.error("Error approving module:", error);
+            return false;
+        }
+    }
+
+    // Individual content approval
+    async approveContent(contentId: number, adminId: number): Promise<boolean> {
+        try {
+            return await this.adminRepository.approveContent(contentId, adminId);
+        } catch (error) {
+            console.error("Error approving content:", error);
+            return false;
         }
     }
 

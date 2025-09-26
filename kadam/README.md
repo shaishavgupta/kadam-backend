@@ -1231,7 +1231,7 @@ This will add all the required tables and columns for admin functionality.
 }
 ```
 
-**DELETE** `/admin/videos/:videoId/soft-delete`
+**DELETE** `/admin/videos/:videoId`
 ```typescript
 // Response
 {
@@ -1662,6 +1662,854 @@ try {
 - Integrates with the existing configuration system
 - Follows the project's service architecture patterns
 - Compatible with existing course and content data structures
+
+## API Changes Summary - Course/Module/Content Review Workflow
+
+### Overview
+This document summarizes all new and modified backend endpoints for the course/module/content review workflow refactor.
+
+### Modified APIs
+
+#### 1. GET /admin/courses
+**Status:** ENHANCED
+**Changes:**
+- Added support for `rejected=true` parameter
+- Returns hierarchical structure (courses → modules → contents) when `rejected=true`
+- Original functionality preserved for `rejected=false` or when parameter is omitted
+
+**Request/Response Schema:**
+```typescript
+// Query Parameters
+interface AdminCoursesQuery {
+  page?: string;
+  limit?: string;
+  rejected?: "true" | "false";
+}
+
+// Response for rejected=true
+interface RejectedCoursesResponse {
+  success: boolean;
+  data: {
+    courses: CourseWithModulesAndContent[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  message: string;
+}
+```
+
+#### 2. POST /admin/courses/{id}/approve
+**Status:** ENHANCED
+**Changes:**
+- Now cascades approval to ALL modules and contents within the course
+- Clears rejection fields when approving
+- Enhanced response with detailed approval information
+
+**Request/Response Schema:**
+```typescript
+// Response
+interface CourseApprovalResponse {
+  success: boolean;
+  data?: {
+    courseId: number;
+    approvedAt: string;
+    approvedBy: number;
+    rejectedAt?: string;
+    rejectedBy?: number;
+    rejectionReason?: string;
+  };
+  message: string;
+}
+```
+
+#### 3. POST /admin/reject
+**Status:** ENHANCED
+**Changes:**
+- Improved cascading logic for module and content rejections
+- Enhanced response with cascaded update information
+- Better error handling and logging
+
+**Request/Response Schema:**
+```typescript
+// Request
+interface UnifiedRejectRequest {
+  type: "course" | "module" | "content";
+  id: number;
+  reason?: string;
+}
+
+// Response
+interface UnifiedRejectResponse {
+  success: boolean;
+  data?: {
+    type: string;
+    id: number;
+    rejectedAt: string;
+    rejectedBy: number;
+    rejectionReason: string;
+    cascadedUpdates?: {
+      courseUpdated?: boolean;
+      moduleUpdated?: boolean;
+      contentUpdated?: boolean;
+    };
+  };
+  message: string;
+}
+```
+
+### New APIs
+
+#### 4. POST /admin/modules/{id}/approve
+**Status:** NEW
+**Description:** Approve an individual module (does not cascade to course or contents)
+
+**Request/Response Schema:**
+```typescript
+// Path Parameters
+interface ModuleApprovalParams {
+  moduleId: string; // numeric string
+}
+
+// Response
+interface ModuleApprovalResponse {
+  success: boolean;
+  data?: {
+    moduleId: number;
+    approvedAt: string;
+    approvedBy: number;
+    rejectedAt?: string;
+    rejectedBy?: number;
+    rejectionReason?: string;
+  };
+  message: string;
+}
+```
+
+**curl Example:**
+```bash
+curl -X POST "http://localhost:3001/api/admin/modules/456/approve" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+#### 5. POST /admin/contents/{id}/approve
+**Status:** NEW
+**Description:** Approve an individual content item (does not cascade to module or course)
+
+**Request/Response Schema:**
+```typescript
+// Path Parameters
+interface ContentApprovalParams {
+  contentId: string; // numeric string
+}
+
+// Response
+interface ContentApprovalResponse {
+  success: boolean;
+  data?: {
+    contentId: number;
+    approvedAt: string;
+    approvedBy: number;
+    rejectedAt?: string;
+    rejectedBy?: number;
+    rejectionReason?: string;
+  };
+  message: string;
+}
+```
+
+**curl Example:**
+```bash
+curl -X POST "http://localhost:3001/api/admin/contents/789/approve" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+### Removed APIs
+
+#### DELETE /admin/videos/rejected
+**Status:** REMOVED (or never existed)
+**Reason:** Not found in current codebase, likely already removed or never implemented
+
+### Business Logic Changes
+
+#### Approval Logic:
+1. **Course Approval**:
+   - Cascades to ALL modules and contents in the course
+   - Sets `approved_at`, `approved_by` for course, modules, and contents
+   - Clears any rejection fields
+
+2. **Module Approval**:
+   - Approves ONLY the specific module
+   - Does NOT cascade to course or contents
+
+3. **Content Approval**:
+   - Approves ONLY the specific content
+   - Does NOT cascade to module or course
+
+#### Rejection Logic:
+1. **Course Rejection**:
+   - Rejects only the course
+   - Sets `creator_published_at = NULL`
+   - Clears approval fields
+
+2. **Module Rejection**:
+   - Rejects the module
+   - **Cascades rejection to parent course**
+   - Updates both module and course rejection fields
+
+3. **Content Rejection**:
+   - Rejects the content
+   - **Cascades rejection to parent module AND course**
+   - Updates content, module, and course rejection fields
+
+### Database Schema Additions
+
+Ensure these columns exist in your database:
+
+```sql
+-- courses table
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES admins(id);
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP;
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS rejected_by INTEGER REFERENCES admins(id);
+ALTER TABLE courses ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+
+-- modules table
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP;
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES admins(id);
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP;
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS rejected_by INTEGER REFERENCES admins(id);
+ALTER TABLE modules ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+
+-- contents table
+ALTER TABLE contents ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP;
+ALTER TABLE contents ADD COLUMN IF NOT EXISTS approved_by INTEGER REFERENCES admins(id);
+ALTER TABLE contents ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMP;
+ALTER TABLE contents ADD COLUMN IF NOT EXISTS rejected_by INTEGER REFERENCES admins(id);
+ALTER TABLE contents ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+```
+
+### Error Handling
+
+All endpoints return consistent error responses:
+
+```typescript
+interface ErrorResponse {
+  success: false;
+  message: string;
+}
+```
+
+**Common HTTP Status Codes:**
+- `200` - Success
+- `400` - Bad Request (invalid input)
+- `401` - Unauthorized (missing/invalid auth)
+- `404` - Not Found (resource doesn't exist)
+- `500` - Internal Server Error
+
+### Swagger/OpenAPI Documentation
+
+All APIs are fully documented with Swagger schemas available at:
+`http://localhost:3001/documentation`
+
+The documentation includes:
+- Complete request/response schemas
+- Authentication requirements
+- Parameter validation
+- Example requests and responses
+- Error response formats
+
+### Testing Recommendations
+
+#### Test Cases to Verify:
+
+1. **Course Approval Cascading:**
+   - Approve a course and verify all modules/contents are approved
+   - Verify rejection fields are cleared
+
+2. **Rejection Cascading:**
+   - Reject a content and verify module and course are also rejected
+   - Reject a module and verify course is also rejected
+   - Reject a course and verify only course is rejected
+
+3. **Individual Approvals:**
+   - Approve individual modules without affecting course/contents
+   - Approve individual contents without affecting module/course
+
+4. **Hierarchical Fetching:**
+   - Fetch rejected courses and verify nested structure
+   - Verify pagination works correctly
+   - Test with empty results
+
+5. **Edge Cases:**
+   - Non-existent IDs (404 responses)
+   - Invalid authentication (401 responses)
+   - Invalid request bodies (400 responses)
+
+### Migration Notes
+
+1. **Database Migration:** Run schema updates before deploying
+2. **API Compatibility:** New endpoints are additive, existing functionality preserved
+3. **Frontend Updates:** Update admin panel to use new endpoints for hierarchical display
+4. **Error Handling:** Update error handling to use new consistent format
+
+## Course/Module/Content Review Workflow API Documentation
+
+### Overview
+This document describes the updated backend APIs for the course/module/content review workflow. The APIs support hierarchical approval/rejection with cascading logic.
+
+Base URL: `http://localhost:3001/api/admin`
+
+### Authentication
+All endpoints require admin authentication using Bearer token:
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+### API Endpoints
+
+#### 1. Course Approval - POST /admin/courses/{id}/approve
+
+**Description:** Approve a course and cascade approval to all its modules and contents.
+
+**Request:**
+```bash
+curl -X POST "http://localhost:3001/api/admin/courses/123/approve" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "courseId": 123,
+    "approvedAt": "2024-01-15T10:30:00.000Z",
+    "approvedBy": 1
+  },
+  "message": "Course approved successfully"
+}
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "success": false,
+  "message": "Course not found"
+}
+```
+
+**Business Logic:**
+- Only courses can be approved directly
+- Approval cascades to all modules and contents in the course
+- Clears any previous rejection data (rejected_at, rejected_by, rejection_reason)
+- Sets approved_at > creator_published_at logic
+
+#### 2. Individual Module Approval - POST /admin/modules/{id}/approve
+
+**Description:** Approve an individual module.
+
+**Request:**
+```bash
+curl -X POST "http://localhost:3001/api/admin/modules/456/approve" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "moduleId": 456,
+    "approvedAt": "2024-01-15T10:30:00.000Z",
+    "approvedBy": 1
+  },
+  "message": "Module approved successfully"
+}
+```
+
+#### 3. Individual Content Approval - POST /admin/contents/{id}/approve
+
+**Description:** Approve an individual content item.
+
+**Request:**
+```bash
+curl -X POST "http://localhost:3001/api/admin/contents/789/approve" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "contentId": 789,
+    "approvedAt": "2024-01-15T10:30:00.000Z",
+    "approvedBy": 1
+  },
+  "message": "Content approved successfully"
+}
+```
+
+#### 4. Unified Rejection - POST /admin/reject
+
+**Description:** Reject a course, module, or content with cascading updates.
+
+**Request Body Schema:**
+```json
+{
+  "type": "course" | "module" | "content",
+  "id": number,
+  "reason": string (optional)
+}
+```
+
+**Examples:**
+
+**Reject Course:**
+```bash
+curl -X POST "http://localhost:3001/api/admin/reject" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "course",
+    "id": 123,
+    "reason": "Content quality does not meet standards"
+  }'
+```
+
+**Reject Module:**
+```bash
+curl -X POST "http://localhost:3001/api/admin/reject" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "module",
+    "id": 456,
+    "reason": "Module structure needs improvement"
+  }'
+```
+
+**Reject Content:**
+```bash
+curl -X POST "http://localhost:3001/api/admin/reject" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "content",
+    "id": 789,
+    "reason": "Video quality is poor"
+  }'
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "type": "content",
+    "id": 789,
+    "rejectedAt": "2024-01-15T10:30:00.000Z",
+    "rejectedBy": 1,
+    "rejectionReason": "Video quality is poor",
+    "cascadedUpdates": {
+      "contentUpdated": true,
+      "moduleUpdated": true,
+      "courseUpdated": true
+    }
+  },
+  "message": "Content rejected successfully (module and course also rejected)"
+}
+```
+
+**Business Logic:**
+- **Course Rejection:** Rejects only the course, sets creator_published_at to NULL
+- **Module Rejection:** Rejects the module AND its parent course
+- **Content Rejection:** Rejects the content, its parent module, AND the parent course
+
+#### 5. Fetch Courses with Hierarchical Structure - GET /admin/courses
+
+**Description:** Fetch courses with optional rejected filter and hierarchical module/content structure.
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `limit` (optional): Items per page (default: 10)
+- `rejected` (optional): "true" to fetch rejected courses with hierarchy
+
+**Examples:**
+
+**Fetch Regular Courses:**
+```bash
+curl -X GET "http://localhost:3001/api/admin/courses?page=1&limit=10" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Fetch Rejected Courses with Hierarchy:**
+```bash
+curl -X GET "http://localhost:3001/api/admin/courses?page=1&limit=11&rejected=true" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response for Rejected Courses (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "courses": [
+      {
+        "id": 123,
+        "name": "Advanced React Development",
+        "description": "Learn advanced React concepts",
+        "is_paid": true,
+        "price": 99.99,
+        "thumbnail_url": "https://example.com/thumb.jpg",
+        "rejected_at": "2024-01-15T08:00:00.000Z",
+        "rejected_by": 1,
+        "rejection_reason": "Content quality needs improvement",
+        "created_at": "2024-01-10T10:00:00.000Z",
+        "updated_at": "2024-01-15T08:00:00.000Z",
+        "totalModules": 3,
+        "totalContent": 15,
+        "modules": [
+          {
+            "id": 456,
+            "name": "React Hooks",
+            "description": "Understanding React Hooks",
+            "course_id": 123,
+            "position": 1,
+            "is_paid": true,
+            "is_active": true,
+            "rejected_at": "2024-01-15T08:00:00.000Z",
+            "rejected_by": 1,
+            "rejection_reason": "Content quality needs improvement",
+            "contents": [
+              {
+                "id": 789,
+                "name": "useState Hook",
+                "module_id": 456,
+                "content_type": "video",
+                "position": 1,
+                "is_paid": true,
+                "is_active": true,
+                "url": "https://example.com/video1.mp4",
+                "duration": 300,
+                "thumbnail_url": "https://example.com/thumb1.jpg",
+                "rejected_at": "2024-01-15T08:00:00.000Z",
+                "rejected_by": 1,
+                "rejection_reason": "Content quality needs improvement"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "total": 5,
+    "page": 1,
+    "limit": 11,
+    "totalPages": 1
+  },
+  "message": "Courses retrieved successfully"
+}
+```
+
+#### 6. Get Complete Course Data - GET /admin/courses/{id}/full
+
+**Description:** Get complete course data including modules and content.
+
+**Request:**
+```bash
+curl -X GET "http://localhost:3001/api/admin/courses/123/full" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": 123,
+    "name": "Advanced React Development",
+    "description": "Learn advanced React concepts",
+    "is_paid": true,
+    "price": 99.99,
+    "approved_at": "2024-01-15T10:30:00.000Z",
+    "approved_by": 1,
+    "totalModules": 3,
+    "totalContent": 15,
+    "modules": [
+      {
+        "id": 456,
+        "name": "React Hooks",
+        "description": "Understanding React Hooks",
+        "approved_at": "2024-01-15T10:30:00.000Z",
+        "approved_by": 1,
+        "contents": [
+          {
+            "id": 789,
+            "name": "useState Hook",
+            "content_type": "video",
+            "approved_at": "2024-01-15T10:30:00.000Z",
+            "approved_by": 1
+          }
+        ]
+      }
+    ]
+  },
+  "message": "Course data retrieved successfully"
+}
+```
+
+### Response Status Codes
+
+| Code | Description |
+|------|-------------|
+| 200  | Success |
+| 400  | Bad Request - Invalid input data |
+| 401  | Unauthorized - Missing or invalid authentication |
+| 404  | Not Found - Resource does not exist |
+| 500  | Internal Server Error |
+
+### Error Response Format
+
+```json
+{
+  "success": false,
+  "message": "Error description"
+}
+```
+
+### Business Rules Summary
+
+#### Approval Logic:
+1. **Course Approval**: Cascades to ALL modules and contents within the course
+2. **Module Approval**: Approves only the specific module
+3. **Content Approval**: Approves only the specific content item
+
+#### Rejection Logic:
+1. **Course Rejection**:
+   - Sets course.rejected_at, rejected_by, rejection_reason
+   - Sets course.creator_published_at = NULL
+   - Clears course.approved_at, approved_by
+2. **Module Rejection**:
+   - Rejects the module
+   - **Cascades rejection to parent course**
+3. **Content Rejection**:
+   - Rejects the content
+   - **Cascades rejection to parent module AND course**
+
+#### Data Integrity:
+- Rejected videos are never fetched individually in content APIs
+- Approval clears rejection fields
+- Rejection clears approval fields
+- The approvedAt > creatorPublishedAt logic is maintained
+
+### Database Schema Requirements
+
+Ensure the following columns exist:
+- **courses**: `approved_at`, `approved_by`, `rejected_at`, `rejected_by`, `rejection_reason`, `creator_published_at`
+- **modules**: `approved_at`, `approved_by`, `rejected_at`, `rejected_by`, `rejection_reason`
+- **contents**: `approved_at`, `approved_by`, `rejected_at`, `rejected_by`, `rejection_reason`
+
+### OpenAPI/Swagger Specification
+
+The API is fully documented with Swagger/OpenAPI specifications available at:
+`http://localhost:3001/documentation`
+
+All endpoints include proper TypeScript typing using TypeBox schemas for request/response validation.
+
+## WARP Development Guide
+
+This file provides guidance to WARP (warp.dev) when working with code in this repository.
+
+### Common Development Commands
+
+#### Development Server
+```bash
+npm run dev           # Start development server with hot reload (uses tsx)
+npm run build         # Build TypeScript to JavaScript
+npm start             # Start production server from built files
+```
+
+#### Database Operations
+```bash
+npm run migrate       # Run database migrations (builds first, then runs migrate.js)
+npm run seed          # Seed database with sample data (builds first, then runs seed.js)
+```
+
+#### Background Jobs
+```bash
+npm run bullmq        # Initialize standalone BullMQ workers and cron jobs
+```
+
+#### Docker Operations
+```bash
+npm run docker:start # Start all services (app, db, redis, jaeger)
+npm run docker:dev   # Development mode with Docker
+npm run docker:stop  # Stop all Docker services
+npm run docker:logs  # View container logs
+npm run docker:status # Check container status
+npm run docker:clean # Clean up containers and volumes
+```
+
+#### Testing & Single File Execution
+```bash
+# Run a single test file (when tests are added)
+npm test -- --testPathPattern=filename.test.ts
+
+# Run TypeScript files directly
+npx tsx src/path/to/file.ts
+
+# Run specific worker or job processor
+npx tsx src/workers/email.worker.ts
+```
+
+### High-Level Architecture
+
+#### Framework & Core Technology Stack
+- **Fastify** with TypeScript for high-performance web server
+- **PostgreSQL** with connection pooling for primary database
+- **Redis** for caching and pub/sub messaging
+- **BullMQ** for background job processing with Redis
+- **OpenTelemetry** for distributed tracing and observability
+- **AWS S3** for file storage (courses, videos, media)
+
+#### Layered Architecture Pattern
+The codebase follows a clean layered architecture:
+
+1. **Controllers** (`src/controller/`): Handle HTTP routes, request validation, and response formatting
+2. **Services** (`src/service/`): Contain business logic and orchestrate repository calls
+3. **Repositories** (`src/repository/`): Handle database queries and data persistence
+4. **Infrastructure** (`src/infra/`): Manage external dependencies (DB, Redis, S3, tracing)
+5. **Schemas** (`src/schemas/`): TypeBox validation schemas for API requests/responses
+6. **Shared** (`src/shared/`): Common types, middleware, and utilities
+
+### Key Architectural Patterns
+
+#### Centralized Configuration System
+- All environment variables validated and typed in `src/config/index.ts`
+- Exports structured config objects (`appConfig`, `dbConfig`, `redisConfig`, etc.)
+- Strict validation ensures all required variables are present at startup
+
+#### Infrastructure Initialization
+- Centralized infrastructure management in `src/infra/index.ts`
+- `connectInfrastructure()` and `checkInfrastructureHealth()` functions
+- Modular connection to database, Redis, S3, and tracing services
+
+#### Authentication & Authorization
+- JWT-based authentication with role-based access control
+- Three user types: `user`, `creator`, `admin`
+- Middleware functions: `requireAdmin`, `requireCreator`, `requireUser`
+- Token payload contains `userID` and `userType`
+
+#### Type-Safe API Schemas
+- Uses TypeBox for runtime validation and TypeScript type generation
+- Schemas in `src/schemas/` automatically generate Swagger documentation
+- TypeScript types exported from schemas ensure type safety across layers
+
+### Background Job Processing Architecture
+
+#### BullMQ Integration
+- Singleton `BullMQManager` class handles all queue operations
+- Four main queue types:
+  - **Email Queue**: Welcome emails, course completions, password resets
+  - **Notifications Queue**: SMS, push notifications, OTP delivery
+  - **Course Ranking Queue**: Course popularity calculations and rankings
+  - **Video Processing Queue**: Video encoding, thumbnail generation, subtitle extraction
+
+#### Queue Management Features
+- Bull Board dashboard at `/admin/queues` for monitoring
+- Job retry logic with exponential backoff
+- Configurable job retention policies
+- Cron-based recurring jobs support
+
+#### Worker Architecture
+- Workers defined in `src/workers/` with separate processor files
+- `initializeWorkers()` function initializes all background processors
+- Error handling and logging for job failures
+
+### Data Flow Patterns
+
+#### Request Processing Flow
+1. **Fastify Router** → **Auth Middleware** → **Controller**
+2. **Controller** validates request → calls **Service**
+3. **Service** applies business logic → calls **Repository**
+4. **Repository** executes database queries
+5. Response flows back through layers with proper error handling
+
+#### Background Job Flow
+1. **Service layer** queues jobs using `QueueService` or `bullMQManager`
+2. **Workers** process jobs asynchronously
+3. **Job results** can trigger additional jobs or cache updates
+4. **Error handling** includes retry logic and failure notifications
+
+### Database Architecture
+- Uses raw PostgreSQL queries with connection pooling
+- Migration system using Postgrator
+- Comprehensive seeding system for development data
+- Database health monitoring and connection management
+
+### Caching Strategy
+- Redis for application-level caching
+- Pub/sub messaging for real-time features
+- Cache invalidation patterns through background jobs
+- Structured cache key patterns (e.g., `user:*`, `course:*`)
+
+### Observability & Monitoring
+- OpenTelemetry integration for distributed tracing
+- Structured logging with configurable levels
+- Health check endpoints at `/health`
+- Infrastructure status monitoring
+- Jaeger UI available when running with Docker
+
+### API Documentation
+- Auto-generated Swagger UI at `/documentation`
+- TypeBox schemas provide comprehensive API validation
+- Bearer token authentication documented in OpenAPI spec
+
+### Development Workflow Notes
+
+#### Environment Setup
+1. Copy `.env.example` to `.env` and configure all required variables
+2. Start dependencies: `npm run docker:start` (PostgreSQL, Redis, Jaeger)
+3. Run migrations: `npm run migrate`
+4. Seed database: `npm run seed`
+5. Start development server: `npm run dev`
+
+#### Working with Background Jobs
+- Individual workers can be tested by running: `npx tsx src/workers/[worker-name].worker.ts`
+- Monitor jobs via Bull Board dashboard at `http://localhost:3001/admin/queues`
+- Queue operations available through `QueueService` class methods
+
+#### Database Operations
+- Migration files should be created in SQL format for Postgrator
+- Seeding script clears all data before inserting fresh sample data
+- Database queries use the centralized `db` object from `src/infra/db.ts`
+
+#### Adding New Features
+1. Define TypeScript types in `src/shared/types/`
+2. Create TypeBox schemas in `src/schemas/`
+3. Implement repository methods for data access
+4. Add service layer business logic
+5. Create controller endpoints with proper auth middleware
+6. Register routes in `src/server.ts`
+
+#### Code Quality Conventions
+- Follow .cursorrules and .windsurfrules for coding standards
+- Use TypeScript strict mode throughout
+- Implement proper error handling with try/catch blocks
+- Use the centralized logging system from shared middleware
+- Follow REST API conventions for endpoint design
+- Separate concerns clearly between controller/service/repository layers
+
+#### Testing Philosophy
+- Controllers should focus on request/response handling
+- Services contain testable business logic
+- Repositories handle data access with proper error handling
+- Infrastructure connections are health-monitored and gracefully degrade
 
 ## License
 

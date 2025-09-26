@@ -34,6 +34,15 @@ function serializeDates<T>(value: any): T {
     );
 }
 
+// Helper to create error responses
+function createErrorResponse(message: string, statusCode: number = 500) {
+    return {
+        success: false,
+        message,
+        statusCode
+    };
+}
+
 export default async function creatorsRoutes(fastify: FastifyInstance) {
     const creatorService = new CreatorService();
 
@@ -54,7 +63,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
         try {
             const result = await creatorService.createCreator(request.body as CreateCreatorRequest);
             if (result.error) {
-                reply.status(400).send({ success: false, message: result.error });
+                reply.status(400).send(createErrorResponse(result.error, 400));
                 return {
                     success: false,
                     data: {
@@ -80,7 +89,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {
@@ -113,8 +122,26 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Creator; message: string }> => {
         try {
             const creatorId = parseInt((request.params as any).id, 10);
-            const raw = await creatorService.getCreatorById(creatorId);
-            const data = serializeDates<Creator>(raw);
+            const result = await creatorService.getCreatorById(creatorId);
+
+            if (result.error || !result.creator) {
+                reply.status(404);
+                return {
+                    success: false,
+                    data: {
+                        id: 0,
+                        name: '',
+                        bio: '',
+                        profile_pic: '',
+                        rating: 0,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    },
+                    message: result.error || "Creator not found"
+                };
+            }
+
+            const data = serializeDates<Creator>(result.creator);
             return {
                 success: true,
                 data,
@@ -122,7 +149,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {
@@ -158,7 +185,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             const creatorId = parseInt((request.params as any).id, 10);
             const result = await creatorService.updateCreator(creatorId, request.body as UpdateCreatorRequest);
             if (result.error) {
-                reply.status(400).send({ success: false, message: result.error });
+                reply.status(400).send(createErrorResponse(result.error, 400));
                 return {
                     success: false,
                     data: {
@@ -184,7 +211,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {
@@ -225,7 +252,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {
@@ -236,54 +263,6 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
                     rating: 0,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
-                },
-                message: errorMessage
-            };
-        }
-    });
-
-    // Get all creators
-    fastify.get('/', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Creators'],
-            summary: 'Get all creators',
-            description: 'Retrieve a paginated list of all creators',
-            querystring: GetCreatorsQuerySchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: PaginatedCreatorsResponseWrapperSchema
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: PaginatedCreatorsResponse; message: string }> => {
-        try {
-            const { page: pageStr, limit: limitStr } = (request.query as any) || {};
-            const page = pageStr ? parseInt(pageStr, 10) : 1;
-            const limit = limitStr ? parseInt(limitStr, 10) : 10;
-            const raw = await creatorService.getAllCreators(page, limit);
-            const data: PaginatedCreatorsResponse = {
-                creators: serializeDates<any[]>(raw?.creators ?? []),
-                total: (raw as any)?.total ?? (raw as any)?.pagination?.total ?? 0,
-                page: (raw as any)?.page ?? (raw as any)?.pagination?.page ?? page,
-                limit: (raw as any)?.limit ?? (raw as any)?.pagination?.limit ?? limit,
-                totalPages: (raw as any)?.totalPages ?? (raw as any)?.pagination?.totalPages ?? 0
-            } as PaginatedCreatorsResponse;
-            return {
-                success: true,
-                data,
-                message: "Creators retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
-            return {
-                success: false,
-                data: {
-                    creators: [],
-                    total: 0,
-                    page: 1,
-                    limit: 10,
-                    totalPages: 0
                 },
                 message: errorMessage
             };
@@ -315,7 +294,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: {

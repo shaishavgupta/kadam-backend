@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { UserService } from "../service/users.service";
-import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin, requireAdminOrUser } from "../shared/middleware/auth";
+import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin } from "../shared/middleware/auth";
 import {
     CreateUserRequestSchema,
     UpdateUserRequestSchema,
@@ -30,6 +30,15 @@ function serializeDates<T>(value: any): T {
     return JSON.parse(
         JSON.stringify(value, (_key, val) => (val instanceof Date ? val.toISOString() : val))
     );
+}
+
+// Helper to create error responses
+function createErrorResponse(message: string, statusCode: number = 500) {
+    return {
+        success: false,
+        message,
+        statusCode
+    };
 }
 
 const userService = new UserService();
@@ -95,10 +104,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 };
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Internal server error";
-                reply.status(500).send({
-                    success: false,
-                    message: errorMessage
-                });
+                reply.status(500).send(createErrorResponse(errorMessage, 500));
                 return {
                     success: false,
                     data: {
@@ -114,7 +120,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
         });
 
         fastify.get('/:id', {
-            preHandler: [authMiddleware, requireAdminOrUser],
+            preHandler: [authMiddleware, requireUser],
             schema: {
                 tags: ['Users'],
                 summary: 'Get user by ID',
@@ -129,10 +135,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
             try {
                 const userId = parseInt((request.params as any).id);
                 if (isNaN(userId)) {
-                    reply.status(400).send({
-                        success: false,
-                        message: "Invalid user ID"
-                    });
+                    reply.status(400).send(createErrorResponse("Invalid user ID", 400));
                     return {
                         success: false,
                         data: {
@@ -167,10 +170,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 };
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Internal server error";
-                reply.status(500).send({
-                    success: false,
-                    message: errorMessage
-                });
+                reply.status(500).send(createErrorResponse(errorMessage, 500));
                 return {
                     success: false,
                     data: {
@@ -198,7 +198,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
         });
 
         fastify.get('/phone/:phone', {
-            preHandler: [authMiddleware, requireAdminOrUser],
+            preHandler: [authMiddleware, requireUser],
             schema: {
                 tags: ['Users'],
                 summary: 'Get user by phone number',
@@ -220,10 +220,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 };
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Internal server error";
-                reply.status(500).send({
-                    success: false,
-                    message: errorMessage
-                });
+                reply.status(500).send(createErrorResponse(errorMessage, 500));
                 return {
                     success: false,
                     data: {
@@ -251,7 +248,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
         });
 
         fastify.get('/email/:email', {
-            preHandler: [authMiddleware, requireAdminOrUser],
+            preHandler: [authMiddleware, requireUser],
             schema: {
                 tags: ['Users'],
                 summary: 'Get user by email',
@@ -273,10 +270,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 };
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Internal server error";
-                reply.status(500).send({
-                    success: false,
-                    message: errorMessage
-                });
+                reply.status(500).send(createErrorResponse(errorMessage, 500));
                 return {
                     success: false,
                     data: {
@@ -304,7 +298,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
         });
 
         fastify.patch('/:id', {
-            preHandler: [authMiddleware, requireAdminOrUser],
+            preHandler: [authMiddleware, requireUser],
             schema: {
                 tags: ['Users'],
                 summary: 'Update user',
@@ -320,10 +314,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
             try {
                 const userId = parseInt((request.params as any).id);
                 if (isNaN(userId)) {
-                    reply.status(400).send({
-                        success: false,
-                        message: "Invalid user ID"
-                    });
+                    reply.status(400).send(createErrorResponse("Invalid user ID", 400));
                     return {
                         success: false,
                         data: {
@@ -358,10 +349,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 };
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Internal server error";
-                reply.status(500).send({
-                    success: false,
-                    message: errorMessage
-                });
+                reply.status(500).send(createErrorResponse(errorMessage, 500));
                 return {
                     success: false,
                     data: {
@@ -404,10 +392,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
             try {
                 const userId = parseInt((request.params as any).id);
                 if (isNaN(userId)) {
-                    reply.status(400).send({
-                        success: false,
-                        message: "Invalid user ID"
-                    });
+                    reply.status(400).send(createErrorResponse("Invalid user ID", 400));
                     return {
                         success: false,
                         message: "Invalid user ID"
@@ -421,10 +406,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
                 };
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Internal server error";
-                reply.status(500).send({
-                    success: false,
-                    message: errorMessage
-                });
+                reply.status(500).send(createErrorResponse(errorMessage, 500));
                 return {
                     success: false,
                     message: errorMessage

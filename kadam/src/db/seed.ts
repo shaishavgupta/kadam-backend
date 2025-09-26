@@ -1,5 +1,6 @@
 import { Client } from 'pg';
 import { dbConfig } from '../config';
+import { ContentType } from '../shared/enums';
 // Create PostgreSQL client
 const client = new Client({
     host: dbConfig.host,
@@ -30,12 +31,13 @@ async function seedDatabase() {
         const userIds = await seedUsers();
 
         // Course-related entities
+        const certificateIds = await seedCertificates();
         const qualificationIds = await seedQualifications();
         const achievementIds = await seedAchievements();
         await seedCreatorQualifications(creatorIds, qualificationIds);
         await seedCreatorAchievements(creatorIds, achievementIds);
 
-        const courseIds = await seedCourses(categoryIds);
+        const courseIds = await seedCourses(categoryIds, certificateIds);
         await seedCourseCategories(courseIds, categoryIds);
         await seedCourseCreators(courseIds, creatorIds);
 
@@ -52,6 +54,12 @@ async function seedDatabase() {
         await seedAdminConfigurations(adminIds);
         await seedAdminActivities(adminIds);
 
+        // Interactions
+        await seedInteractions(userIds, courseIds, contentIds);
+
+        // Vector embeddings
+        await seedVectors(courseIds, contentIds);
+
         console.log('✅ Database seeded successfully!');
 
         // Print summary
@@ -67,12 +75,18 @@ async function seedDatabase() {
 
 async function clearExistingData() {
     const tables = [
+        'views',
+        'saves',
+        'shares',
+        'comments',
+        'likes',
         'admin_activities',
         'admin_configurations',
         'user_quiz_attempts',
         'user_certificates',
         'user_badges',
         'user_enrollments',
+        'vectors',
         'contents',
         'modules',
         'course_creators',
@@ -95,11 +109,14 @@ async function clearExistingData() {
 
 async function seedAdmins(): Promise<number[]> {
     console.log('👤 Seeding admins...');
+    const bcrypt = require('bcrypt');
+
     const admins = [
         {
             name: 'Super Admin',
             email: 'admin@kadam.com',
             phone: '+919876543210',
+            password: await bcrypt.hash('admin123', 10),
             is_active: true,
             profile_pic: 'https://example.com/admin1.jpg'
         },
@@ -107,6 +124,7 @@ async function seedAdmins(): Promise<number[]> {
             name: 'Content Manager',
             email: 'content@kadam.com',
             phone: '+918765432109',
+            password: await bcrypt.hash('content123', 10),
             is_active: true,
             profile_pic: 'https://example.com/admin2.jpg'
         }
@@ -115,9 +133,9 @@ async function seedAdmins(): Promise<number[]> {
     const adminIds: number[] = [];
     for (const admin of admins) {
         const result = await client.query(
-            `INSERT INTO admins (name, email, phone, is_active, profile_pic, last_active_at)
-             VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id`,
-            [admin.name, admin.email, admin.phone, admin.is_active, admin.profile_pic]
+            `INSERT INTO admins (name, email, phone, password, is_active, profile_pic, last_active_at)
+             VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id`,
+            [admin.name, admin.email, admin.phone, admin.password, admin.is_active, admin.profile_pic]
         );
         adminIds.push(result.rows[0].id);
     }
@@ -156,33 +174,41 @@ async function seedCreators(): Promise<number[]> {
             name: 'John Doe',
             bio: 'Full-stack developer with 10+ years of experience in web development and teaching.',
             profile_pic: 'https://example.com/creator1.jpg',
-            rating: 5
+            rating: 5,
+            email: 'john.doe@example.com',
+            phone_number: '+919876543211'
         },
         {
             name: 'Jane Smith',
             bio: 'UX/UI Designer passionate about creating beautiful and user-friendly interfaces.',
             profile_pic: 'https://example.com/creator2.jpg',
-            rating: 4
+            rating: 4,
+            email: 'jane.smith@example.com',
+            phone_number: '+919876543212'
         },
         {
             name: 'Mike Johnson',
             bio: 'Digital marketing expert helping businesses grow their online presence.',
             profile_pic: 'https://example.com/creator3.jpg',
-            rating: 5
+            rating: 5,
+            email: 'mike.johnson@example.com',
+            phone_number: '+919876543213'
         },
         {
             name: 'Sarah Wilson',
             bio: 'Data scientist and machine learning engineer with expertise in Python and R.',
             profile_pic: 'https://example.com/creator4.jpg',
-            rating: 4
+            rating: 4,
+            email: 'sarah.wilson@example.com',
+            phone_number: '+919876543214'
         }
     ];
 
     const creatorIds: number[] = [];
     for (const creator of creators) {
         const result = await client.query(
-            `INSERT INTO creators (name, bio, profile_pic, rating) VALUES ($1, $2, $3, $4) RETURNING id`,
-            [creator.name, creator.bio, creator.profile_pic, creator.rating]
+            `INSERT INTO creators (name, bio, profile_pic, rating, email, phone_number) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+            [creator.name, creator.bio, creator.profile_pic, creator.rating, creator.email, creator.phone_number]
         );
         creatorIds.push(result.rows[0].id);
     }
@@ -364,7 +390,46 @@ async function seedCreatorAchievements(creatorIds: number[], achievementIds: num
     console.log(`✅ Linked ${Math.min(creatorIds.length, achievementIds.length)} creator-achievement relationships`);
 }
 
-async function seedCourses(categoryIds: number[]): Promise<number[]> {
+async function seedCertificates(): Promise<number[]> {
+    console.log('🏆 Seeding certificates...');
+    const certificates = [
+        {
+            name: 'JavaScript Mastery Certificate',
+            html_content: '<div class="certificate"><h1>JavaScript Mastery Certificate</h1><p>This certifies that the student has completed the JavaScript Bootcamp course.</p></div>',
+            is_active: true
+        },
+        {
+            name: 'UI/UX Design Certificate',
+            html_content: '<div class="certificate"><h1>UI/UX Design Certificate</h1><p>This certifies that the student has completed the UI/UX Design Masterclass.</p></div>',
+            is_active: true
+        },
+        {
+            name: 'Digital Marketing Certificate',
+            html_content: '<div class="certificate"><h1>Digital Marketing Certificate</h1><p>This certifies that the student has completed the Digital Marketing Strategy course.</p></div>',
+            is_active: true
+        },
+        {
+            name: 'Python Data Science Certificate',
+            html_content: '<div class="certificate"><h1>Python Data Science Certificate</h1><p>This certifies that the student has completed the Python for Data Science course.</p></div>',
+            is_active: true
+        }
+    ];
+
+    const certificateIds: number[] = [];
+    for (const certificate of certificates) {
+        const result = await client.query(
+            `INSERT INTO certificates (name, html_content, is_active, updated_at)
+             VALUES ($1, $2, $3, NOW()) RETURNING id`,
+            [certificate.name, certificate.html_content, certificate.is_active]
+        );
+        certificateIds.push(result.rows[0].id);
+    }
+
+    console.log(`✅ Seeded ${certificateIds.length} certificates`);
+    return certificateIds;
+}
+
+async function seedCourses(categoryIds: number[], certificateIds: number[]): Promise<number[]> {
     console.log('📖 Seeding courses...');
     const courses = [
         {
@@ -373,11 +438,10 @@ async function seedCourses(categoryIds: number[]): Promise<number[]> {
             is_paid: true,
             price: 99.99,
             thumbnail_url: 'https://example.com/js-course.jpg',
-            certificate_url: 'https://example.com/certificates/js-cert.pdf',
-            rating: 4.8,
-            num_ratings: 150,
-            published_at: new Date(),
-            priority: 1.0
+            certificate_id: 1,
+            priority: 1.0,
+            creator_published_at: new Date(),
+            next_course_ids: [2, 3]
         },
         {
             name: 'UI/UX Design Masterclass',
@@ -385,11 +449,10 @@ async function seedCourses(categoryIds: number[]): Promise<number[]> {
             is_paid: true,
             price: 79.99,
             thumbnail_url: 'https://example.com/design-course.jpg',
-            certificate_url: 'https://example.com/certificates/design-cert.pdf',
-            rating: 4.9,
-            num_ratings: 120,
-            published_at: new Date(),
-            priority: 0.9
+            certificate_id: 2,
+            priority: 0.9,
+            creator_published_at: new Date(),
+            next_course_ids: [3, 4]
         },
         {
             name: 'Digital Marketing Strategy',
@@ -397,11 +460,10 @@ async function seedCourses(categoryIds: number[]): Promise<number[]> {
             is_paid: true,
             price: 69.99,
             thumbnail_url: 'https://example.com/marketing-course.jpg',
-            certificate_url: 'https://example.com/certificates/marketing-cert.pdf',
-            rating: 4.7,
-            num_ratings: 200,
-            published_at: new Date(),
-            priority: 0.8
+            certificate_id: 3,
+            priority: 0.8,
+            creator_published_at: new Date(),
+            next_course_ids: [4]
         },
         {
             name: 'Python for Data Science',
@@ -409,20 +471,19 @@ async function seedCourses(categoryIds: number[]): Promise<number[]> {
             is_paid: false,
             price: 0,
             thumbnail_url: 'https://example.com/python-course.jpg',
-            certificate_url: 'https://example.com/certificates/python-cert.pdf',
-            rating: 4.6,
-            num_ratings: 300,
-            published_at: new Date(),
-            priority: 0.7
+            certificate_id: 4,
+            priority: 0.7,
+            creator_published_at: new Date(),
+            next_course_ids: []
         }
     ];
 
     const courseIds: number[] = [];
     for (const course of courses) {
         const result = await client.query(
-            `INSERT INTO courses (name, description, is_paid, price, thumbnail_url, certificate_url, rating, num_ratings, published_at, priority, updated_at, is_active)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), true) RETURNING id`,
-            [course.name, course.description, course.is_paid, course.price, course.thumbnail_url, course.certificate_url, course.rating, course.num_ratings, course.published_at, course.priority]
+            `INSERT INTO courses (name, description, is_paid, price, thumbnail_url, certificate_id, priority, creator_published_at, next_course_ids, updated_at, is_active)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), true) RETURNING id`,
+            [course.name, course.description, course.is_paid, course.price, course.thumbnail_url, course.certificate_id, course.priority, course.creator_published_at, course.next_course_ids]
         );
         courseIds.push(result.rows[0].id);
     }
@@ -472,9 +533,9 @@ async function seedModules(courseIds: number[]): Promise<number[]> {
 
         for (let j = 0; j < numModules; j++) {
             const result = await client.query(
-                `INSERT INTO modules (name, description, position, is_paid, is_active, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id`,
-                [`Module ${j + 1}`, `Description for module ${j + 1} of course ${i + 1}`, j, true, true]
+                `INSERT INTO modules (name, description, course_id, position, is_paid, is_active, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id`,
+                [`Module ${j + 1}`, `Description for module ${j + 1} of course ${i + 1}`, courseId, j, true, true]
             );
             moduleIds.push(result.rows[0].id);
         }
@@ -487,7 +548,7 @@ async function seedModules(courseIds: number[]): Promise<number[]> {
 async function seedContents(courseIds: number[], moduleIds: number[], categoryIds: number[]): Promise<number[]> {
     console.log('🎥 Seeding contents...');
 
-    const contentTypes = ['video', 'quiz', 'notes'];
+    const contentTypes = [ContentType.VIDEO, ContentType.QUIZ, ContentType.NOTES];
     const contentIds: number[] = [];
     let moduleIndex = 0;
 
@@ -500,16 +561,17 @@ async function seedContents(courseIds: number[], moduleIds: number[], categoryId
             const categoryId = categoryIds[Math.floor(Math.random() * categoryIds.length)];
 
             const result = await client.query(
-                `INSERT INTO contents (course_id, module_id, content_type, position, is_paid, is_active, url, duration, thumbnail_url, category_id, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()) RETURNING id`,
+                `INSERT INTO contents (name, module_id, content_type, position, is_paid, is_active, url, abs_url, duration, thumbnail_url, category_id, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) RETURNING id`,
                 [
-                    courseId,
+                    `Content ${j + 1} - ${contentType}`,
                     moduleIds[moduleIndex % moduleIds.length],
                     contentType,
                     j,
                     true,
                     true,
                     `https://example.com/content/${i}-${j}.mp4`,
+                    `https://s3.amazonaws.com/bucket/rawVideos/course-${courseId}/content-${j}.mp4`,
                     Math.floor(Math.random() * 1800) + 300, // 5-35 minutes
                     `https://example.com/thumbnails/content-${i}-${j}.jpg`,
                     categoryId
@@ -537,8 +599,8 @@ async function seedUserEnrollments(userIds: number[], courseIds: number[]): Prom
             const completed = progress > 95;
 
             await client.query(
-                `INSERT INTO user_enrollments (user_id, course_id, progress, completed_at) VALUES ($1, $2, $3, $4)`,
-                [userId, shuffledCourses[i], progress, completed ? new Date() : null]
+                `INSERT INTO user_enrollments (user_id, course_id, content_id, progress, completed_at) VALUES ($1, $2, $3, $4, $5)`,
+                [userId, shuffledCourses[i], 1, progress, completed ? new Date() : null]
             );
         }
     }
@@ -626,23 +688,171 @@ async function seedAdminActivities(adminIds: number[]): Promise<void> {
     console.log('📊 Seeding admin activities...');
 
     const activities = [
-        { activity_type: 'user_created', value: { user_id: 1, action: 'created new user' } },
-        { activity_type: 'course_approved', value: { course_id: 1, action: 'approved course' } },
-        { activity_type: 'config_updated', value: { key: 'site_title', action: 'updated configuration' } },
-        { activity_type: 'content_moderated', value: { content_id: 1, action: 'moderated content' } }
+        {
+            admin_id: adminIds[0],
+            resource_type: 'user',
+            resource_id: 1,
+            details: { user_id: 1, action: 'created new user' },
+            ip_address: '192.168.1.1',
+            user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        {
+            admin_id: adminIds[0],
+            resource_type: 'course',
+            resource_id: 1,
+            details: { course_id: 1, action: 'approved course' },
+            ip_address: '192.168.1.2',
+            user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        {
+            admin_id: adminIds[1],
+            resource_type: 'configuration',
+            resource_id: 1,
+            details: { key: 'site_title', action: 'updated configuration' },
+            ip_address: '192.168.1.3',
+            user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        {
+            admin_id: adminIds[1],
+            resource_type: 'content',
+            resource_id: 1,
+            details: { content_id: 1, action: 'moderated content' },
+            ip_address: '192.168.1.4',
+            user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
     ];
 
-    for (let i = 0; i < activities.length; i++) {
-        const activity = activities[i];
-        const adminId = adminIds[i % adminIds.length];
-
+    for (const activity of activities) {
         await client.query(
-            `INSERT INTO admin_activities (created_by, activity_type, value) VALUES ($1, $2, $3)`,
-            [adminId, activity.activity_type, JSON.stringify(activity.value)]
+            `INSERT INTO admin_activities (admin_id, resource_type, resource_id, details, ip_address, user_agent) VALUES ($1, $2, $3, $4, $5, $6)`,
+            [activity.admin_id, activity.resource_type, activity.resource_id, JSON.stringify(activity.details), activity.ip_address, activity.user_agent]
         );
     }
 
     console.log(`✅ Seeded ${activities.length} admin activities`);
+}
+
+async function seedVectors(courseIds: number[], contentIds: number[]): Promise<void> {
+    console.log('🔍 Seeding vector embeddings...');
+
+    // Generate random vector embeddings for courses
+    for (const courseId of courseIds) {
+        const randomVector = Array.from({ length: 1536 }, () => Math.random() * 2 - 1);
+        await client.query(
+            `INSERT INTO vectors (string, vector, source, source_id, updated_at)
+             VALUES ($1, $2, 'courses', $3, NOW())`,
+            [`Course ${courseId} content`, `[${randomVector.join(',')}]`, courseId]
+        );
+    }
+
+    // Generate random vector embeddings for contents
+    for (const contentId of contentIds) {
+        const randomVector = Array.from({ length: 1536 }, () => Math.random() * 2 - 1);
+        await client.query(
+            `INSERT INTO vectors (string, vector, source, source_id, updated_at)
+             VALUES ($1, $2, 'contents', $3, NOW())`,
+            [`Content ${contentId} description`, `[${randomVector.join(',')}]`, contentId]
+        );
+    }
+
+    console.log(`✅ Seeded ${courseIds.length + contentIds.length} vector embeddings`);
+}
+
+async function seedInteractions(userIds: number[], courseIds: number[], contentIds: number[]): Promise<void> {
+    console.log('💬 Seeding interactions...');
+
+    // Seed likes
+    console.log('❤️ Seeding likes...');
+    for (let i = 0; i < 20; i++) {
+        const userId = userIds[Math.floor(Math.random() * userIds.length)];
+        const parentId = Math.random() > 0.5 ?
+            courseIds[Math.floor(Math.random() * courseIds.length)] :
+            contentIds[Math.floor(Math.random() * contentIds.length)];
+        const parentType = Math.random() > 0.5 ? 'course' : 'content';
+
+        await client.query(
+            `INSERT INTO likes (user_id, parent_id, parent_type, is_active) VALUES ($1, $2, $3, true)`,
+            [userId, parentId, parentType]
+        );
+    }
+
+    // Seed comments
+    console.log('💭 Seeding comments...');
+    const comments = [
+        'Great course! Learned a lot.',
+        'Very helpful content.',
+        'Excellent explanation.',
+        'Could be better structured.',
+        'Amazing quality!',
+        'Perfect for beginners.',
+        'Highly recommended!',
+        'Very informative.',
+        'Great examples provided.',
+        'Easy to follow along.'
+    ];
+
+    for (let i = 0; i < 15; i++) {
+        const userId = userIds[Math.floor(Math.random() * userIds.length)];
+        const parentId = Math.random() > 0.5 ?
+            courseIds[Math.floor(Math.random() * courseIds.length)] :
+            contentIds[Math.floor(Math.random() * contentIds.length)];
+        const parentType = Math.random() > 0.5 ? 'course' : 'content';
+        const commentText = comments[Math.floor(Math.random() * comments.length)];
+
+        await client.query(
+            `INSERT INTO comments (user_id, parent_id, parent_type, is_active, comment_text) VALUES ($1, $2, $3, true, $4)`,
+            [userId, parentId, parentType, commentText]
+        );
+    }
+
+    // Seed shares
+    console.log('📤 Seeding shares...');
+    for (let i = 0; i < 10; i++) {
+        const userId = userIds[Math.floor(Math.random() * userIds.length)];
+        const parentId = Math.random() > 0.5 ?
+            courseIds[Math.floor(Math.random() * courseIds.length)] :
+            contentIds[Math.floor(Math.random() * contentIds.length)];
+        const parentType = Math.random() > 0.5 ? 'course' : 'content';
+        const sharedUrl = `https://kadam.com/share/${parentType}/${parentId}`;
+
+        await client.query(
+            `INSERT INTO shares (user_id, parent_id, parent_type, shared_url) VALUES ($1, $2, $3, $4)`,
+            [userId, parentId, parentType, sharedUrl]
+        );
+    }
+
+    // Seed saves
+    console.log('💾 Seeding saves...');
+    for (let i = 0; i < 12; i++) {
+        const userId = userIds[Math.floor(Math.random() * userIds.length)];
+        const parentId = Math.random() > 0.5 ?
+            courseIds[Math.floor(Math.random() * courseIds.length)] :
+            contentIds[Math.floor(Math.random() * contentIds.length)];
+        const parentType = Math.random() > 0.5 ? 'course' : 'content';
+
+        await client.query(
+            `INSERT INTO saves (user_id, parent_id, parent_type) VALUES ($1, $2, $3)`,
+            [userId, parentId, parentType]
+        );
+    }
+
+    // Seed views
+    console.log('👀 Seeding views...');
+    for (let i = 0; i < 25; i++) {
+        const userId = userIds[Math.floor(Math.random() * userIds.length)];
+        const parentId = Math.random() > 0.5 ?
+            courseIds[Math.floor(Math.random() * courseIds.length)] :
+            contentIds[Math.floor(Math.random() * contentIds.length)];
+        const parentType = Math.random() > 0.5 ? 'course' : 'content';
+        const duration = Math.floor(Math.random() * 1800) + 60; // 1-30 minutes
+
+        await client.query(
+            `INSERT INTO views (user_id, parent_id, parent_type, duration) VALUES ($1, $2, $3, $4)`,
+            [userId, parentId, parentType, duration]
+        );
+    }
+
+    console.log('✅ Seeded interactions (likes, comments, shares, saves, views)');
 }
 
 async function printSeedingSummary(): Promise<void> {
@@ -652,7 +862,8 @@ async function printSeedingSummary(): Promise<void> {
         'admins', 'categories', 'creators', 'users',
         'qualifications', 'achievements', 'courses', 'modules', 'contents',
         'user_enrollments', 'user_badges', 'user_certificates', 'user_quiz_attempts',
-        'admin_configurations', 'admin_activities'
+        'admin_configurations', 'admin_activities', 'vectors',
+        'likes', 'comments', 'shares', 'saves', 'views'
     ];
 
     for (const table of tables) {

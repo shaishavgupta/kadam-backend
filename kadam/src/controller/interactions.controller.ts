@@ -71,6 +71,15 @@ import {
 // Import the user schema's UserIdParamSchema with alias to avoid conflicts
 import { UserIdParamSchema as UserParamSchema, UserIdParam } from '../schemas/user';
 
+// Helper to create error responses
+function createErrorResponse(message: string, statusCode: number = 500) {
+    return {
+        success: false,
+        message,
+        statusCode
+    };
+}
+
 export default async function interactionsRoutes(fastify: FastifyInstance) {
     const interactionsService = new InteractionsService();
 
@@ -97,7 +106,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,
@@ -130,7 +139,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: [],
@@ -161,7 +170,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: [],
@@ -195,7 +204,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,
@@ -228,7 +237,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: { count: 0 },
@@ -260,7 +269,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,
@@ -293,7 +302,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: [],
@@ -326,7 +335,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: [],
@@ -360,7 +369,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,
@@ -392,7 +401,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,
@@ -425,7 +434,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: [],
@@ -459,7 +468,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,
@@ -491,7 +500,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,
@@ -524,7 +533,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: [],
@@ -557,7 +566,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,
@@ -589,7 +598,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,
@@ -622,7 +631,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: [],
@@ -656,7 +665,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send({ success: false, message: errorMessage });
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
                 data: null,

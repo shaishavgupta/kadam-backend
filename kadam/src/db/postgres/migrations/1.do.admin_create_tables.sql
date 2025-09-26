@@ -26,9 +26,12 @@ CREATE TABLE admin_configurations (
 CREATE TABLE admin_activities (
   id BIGSERIAL PRIMARY KEY,
   created_at TIMESTAMP DEFAULT (now()),
-  created_by BIGINT NOT NULL,
-  activity_type TEXT NOT NULL,
-  value JSONB NOT NULL
+  admin_id BIGINT NOT NULL,
+  resource_type TEXT NOT NULL,
+  resource_id BIGINT NOT NULL,
+  details JSONB NOT NULL,
+  ip_address TEXT NOT NULL,
+  user_agent TEXT NOT NULL,
 );
 
 CREATE INDEX idx_admin_configurations_key ON admin_configurations(key);

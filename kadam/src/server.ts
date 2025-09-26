@@ -28,6 +28,39 @@ const fastifyInstance = Fastify({
     }
 }).withTypeProvider<TypeBoxTypeProvider>();
 
+// Register CORS first - must be registered before other plugins
+fastifyInstance.register(cors, {
+    origin: (origin, callback) => {
+        // Allow requests from localhost with any port for development
+        if (!origin || 
+            origin.startsWith('http://localhost') || 
+            origin.startsWith('http://127.0.0.1') ||
+            origin.startsWith('https://localhost') ||
+            origin.startsWith('https://127.0.0.1')) {
+            callback(null, true);
+        } else {
+            // In production, add your specific domains here
+            callback(null, true); // For now, allow all origins
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+        'Content-Type', 
+        'Authorization', 
+        'Accept', 
+        'X-Kadam-Path',
+        'sec-ch-ua',
+        'sec-ch-ua-mobile',
+        'sec-ch-ua-platform',
+        'User-Agent',
+        'Referer'
+    ],
+    preflightContinue: false,
+    optionsSuccessStatus: 200,
+    exposedHeaders: ['X-Kadam-Path']
+});
+
 // Register Swagger plugin
 fastifyInstance.register(swagger, {
     openapi: {
@@ -76,14 +109,6 @@ fastifyInstance.register(swaggerUi, {
     transformStaticCSP: (header: any) => header
 });
 
-fastifyInstance.register(cors, {
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Kadam-Path'],
-    preflightContinue: false,
-    exposedHeaders: ['X-Kadam-Path']
-});
 
 // Register error handler
 fastifyInstance.setErrorHandler(errorHandler);

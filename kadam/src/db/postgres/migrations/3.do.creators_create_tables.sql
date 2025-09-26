@@ -19,7 +19,10 @@ CREATE TABLE creators (
   name TEXT NOT NULL,
   bio TEXT,
   profile_pic TEXT,
-  rating INTEGER CHECK (rating >= 0 AND rating <= 5)
+  rating INTEGER CHECK (rating >= 0 AND rating <= 5) NOT NULL DEFAULT 0,
+  email TEXT NOT NULL,
+  phone_number TEXT,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
 );
 
 -- Qualifications table

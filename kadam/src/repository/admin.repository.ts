@@ -1,6 +1,7 @@
-import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, Admin } from "../shared/types/admin.types";
+import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, Admin, CourseWithModulesAndContent } from "../shared/types/admin.types";
 import { db } from "../infra/db";
 import { CreateAdminRequest } from "../schemas/auth";
+import { ContentType } from "../shared/enums";
 import * as bcrypt from 'bcrypt';
 
 // Unapproved Course Interface
@@ -13,28 +14,14 @@ export interface UnapprovedCourse {
     thumbnail_url?: string;
     created_at: Date;
     updated_at: Date;
-    category_name?: string;
-    category_id?: number;
-    creator_name?: string;
-    creator_id?: number;
+    category_names?: string;
+    category_ids?: string;
+    creator_names?: string;
+    creator_ids?: string;
     video_count: number;
     total_duration: number;
 }
 
-// Rejected Video Interface
-export interface RejectedVideo {
-    id: number;
-    title: string;
-    url?: string;
-    course_id: number;
-    course_name: string;
-    rejected_by: number;
-    rejected_by_name: string;
-    rejected_at: Date;
-    rejection_reason: string;
-    created_at: Date;
-    updated_at: Date;
-}
 
 export class AdminRepository {
     async createAdmin(adminData: CreateAdminRequest): Promise<Admin> {
@@ -149,10 +136,34 @@ export class AdminRepository {
         }
     }
 
+    async getAdminById(adminId: number): Promise<Admin & { created_at: Date; updated_at: Date; last_active_at?: Date; profile_pic?: string } | null> {
+        try {
+            const result = await db.query(
+                `SELECT id, email, name, phone, password, is_active, created_at, updated_at, last_active_at, profile_pic
+                 FROM admins
+                 WHERE id = $1 AND is_active = true`,
+                [adminId]
+            );
+
+            if (result.rows.length === 0) {
+                return null;
+            }
+
+            const admin = result.rows[0];
+
+            // Remove password from returned object for security
+            const { password: _, ...adminWithoutPassword } = admin;
+
+            return adminWithoutPassword as Admin & { created_at: Date; updated_at: Date; last_active_at?: Date; profile_pic?: string };
+        } catch (error) {
+            console.error("Error getting admin by ID:", error);
+            return null;
+        }
+    }
+
     // Enhanced Admin Activity Logging
     async logAdminActivityEnhanced(data: {
-        admin_email: string;
-        action: string;
+        admin_id: number;
         resource_type: string;
         resource_id: number;
         details?: any;
@@ -161,16 +172,15 @@ export class AdminRepository {
     }): Promise<any> {
         const result = await db.query(
             `INSERT INTO admin_activities
-             (admin_email, action, resource_type, resource_id, details, ip_address, user_agent)
-             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+             (admin_id, resource_type, resource_id, details, ip_address, user_agent)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
             [
-                data.admin_email,
-                data.action,
+                data.admin_id,
                 data.resource_type,
                 data.resource_id,
                 data.details ? JSON.stringify(data.details) : '{}',
-                data.ip_address,
-                data.user_agent
+                data.ip_address || '',
+                data.user_agent || ''
             ]
         );
 
@@ -190,13 +200,62 @@ export class AdminRepository {
 
             // Get total count
             const countResult = await db.query(
-                `SELECT COUNT(*) FROM unapproved_courses`
+                `SELECT COUNT(*) FROM courses c
+                 WHERE c.creator_published_at IS NOT NULL
+                   AND c.approved_at IS NULL
+                   AND c.rejected_at IS NULL
+                   AND c.is_active = true`
             );
             const total = parseInt(countResult.rows[0].count, 10);
 
-            // Get paginated results
+            // Get paginated results with runtime query
             const coursesResult = await db.query(
-                `SELECT * FROM unapproved_courses LIMIT $1 OFFSET $2`,
+                `SELECT
+                    c.id,
+                    c.name,
+                    c.description,
+                    c.is_paid,
+                    c.price,
+                    c.thumbnail_url,
+                    c.created_at,
+                    c.updated_at,
+                    (
+                        SELECT STRING_AGG(cat.name, ', ')
+                        FROM course_categories cc
+                        JOIN categories cat ON cc.category_id = cat.id
+                        WHERE cc.course_id = c.id
+                    ) as category_names,
+                    (
+                        SELECT STRING_AGG(cat.id::text, ', ')
+                        FROM course_categories cc
+                        JOIN categories cat ON cc.category_id = cat.id
+                        WHERE cc.course_id = c.id
+                    ) as category_ids,
+                    (
+                        SELECT STRING_AGG(cr.name, ', ')
+                        FROM course_creators crc
+                        JOIN creators cr ON crc.creator_id = cr.id
+                        WHERE crc.course_id = c.id
+                    ) as creator_names,
+                    (
+                        SELECT STRING_AGG(cr.id::text, ', ')
+                        FROM course_creators crc
+                        JOIN creators cr ON crc.creator_id = cr.id
+                        WHERE crc.course_id = c.id
+                    ) as creator_ids,
+                    COUNT(DISTINCT cont.id) as video_count,
+                    SUM(CASE WHEN cont.duration IS NOT NULL THEN cont.duration ELSE 0 END) as total_duration
+                FROM courses c
+                LEFT JOIN modules m ON c.id = m.course_id
+                LEFT JOIN contents cont ON m.id = cont.module_id AND cont.is_active = true
+                WHERE c.creator_published_at IS NOT NULL
+                  AND c.approved_at IS NULL
+                  AND c.rejected_at IS NULL
+                  AND c.is_active = true
+                GROUP BY c.id, c.name, c.description, c.is_paid, c.price, c.thumbnail_url,
+                         c.created_at, c.updated_at
+                ORDER BY c.created_at DESC
+                LIMIT $1 OFFSET $2`,
                 [limit, offset]
             );
 
@@ -219,60 +278,251 @@ export class AdminRepository {
         }
     }
 
-    async approveCourse(courseId: number, adminEmail: string): Promise<boolean> {
+    // Get available courses for debugging/testing
+    async getAvailableCourses(): Promise<Array<{
+        id: number;
+        name: string;
+        creator_published_at?: Date;
+        approved_at?: Date;
+        rejected_at?: Date;
+    }>> {
         try {
-            // Update course as approved
             const result = await db.query(
-                `UPDATE courses
-                 SET published_at = NOW(),
-                     approved_at = NOW(),
-                     approved_by = (SELECT id FROM admins WHERE email = $2 AND is_active = true LIMIT 1)
-                 WHERE id = $1 AND published_at IS NULL AND rejected_at IS NULL`,
-                [courseId, adminEmail]
+                `SELECT id, name, creator_published_at, approved_at, rejected_at
+                 FROM courses
+                 ORDER BY id ASC`
+            );
+            return result.rows;
+        } catch (error) {
+            console.error("Error getting available courses:", error);
+            return [];
+        }
+    }
+
+    // Get course status for debugging/checking
+    async getCourseStatus(courseId: number): Promise<{
+        exists: boolean;
+        name?: string;
+        creator_published_at?: Date;
+        approved_at?: Date;
+        rejected_at?: Date;
+        canBeApproved: boolean;
+        reason?: string;
+    }> {
+        try {
+            const result = await db.query(
+                `SELECT id, name, creator_published_at, approved_at, rejected_at
+                 FROM courses
+                 WHERE id = $1`,
+                [courseId]
             );
 
-            if (result.rowCount === 0) {
+            if (result.rows.length === 0) {
+                return {
+                    exists: false,
+                    canBeApproved: false,
+                    reason: 'Course does not exist'
+                };
+            }
+
+            const course = result.rows[0];
+
+            if (!course.creator_published_at) {
+                return {
+                    exists: true,
+                    name: course.name,
+                    creator_published_at: course.creator_published_at,
+                    approved_at: course.approved_at,
+                    rejected_at: course.rejected_at,
+                    canBeApproved: false,
+                    reason: 'Course has not been published by creator yet'
+                };
+            }
+
+            if (course.approved_at) {
+                return {
+                    exists: true,
+                    name: course.name,
+                    creator_published_at: course.creator_published_at,
+                    approved_at: course.approved_at,
+                    rejected_at: course.rejected_at,
+                    canBeApproved: false,
+                    reason: 'Course is already approved'
+                };
+            }
+
+            return {
+                exists: true,
+                name: course.name,
+                creator_published_at: course.creator_published_at,
+                approved_at: course.approved_at,
+                rejected_at: course.rejected_at,
+                canBeApproved: true
+            };
+        } catch (error) {
+            console.error("Error getting course status:", error);
+            return {
+                exists: false,
+                canBeApproved: false,
+                reason: 'Database error'
+            };
+        }
+    }
+
+    async approveCourse(courseId: number, adminId: number): Promise<boolean> {
+        try {
+            await db.query('BEGIN');
+
+            // First, check if the course exists and get its current state
+            const courseCheckResult = await db.query(
+                `SELECT id, name, creator_published_at, approved_at, rejected_at
+                 FROM courses
+                 WHERE id = $1`,
+                [courseId]
+            );
+
+            if (courseCheckResult.rows.length === 0) {
+                await db.query('ROLLBACK');
+                console.log(`Course with ID ${courseId} does not exist`);
                 return false;
             }
 
+            const course = courseCheckResult.rows[0];
+            console.log(`Course ${courseId} state:`, {
+                name: course.name,
+                creator_published_at: course.creator_published_at,
+                approved_at: course.approved_at,
+                rejected_at: course.rejected_at
+            });
+
+            // Check if course has been published by creator
+            if (!course.creator_published_at) {
+                await db.query('ROLLBACK');
+                console.log(`Course ${courseId} has not been published by creator yet`);
+                return false;
+            }
+
+            // Check if course is already approved
+            if (course.approved_at) {
+                await db.query('ROLLBACK');
+                console.log(`Course ${courseId} is already approved`);
+                return false;
+            }
+
+            // Update course as approved
+            const courseResult = await db.query(
+                `UPDATE courses
+                 SET approved_at = NOW(),
+                     approved_by = $2,
+                     rejected_at = NULL,
+                     rejected_by = NULL,
+                     rejection_reason = NULL
+                 WHERE id = $1 AND creator_published_at IS NOT NULL`,
+                [courseId, adminId]
+            );
+
+            if (courseResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                console.log(`Failed to update course ${courseId} - no rows affected`);
+                return false;
+            }
+
+            // Cascade approval to all modules in the course
+            const modulesResult = await db.query(
+                `UPDATE modules
+                 SET approved_at = NOW(),
+                     approved_by = $2,
+                     rejected_at = NULL,
+                     rejected_by = NULL,
+                     rejection_reason = NULL
+                 WHERE course_id = $1`,
+                [courseId, adminId]
+            );
+
+            // Cascade approval to all content in the course (through modules)
+            const contentResult = await db.query(
+                `UPDATE contents
+                 SET approved_at = NOW(),
+                     approved_by = $2,
+                     rejected_at = NULL,
+                     rejected_by = NULL,
+                     rejection_reason = NULL
+                 WHERE module_id IN (
+                     SELECT id FROM modules WHERE course_id = $1
+                 )`,
+                [courseId, adminId]
+            );
+
             // Log admin activity
             await this.logAdminActivityEnhanced({
-                admin_email: adminEmail,
-                action: 'course_approved',
+                admin_id: adminId,
                 resource_type: 'course',
                 resource_id: courseId,
                 details: {
-                    approved_at: new Date().toISOString()
+                    approved_at: new Date().toISOString(),
+                    modules_updated: modulesResult.rowCount || 0,
+                    content_updated: contentResult.rowCount || 0
                 }
             });
 
+            await db.query('COMMIT');
+            console.log(`Successfully approved course ${courseId}`);
             return true;
         } catch (error) {
+            await db.query('ROLLBACK');
             console.error("Error approving course:", error);
             return false;
         }
     }
 
-    async rejectCourse(courseId: number, adminEmail: string, reason: string): Promise<boolean> {
+    async rejectCourse(courseId: number, adminId: number, reason: string): Promise<boolean> {
         try {
+            console.log(`Attempting to reject course ${courseId} by admin ${adminId} with reason: ${reason}`);
+
+            // First check if course exists
+            const courseCheck = await db.query(
+                `SELECT id, name, creator_published_at, approved_at, rejected_at
+                 FROM courses
+                 WHERE id = $1`,
+                [courseId]
+            );
+
+            if (courseCheck.rows.length === 0) {
+                console.log(`Course ${courseId} does not exist`);
+                return false;
+            }
+
+            const course = courseCheck.rows[0];
+            console.log(`Course ${courseId} current state:`, {
+                name: course.name,
+                creator_published_at: course.creator_published_at,
+                approved_at: course.approved_at,
+                rejected_at: course.rejected_at
+            });
+
             // Update course as rejected
             const result = await db.query(
                 `UPDATE courses
                  SET rejected_at = NOW(),
-                     rejected_by = (SELECT id FROM admins WHERE email = $2 AND is_active = true LIMIT 1),
-                     rejection_reason = $3
-                 WHERE id = $1 AND published_at IS NULL AND rejected_at IS NULL`,
-                [courseId, adminEmail, reason]
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL,
+                     creator_published_at = NULL
+                 WHERE id = $1`,
+                [courseId, adminId, reason]
             );
 
+            console.log(`Course rejection update affected ${result.rowCount} rows`);
+
             if (result.rowCount === 0) {
+                console.log(`Failed to update course ${courseId} - no rows affected`);
                 return false;
             }
 
             // Log admin activity
             await this.logAdminActivityEnhanced({
-                admin_email: adminEmail,
-                action: 'course_rejected',
+                admin_id: adminId,
                 resource_type: 'course',
                 resource_id: courseId,
                 details: {
@@ -281,10 +531,353 @@ export class AdminRepository {
                 }
             });
 
+            console.log(`Successfully rejected course ${courseId}`);
             return true;
         } catch (error) {
             console.error("Error rejecting course:", error);
             return false;
+        }
+    }
+
+    // Module rejection that cascades to course rejection
+    async rejectModule(moduleId: number, adminId: number, reason: string): Promise<boolean> {
+        try {
+            await db.query('BEGIN');
+
+            // Get course_id from module
+            const moduleResult = await db.query(
+                `SELECT course_id FROM modules WHERE id = $1`,
+                [moduleId]
+            );
+
+            if (moduleResult.rows.length === 0) {
+                await db.query('ROLLBACK');
+                return false;
+            }
+
+            const courseId = moduleResult.rows[0].course_id;
+
+            // Reject the module
+            const moduleUpdateResult = await db.query(
+                `UPDATE modules
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL
+                 WHERE id = $1`,
+                [moduleId, adminId, reason]
+            );
+
+            if (moduleUpdateResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return false;
+            }
+
+            // Cascade rejection to the course
+            const courseUpdateResult = await db.query(
+                `UPDATE courses
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL,
+                     creator_published_at = NULL
+                 WHERE id = $4`,
+                [reason, adminId, reason, courseId]
+            );
+
+            if (courseUpdateResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return false;
+            }
+
+            // Log admin activity
+            await this.logAdminActivityEnhanced({
+                admin_id: adminId,
+                resource_type: 'module',
+                resource_id: moduleId,
+                details: {
+                    course_id: courseId,
+                    rejection_reason: reason,
+                    rejected_at: new Date().toISOString(),
+                    cascaded_to_course: true
+                }
+            });
+
+            await db.query('COMMIT');
+            return true;
+        } catch (error) {
+            await db.query('ROLLBACK');
+            console.error("Error rejecting module:", error);
+            return false;
+        }
+    }
+
+    // Module rejection with detailed cascade result
+    async rejectModuleWithCascade(moduleId: number, adminId: number, reason: string): Promise<{
+        success: boolean;
+        courseUpdated: boolean;
+    }> {
+        try {
+            await db.query('BEGIN');
+
+            // Get course_id from module
+            const moduleResult = await db.query(
+                `SELECT course_id FROM modules WHERE id = $1`,
+                [moduleId]
+            );
+
+            if (moduleResult.rows.length === 0) {
+                await db.query('ROLLBACK');
+                return { success: false, courseUpdated: false };
+            }
+
+            const courseId = moduleResult.rows[0].course_id;
+
+            // Reject the module
+            const moduleUpdateResult = await db.query(
+                `UPDATE modules
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL
+                 WHERE id = $1`,
+                [moduleId, adminId, reason]
+            );
+
+            if (moduleUpdateResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return { success: false, courseUpdated: false };
+            }
+
+            // Cascade rejection to the course
+            const courseUpdateResult = await db.query(
+                `UPDATE courses
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL,
+                     creator_published_at = NULL
+                 WHERE id = $4`,
+                [reason, adminId, reason, courseId]
+            );
+
+            const courseUpdated = (courseUpdateResult.rowCount || 0) > 0;
+
+            // Log admin activity
+            await this.logAdminActivityEnhanced({
+                admin_id: adminId,
+                resource_type: 'module',
+                resource_id: moduleId,
+                details: {
+                    course_id: courseId,
+                    rejection_reason: reason,
+                    rejected_at: new Date().toISOString(),
+                    cascaded_to_course: courseUpdated
+                }
+            });
+
+            await db.query('COMMIT');
+            return { success: true, courseUpdated };
+        } catch (error) {
+            await db.query('ROLLBACK');
+            console.error("Error rejecting module:", error);
+            return { success: false, courseUpdated: false };
+        }
+    }
+
+    // Content rejection that cascades to module and course rejection
+    async rejectContent(contentId: number, adminId: number, reason: string): Promise<boolean> {
+        try {
+            await db.query('BEGIN');
+
+            // Get module_id and course_id from content
+            const contentResult = await db.query(
+                `SELECT c.module_id, m.course_id
+                 FROM contents c
+                 JOIN modules m ON c.module_id = m.id
+                 WHERE c.id = $1`,
+                [contentId]
+            );
+
+            if (contentResult.rows.length === 0) {
+                await db.query('ROLLBACK');
+                return false;
+            }
+
+            const { module_id, course_id } = contentResult.rows[0];
+
+            // Reject the content
+            const contentUpdateResult = await db.query(
+                `UPDATE contents
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL
+                 WHERE id = $1`,
+                [contentId, adminId, reason]
+            );
+
+            if (contentUpdateResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return false;
+            }
+
+            // Cascade rejection to the module
+            const moduleUpdateResult = await db.query(
+                `UPDATE modules
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL
+                 WHERE id = $4`,
+                [reason, adminId, reason, module_id]
+            );
+
+            if (moduleUpdateResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return false;
+            }
+
+            // Cascade rejection to the course
+            const courseUpdateResult = await db.query(
+                `UPDATE courses
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL,
+                     creator_published_at = NULL
+                 WHERE id = $4`,
+                [reason, adminId, reason, course_id]
+            );
+
+            if (courseUpdateResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return false;
+            }
+
+            // Log admin activity
+            await this.logAdminActivityEnhanced({
+                admin_id: adminId,
+                resource_type: 'content',
+                resource_id: contentId,
+                details: {
+                    module_id: module_id,
+                    course_id: course_id,
+                    rejection_reason: reason,
+                    rejected_at: new Date().toISOString(),
+                    cascaded_to_module: true,
+                    cascaded_to_course: true
+                }
+            });
+
+            await db.query('COMMIT');
+            return true;
+        } catch (error) {
+            await db.query('ROLLBACK');
+            console.error("Error rejecting content:", error);
+            return false;
+        }
+    }
+
+    // Content rejection with detailed cascade result
+    async rejectContentWithCascade(contentId: number, adminId: number, reason: string): Promise<{
+        success: boolean;
+        moduleUpdated: boolean;
+        courseUpdated: boolean;
+    }> {
+        try {
+            await db.query('BEGIN');
+
+            // Get module_id and course_id from content
+            const contentResult = await db.query(
+                `SELECT c.module_id, m.course_id
+                 FROM contents c
+                 JOIN modules m ON c.module_id = m.id
+                 WHERE c.id = $1`,
+                [contentId]
+            );
+
+            if (contentResult.rows.length === 0) {
+                await db.query('ROLLBACK');
+                return { success: false, moduleUpdated: false, courseUpdated: false };
+            }
+
+            const { module_id, course_id } = contentResult.rows[0];
+
+            // Reject the content
+            const contentUpdateResult = await db.query(
+                `UPDATE contents
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL
+                 WHERE id = $1`,
+                [contentId, adminId, reason]
+            );
+
+            if (contentUpdateResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return { success: false, moduleUpdated: false, courseUpdated: false };
+            }
+
+            // Cascade rejection to the module
+            const moduleUpdateResult = await db.query(
+                `UPDATE modules
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL
+                 WHERE id = $4`,
+                [reason, adminId, reason, module_id]
+            );
+
+            const moduleUpdated = (moduleUpdateResult.rowCount || 0) > 0;
+
+            // Cascade rejection to the course
+            const courseUpdateResult = await db.query(
+                `UPDATE courses
+                 SET rejected_at = NOW(),
+                     rejected_by = $2,
+                     rejection_reason = $3,
+                     approved_at = NULL,
+                     approved_by = NULL,
+                     creator_published_at = NULL
+                 WHERE id = $4`,
+                [reason, adminId, reason, course_id]
+            );
+
+            const courseUpdated = (courseUpdateResult.rowCount || 0) > 0;
+
+            // Log admin activity
+            await this.logAdminActivityEnhanced({
+                admin_id: adminId,
+                resource_type: 'content',
+                resource_id: contentId,
+                details: {
+                    module_id: module_id,
+                    course_id: course_id,
+                    rejection_reason: reason,
+                    rejected_at: new Date().toISOString(),
+                    cascaded_to_module: moduleUpdated,
+                    cascaded_to_course: courseUpdated
+                }
+            });
+
+            await db.query('COMMIT');
+            return { success: true, moduleUpdated, courseUpdated };
+        } catch (error) {
+            await db.query('ROLLBACK');
+            console.error("Error rejecting content:", error);
+            return { success: false, moduleUpdated: false, courseUpdated: false };
         }
     }
 
@@ -293,13 +886,14 @@ export class AdminRepository {
         name: string;
         description?: string;
         url: string;
+        abs_url?: string;
         position: number;
         is_paid: boolean;
         is_active: boolean;
         duration?: number;
         thumbnail_url?: string;
         module_name?: string;
-    }>, adminEmail: string): Promise<any[]> {
+    }>, adminId: number): Promise<any[]> {
         try {
             const createdVideos = [];
 
@@ -321,14 +915,15 @@ export class AdminRepository {
                 // Insert or update content
                 const contentResult = await db.query(
                     `INSERT INTO contents
-                     (name, module_id, course_id, content_type, position, is_paid, is_active, url, duration, thumbnail_url, created_at, updated_at)
-                     VALUES ($1, $2, $3, 'VIDEO', $4, $5, $6, $7, $8, $9, NOW(), NOW())
-                     ON CONFLICT (url, course_id)
+                     (name, module_id, content_type, position, is_paid, is_active, url, abs_url, duration, thumbnail_url, created_at, updated_at)
+                     VALUES ($1, $2, 'VIDEO', $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+                     ON CONFLICT (url, module_id)
                      DO UPDATE SET
                         name = EXCLUDED.name,
                         position = EXCLUDED.position,
                         is_paid = EXCLUDED.is_paid,
                         is_active = EXCLUDED.is_active,
+                        abs_url = EXCLUDED.abs_url,
                         duration = EXCLUDED.duration,
                         thumbnail_url = EXCLUDED.thumbnail_url,
                         updated_at = NOW()
@@ -336,11 +931,11 @@ export class AdminRepository {
                     [
                         video.name,
                         moduleId,
-                        courseId,
                         video.position,
                         video.is_paid,
                         video.is_active,
                         video.url,
+                        video.abs_url,
                         video.duration,
                         video.thumbnail_url
                     ]
@@ -351,8 +946,7 @@ export class AdminRepository {
 
             // Log admin activity
             await this.logAdminActivityEnhanced({
-                admin_email: adminEmail,
-                action: 'videos_saved',
+                admin_id: adminId,
                 resource_type: 'course',
                 resource_id: courseId,
                 details: {
@@ -368,7 +962,7 @@ export class AdminRepository {
         }
     }
 
-    async reorderVideos(courseId: number, videoIds: number[], adminEmail: string): Promise<any[]> {
+    async reorderVideos(courseId: number, videoIds: number[], adminId: number): Promise<any[]> {
         try {
             const updatedVideos = [];
 
@@ -379,7 +973,7 @@ export class AdminRepository {
                 const result = await db.query(
                     `UPDATE contents
                      SET position = $1, updated_at = NOW()
-                     WHERE id = $2 AND course_id = $3
+                     WHERE id = $2 AND module_id IN (SELECT id FROM modules WHERE course_id = $3)
                      RETURNING *`,
                     [position, videoId, courseId]
                 );
@@ -391,8 +985,7 @@ export class AdminRepository {
 
             // Log admin activity
             await this.logAdminActivityEnhanced({
-                admin_email: adminEmail,
-                action: 'videos_reordered',
+                admin_id: adminId,
                 resource_type: 'course',
                 resource_id: courseId,
                 details: {
@@ -409,7 +1002,47 @@ export class AdminRepository {
         }
     }
 
-    async softDeleteVideo(videoId: number, adminEmail: string): Promise<boolean> {
+    async reorderContents(moduleId: number, contentIds: number[], adminId: number): Promise<any[]> {
+        try {
+            const updatedContents = [];
+
+            for (let i = 0; i < contentIds.length; i++) {
+                const position = i + 1;
+                const contentId = contentIds[i];
+
+                const result = await db.query(
+                    `UPDATE contents
+                     SET position = $1, updated_at = NOW()
+                     WHERE id = $2 AND module_id = $3
+                     RETURNING *`,
+                    [position, contentId, moduleId]
+                );
+
+                if (result.rows.length > 0) {
+                    updatedContents.push(result.rows[0]);
+                }
+            }
+
+            // Log admin activity
+            await this.logAdminActivityEnhanced({
+                admin_id: adminId,
+                resource_type: 'module',
+                resource_id: moduleId,
+                details: {
+                    content_count: contentIds.length,
+                    new_order: contentIds,
+                    reordered_at: new Date().toISOString()
+                }
+            });
+
+            return updatedContents;
+        } catch (error) {
+            console.error("Error reordering contents:", error);
+            throw error;
+        }
+    }
+
+    async softDeleteVideo(videoId: number, adminId: number): Promise<boolean> {
         try {
             const result = await db.query(
                 `UPDATE contents
@@ -424,15 +1057,14 @@ export class AdminRepository {
 
             // Get course info for logging
             const courseResult = await db.query(
-                'SELECT course_id FROM contents WHERE id = $1',
+                'SELECT m.course_id FROM contents c JOIN modules m ON c.module_id = m.id WHERE c.id = $1',
                 [videoId]
             );
             const courseId = courseResult.rows[0]?.course_id;
 
             // Log admin activity
             await this.logAdminActivityEnhanced({
-                admin_email: adminEmail,
-                action: 'video_soft_deleted',
+                admin_id: adminId,
                 resource_type: 'content',
                 resource_id: videoId,
                 details: {
@@ -448,52 +1080,23 @@ export class AdminRepository {
         }
     }
 
-    // Rejected Content Methods
-    async getRejectedVideos(page: number = 1, limit: number = 10): Promise<{
-        videos: RejectedVideo[];
-        total: number;
-        page: number;
-        limit: number;
-        totalPages: number;
-    }> {
-        try {
-            const offset = (page - 1) * limit;
-
-            // Get total count
-            const countResult = await db.query(
-                `SELECT COUNT(*) FROM rejected_videos`
-            );
-            const total = parseInt(countResult.rows[0].count, 10);
-
-            // Get paginated results
-            const videosResult = await db.query(
-                `SELECT * FROM rejected_videos LIMIT $1 OFFSET $2`,
-                [limit, offset]
-            );
-
-            return {
-                videos: videosResult.rows as RejectedVideo[],
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            };
-        } catch (error) {
-            console.error("Error getting rejected videos:", error);
-            return {
-                videos: [],
-                total: 0,
-                page,
-                limit,
-                totalPages: 0
-            };
-        }
-    }
 
     // Analytics Methods
     async getCourseApprovalStats(): Promise<any> {
         try {
-            const result = await db.query('SELECT * FROM course_approval_stats');
+            const result = await db.query(
+                `SELECT
+                    COUNT(*) as total_courses,
+                    COUNT(CASE WHEN approved_at IS NOT NULL THEN 1 END) as approved_courses,
+                    COUNT(CASE WHEN rejected_at IS NOT NULL THEN 1 END) as rejected_courses,
+                    COUNT(CASE WHEN creator_published_at IS NOT NULL AND approved_at IS NULL AND rejected_at IS NULL THEN 1 END) as pending_courses,
+                    ROUND(
+                        COUNT(CASE WHEN approved_at IS NOT NULL THEN 1 END) * 100.0 /
+                        NULLIF(COUNT(*), 0), 2
+                    ) as approval_rate_percentage
+                FROM courses
+                WHERE is_active = true`
+            );
             return result.rows[0] || {
                 total_courses: 0,
                 approved_courses: 0,
@@ -527,7 +1130,8 @@ export class AdminRepository {
                 LEFT JOIN categories cat ON c.category_id = cat.id
                 LEFT JOIN course_creators cc ON c.id = cc.course_id
                 LEFT JOIN creators cr ON cc.creator_id = cr.id
-                LEFT JOIN contents cont ON c.id = cont.course_id AND cont.is_active = true
+                LEFT JOIN modules m ON c.id = m.course_id
+                LEFT JOIN contents cont ON m.id = cont.module_id AND cont.is_active = true
                 WHERE c.id = $1
                 GROUP BY c.id, cat.name, cr.name`,
                 [courseId]
@@ -541,9 +1145,10 @@ export class AdminRepository {
 
             // Get videos for this course
             const videosResult = await db.query(
-                `SELECT * FROM contents
-                 WHERE course_id = $1 AND type = 'VIDEO'
-                 ORDER BY position`,
+                `SELECT c.* FROM contents c
+                 JOIN modules m ON c.module_id = m.id
+                 WHERE m.course_id = $1 AND c.content_type = 'VIDEO'
+                 ORDER BY c.position`,
                 [courseId]
             );
 
@@ -564,10 +1169,11 @@ export class AdminRepository {
         position: number;
         is_paid: boolean;
         is_active: boolean;
-        module_name?: string;
+        module_id?: number;
         url: string;
+        abs_url?: string;
         thumbnail_url?: string;
-    }>, adminEmail: string): Promise<Array<{
+    }>, adminId: number): Promise<Array<{
         id: number;
         title: string;
         description?: string;
@@ -575,10 +1181,9 @@ export class AdminRepository {
         position: number;
         is_paid: boolean;
         is_active: boolean;
-        module_name?: string;
+        module_id?: number;
         url: string;
         thumbnail_url?: string;
-        course_id: number;
         created_at: string;
         updated_at: string;
     }>> {
@@ -592,26 +1197,19 @@ export class AdminRepository {
                 throw new Error(`Course with ID ${courseId} does not exist`);
             }
 
-            // Get admin ID for logging
-            const adminResult = await db.query(
-                `SELECT id FROM admins WHERE email = $1 AND is_active = true LIMIT 1`,
-                [adminEmail]
-            );
-            const adminId = adminResult.rows[0]?.id || 1; // Default to 1 if not found
-
             const createdContents = [];
 
             for (const video of videos) {
                 // Create or get module if module_name is provided
                 let moduleId = null;
-                if (video.module_name) {
+                if (video.module_id) {
                     const moduleResult = await db.query(
                         `INSERT INTO modules (name, description, course_id, thumbnail_url, created_at, updated_at)
                          VALUES ($1, $2, $3, $4, NOW(), NOW())
                          ON CONFLICT (name, course_id) DO UPDATE SET
                          updated_at = NOW()
                          RETURNING id`,
-                        [video.module_name, video.description || '', courseId, video.thumbnail_url || null]
+                        [video.module_id, video.description || '', courseId, video.thumbnail_url || null]
                     );
                     moduleId = moduleResult.rows[0].id;
                 }
@@ -619,21 +1217,21 @@ export class AdminRepository {
                 // Insert content
                 const contentResult = await db.query(
                     `INSERT INTO contents (
-                        name, content_type, course_id, module_id, position,
-                        is_paid, is_active, url, duration, thumbnail_url,
+                        name, content_type, module_id, position,
+                        is_paid, is_active, url, abs_url, duration, thumbnail_url,
                         approved_at, approved_by, created_at, updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), $11, NOW(), NOW())
-                    RETURNING id, name, course_id, module_id, position, is_paid, is_active,
-                              url, duration, thumbnail_url, created_at, updated_at`,
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, NOW(), NOW())
+                    RETURNING id, name, module_id, position, is_paid, is_active,
+                              url, abs_url, duration, thumbnail_url, created_at, updated_at`,
                     [
                         video.title,
-                        'video',
-                        courseId,
+                        ContentType.VIDEO,
                         moduleId,
                         video.position,
                         video.is_paid,
                         video.is_active,
                         video.url,
+                        video.abs_url,
                         video.duration,
                         video.thumbnail_url,
                         adminId
@@ -649,10 +1247,9 @@ export class AdminRepository {
                     position: content.position,
                     is_paid: content.is_paid,
                     is_active: content.is_active,
-                    module_name: video.module_name,
+                    module_id: video.module_id,
                     url: content.url,
                     thumbnail_url: content.thumbnail_url,
-                    course_id: content.course_id,
                     created_at: content.created_at.toISOString(),
                     updated_at: content.updated_at.toISOString()
                 });
@@ -660,8 +1257,7 @@ export class AdminRepository {
 
             // Log admin activity
             await this.logAdminActivityEnhanced({
-                admin_email: adminEmail,
-                action: 'create_contents',
+                admin_id: adminId,
                 resource_type: 'course',
                 resource_id: courseId,
                 details: {
@@ -678,7 +1274,7 @@ export class AdminRepository {
     }
 
     // Get course with modules and content
-    async getCourseWithModulesAndContent(courseId: number): Promise<any> {
+    async getCourseWithModulesAndContent(courseId: number): Promise<CourseWithModulesAndContent | null> {
         try {
             // Get course data
             const courseResult = await db.query(
@@ -692,27 +1288,35 @@ export class AdminRepository {
 
             const course = courseResult.rows[0];
 
-            // Get modules with content count
+            // Get modules with complete content data
             const modulesResult = await db.query(
-                `SELECT m.*, COUNT(c.id) as content_count
-                 FROM modules m
-                 LEFT JOIN contents c ON m.id = c.module_id AND c.is_active = true
-                 WHERE m.course_id = $1 AND m.is_active = true
-                 GROUP BY m.id
-                 ORDER BY m.position ASC, m.created_at ASC`,
+                `SELECT * FROM modules m WHERE m.course_id = $1 AND m.is_active = true ORDER BY m.position ASC, m.created_at ASC`,
                 [courseId]
             );
 
-            const modules = modulesResult.rows.map(module => ({
-                ...module,
-                contentCount: parseInt(module.content_count),
-                content: [] // Will be populated if needed
-            }));
+            // For each module, get its contents
+            const modules = await Promise.all(
+                modulesResult.rows.map(async (module) => {
+                    const contentsResult = await db.query(
+                        `SELECT * FROM contents c
+                         WHERE c.module_id = $1 AND c.is_active = true
+                         ORDER BY c.position ASC, c.created_at ASC`,
+                        [module.id]
+                    );
+
+                    return {
+                        ...module,
+                        contents: contentsResult.rows
+                    };
+                })
+            );
 
             // Get total counts
             const totalModules = modules.length;
             const totalContentResult = await db.query(
-                `SELECT COUNT(*) as total FROM contents WHERE course_id = $1 AND is_active = true`,
+                `SELECT COUNT(*) as total FROM contents c
+                 JOIN modules m ON c.module_id = m.id
+                 WHERE m.course_id = $1 AND c.is_active = true`,
                 [courseId]
             );
             const totalContent = parseInt(totalContentResult.rows[0].total);
@@ -726,6 +1330,227 @@ export class AdminRepository {
         } catch (error) {
             console.error("Error getting course with modules and content:", error);
             return null;
+        }
+    }
+
+    // Get rejected courses with hierarchical structure
+    async getRejectedCoursesWithHierarchy(page: number = 1, limit: number = 10): Promise<{
+        courses: CourseWithModulesAndContent[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }> {
+        try {
+            const offset = (page - 1) * limit;
+
+            // Get total count of rejected courses
+            const countResult = await db.query(
+                `SELECT COUNT(*) FROM courses c
+                 WHERE c.rejected_at IS NOT NULL
+                   AND (c.approved_at IS NULL OR c.approved_at < c.rejected_at)
+                   AND c.is_active = true`
+            );
+            const total = parseInt(countResult.rows[0].count, 10);
+
+            // Get paginated rejected courses
+            const coursesResult = await db.query(
+                `SELECT c.* FROM courses c
+                 WHERE c.rejected_at IS NOT NULL
+                   AND (c.approved_at IS NULL OR c.approved_at < c.rejected_at)
+                   AND c.is_active = true
+                 ORDER BY c.rejected_at DESC
+                 LIMIT $1 OFFSET $2`,
+                [limit, offset]
+            );
+
+            // For each course, get its modules and contents
+            const coursesWithHierarchy = await Promise.all(
+                coursesResult.rows.map(async (course) => {
+                    // Get modules for this course
+                    const modulesResult = await db.query(
+                        `SELECT * FROM modules m
+                         WHERE m.course_id = $1
+                         ORDER BY m.position ASC, m.created_at ASC`,
+                        [course.id]
+                    );
+
+                    // For each module, get its contents
+                    const modules = await Promise.all(
+                        modulesResult.rows.map(async (module) => {
+                            const contentsResult = await db.query(
+                                `SELECT * FROM contents c
+                                 WHERE c.module_id = $1
+                                 ORDER BY c.position ASC, c.created_at ASC`,
+                                [module.id]
+                            );
+
+                            return {
+                                ...module,
+                                contents: contentsResult.rows
+                            };
+                        })
+                    );
+
+                    // Calculate totals
+                    const totalModules = modules.length;
+                    const totalContentResult = await db.query(
+                        `SELECT COUNT(*) as total FROM contents c
+                         JOIN modules m ON c.module_id = m.id
+                         WHERE m.course_id = $1`,
+                        [course.id]
+                    );
+                    const totalContent = parseInt(totalContentResult.rows[0].total);
+
+                    return {
+                        ...course,
+                        totalModules,
+                        totalContent,
+                        modules
+                    } as CourseWithModulesAndContent;
+                })
+            );
+
+            return {
+                courses: coursesWithHierarchy,
+                total,
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit)
+            };
+        } catch (error) {
+            console.error("Error getting rejected courses with hierarchy:", error);
+            return {
+                courses: [],
+                total: 0,
+                page,
+                limit,
+                totalPages: 0
+            };
+        }
+    }
+
+    // Individual Module Approval
+    async approveModule(moduleId: number, adminId: number): Promise<boolean> {
+        try {
+            await db.query('BEGIN');
+
+            // Check if module exists and get course info
+            const moduleCheckResult = await db.query(
+                `SELECT m.id, m.course_id, c.name as course_name
+                 FROM modules m
+                 JOIN courses c ON m.course_id = c.id
+                 WHERE m.id = $1`,
+                [moduleId]
+            );
+
+            if (moduleCheckResult.rows.length === 0) {
+                await db.query('ROLLBACK');
+                console.log(`Module with ID ${moduleId} does not exist`);
+                return false;
+            }
+
+            const module = moduleCheckResult.rows[0];
+
+            // Update module as approved
+            const moduleResult = await db.query(
+                `UPDATE modules
+                 SET approved_at = NOW(),
+                     approved_by = $2,
+                     rejected_at = NULL,
+                     rejected_by = NULL,
+                     rejection_reason = NULL
+                 WHERE id = $1`,
+                [moduleId, adminId]
+            );
+
+            if (moduleResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                console.log(`Failed to update module ${moduleId} - no rows affected`);
+                return false;
+            }
+
+            // Log admin activity
+            await this.logAdminActivityEnhanced({
+                admin_id: adminId,
+                resource_type: 'module',
+                resource_id: moduleId,
+                details: {
+                    course_id: module.course_id,
+                    approved_at: new Date().toISOString()
+                }
+            });
+
+            await db.query('COMMIT');
+            console.log(`Successfully approved module ${moduleId}`);
+            return true;
+        } catch (error) {
+            await db.query('ROLLBACK');
+            console.error("Error approving module:", error);
+            return false;
+        }
+    }
+
+    // Individual Content Approval
+    async approveContent(contentId: number, adminId: number): Promise<boolean> {
+        try {
+            await db.query('BEGIN');
+
+            // Check if content exists and get module/course info
+            const contentCheckResult = await db.query(
+                `SELECT c.id, c.module_id, m.course_id, co.name as course_name
+                 FROM contents c
+                 JOIN modules m ON c.module_id = m.id
+                 JOIN courses co ON m.course_id = co.id
+                 WHERE c.id = $1`,
+                [contentId]
+            );
+
+            if (contentCheckResult.rows.length === 0) {
+                await db.query('ROLLBACK');
+                console.log(`Content with ID ${contentId} does not exist`);
+                return false;
+            }
+
+            const content = contentCheckResult.rows[0];
+
+            // Update content as approved
+            const contentResult = await db.query(
+                `UPDATE contents
+                 SET approved_at = NOW(),
+                     approved_by = $2,
+                     rejected_at = NULL,
+                     rejected_by = NULL,
+                     rejection_reason = NULL
+                 WHERE id = $1`,
+                [contentId, adminId]
+            );
+
+            if (contentResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                console.log(`Failed to update content ${contentId} - no rows affected`);
+                return false;
+            }
+
+            // Log admin activity
+            await this.logAdminActivityEnhanced({
+                admin_id: adminId,
+                resource_type: 'content',
+                resource_id: contentId,
+                details: {
+                    module_id: content.module_id,
+                    course_id: content.course_id,
+                    approved_at: new Date().toISOString()
+                }
+            });
+
+            await db.query('COMMIT');
+            console.log(`Successfully approved content ${contentId}`);
+            return true;
+        } catch (error) {
+            await db.query('ROLLBACK');
+            console.error("Error approving content:", error);
+            return false;
         }
     }
 }

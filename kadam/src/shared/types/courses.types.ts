@@ -49,7 +49,7 @@ export interface Course {
     is_paid: boolean;
     price: number;
     thumbnail_url?: string;
-    certificate_url: string;
+    certificate_id?: number;
     rank: number;
     published_at?: Date;
     created_at: Date;
@@ -76,7 +76,7 @@ export interface CreateCourseRequest {
     is_active: boolean;
     price: number;
     thumbnail_url?: string;
-    certificate_url: string;
+    certificate_id?: number;
     contents?: CreateContentRequest[];
     next_course_ids?: number[];
 }
@@ -114,7 +114,7 @@ export interface UpdateCourseRequest {
     is_active: boolean;
     price: number;
     thumbnail_url?: string;
-    certificate_url: string;
+    certificate_id?: number;
     contents?: CreateContentRequest[];
     next_course_ids?: number[];
 }
@@ -123,7 +123,6 @@ export interface ContentWithModule {
     id: number;
     name: string;
     module_id?: number;
-    course_id: number;
     type: ContentType;
     position: number;
     is_paid: boolean;

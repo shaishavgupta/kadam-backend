@@ -1,6 +1,6 @@
 import { CoursesRepository } from "../repository/courses.repository";
 import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
-import { CourseListData, UserStats } from "../schemas/course";
+import { ContentType, CourseListData, UserStats } from "../schemas/course";
 
 export class CoursesService {
     private repository: CoursesRepository;
@@ -259,7 +259,7 @@ export class CoursesService {
         position: number;
         is_paid: boolean;
         is_active: boolean;
-        thumbnail_url?: string;
+        thumbnail_url: string;
     }): Promise<Module | null> {
         try {
             return await this.repository.createModule(courseId, moduleData);
@@ -306,11 +306,12 @@ export class CoursesService {
 
     async createContent(moduleId: number, contentData: {
         name: string;
-        content_type: string;
+        content_type: ContentType;
         position: number;
         is_paid: boolean;
         is_active: boolean;
         url?: string;
+        abs_url?: string;
         duration?: number;
         thumbnail_url?: string;
         category_id?: number;
@@ -326,11 +327,12 @@ export class CoursesService {
 
     async updateContent(contentId: number, contentData: {
         name?: string;
-        content_type?: string;
+        content_type?: ContentType;
         position?: number;
         is_paid?: boolean;
         is_active?: boolean;
         url?: string;
+        abs_url?: string;
         duration?: number;
         thumbnail_url?: string;
         category_id?: number;
@@ -359,6 +361,16 @@ export class CoursesService {
             return await this.repository.getCourseWithModulesAndContent(courseId);
         } catch (error) {
             console.error("Error getting course with modules and content:", error);
+            return null;
+        }
+    }
+
+    // Get course details by video ID (content ID)
+    async getCourseWithModulesAndContentByVideoId(videoId: number): Promise<any> {
+        try {
+            return await this.repository.getCourseWithModulesAndContentByVideoId(videoId);
+        } catch (error) {
+            console.error("Error getting course with modules and content by video ID:", error);
             return null;
         }
     }

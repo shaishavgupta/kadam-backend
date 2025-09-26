@@ -8,6 +8,7 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config, awsConfig } from '../../config';
+import { FileType, S3Operation } from '../../shared/enums';
 
 console.log('AWS Region:', config.AWS_REGION);
 console.log('AWS Access Key ID:', config.AWS_ACCESS_KEY_ID);
@@ -30,29 +31,43 @@ export const S3_CONFIG = {
     PREFIXES: awsConfig.s3.prefixes,
 } as const;
 
-// Helper functions for generating S3 keys based on new hierarchical structure
-export function generateCourseThumbnailKey(courseId: number, fileName: string): string {
-    return `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/Thumbnail.${fileName.split('.').pop()}`;
+// Helper functions for generating S3 keys based on hierarchical structure
+// Enforces: raw-videos/{courseId}/Thumbnail.webp | {moduleId}/Thumbnail.webp | {contentId}/Video.mp4 | {contentId}/Thumbnail.webp
+
+export function generateCourseThumbnailKey(courseId: number): string {
+    return `${courseId}/Thumbnail.webp`;
 }
 
-export function generateModuleThumbnailKey(courseId: number, moduleId: number, fileName: string): string {
-    return `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/Thumbnail.${fileName.split('.').pop()}`;
+export function generateModuleThumbnailKey(courseId: number, moduleId: number): string {
+    return `${courseId}/${moduleId}/Thumbnail.webp`;
 }
 
-export function generateContentVideoKey(courseId: number, moduleId: number, contentId: number, fileName: string): string {
-    return `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/${contentId}/Video.${fileName.split('.').pop()}`;
+export function generateContentVideoKey(courseId: number, moduleId: number, contentId: number): string {
+    return `${courseId}/${moduleId}/${contentId}/Video.mp4`;
 }
 
-export function generateContentThumbnailKey(courseId: number, moduleId: number, contentId: number, fileName: string): string {
-    return `${S3_CONFIG.PREFIXES.rawVideos}/${courseId}/${moduleId}/${contentId}/Thumbnail.${fileName.split('.').pop()}`;
+export function generateContentThumbnailKey(courseId: number, moduleId: number, contentId: number): string {
+    return `${courseId}/${moduleId}/${contentId}/Thumbnail.webp`;
 }
 
 export function generateProcessedVideoKey(courseId: number, moduleId: number, contentId: number, resolution: string, fileName: string): string {
-    return `${S3_CONFIG.PREFIXES.processedVideos}/${courseId}/${moduleId}/${contentId}/${resolution}/${fileName}`;
+    return `${courseId}/${moduleId}/${contentId}/${resolution}/${fileName}`;
 }
 
 export function generateMasterPlaylistKey(courseId: number, moduleId: number, contentId: number): string {
-    return `${S3_CONFIG.PREFIXES.processedVideos}/${courseId}/${moduleId}/${contentId}/master.m3u8`;
+    return `${courseId}/${moduleId}/${contentId}/master.m3u8`;
+}
+
+export function generateProcessedThumbnailKey(courseId: number, moduleId: number, contentId: number, fileName: string): string {
+    return `${courseId}/${moduleId}/${contentId}/Thumbnail.${fileName.split('.').pop()}`;
+}
+
+export function generateProcessedModuleThumbnailKey(courseId: number, moduleId: number, fileName: string): string {
+    return `${courseId}/${moduleId}/Thumbnail.${fileName.split('.').pop()}`;
+}
+
+export function generateProcessedCourseThumbnailKey(courseId: number, fileName: string): string {
+    return `${courseId}/Thumbnail.${fileName.split('.').pop()}`;
 }
 
 // File Upload Types
@@ -75,7 +90,7 @@ export interface PresignedUrlParams {
     prefix: keyof typeof S3_CONFIG.PREFIXES;
     key: string;
     expiresIn?: number; // seconds
-    operation?: 'getObject' | 'putObject';
+    operation?: S3Operation;
 }
 
 /**
@@ -176,7 +191,7 @@ export async function generatePresignedUrl(params: PresignedUrlParams): Promise<
         const fullKey = `${prefix}/${params.key}`;
         const expiresIn = params.expiresIn || 3600; // Default 1 hour
 
-        const command = params.operation === 'putObject'
+        const command = params.operation === S3Operation.PUT_OBJECT
             ? new PutObjectCommand({
                 Bucket: bucketName,
                 Key: fullKey,
@@ -194,6 +209,115 @@ export async function generatePresignedUrl(params: PresignedUrlParams): Promise<
         return presignedUrl;
     } catch (error) {
         console.error('❌ Error generating presigned URL:', error);
+        throw error;
+    }
+}
+
+/**
+ * Unified presigned URL generation with hierarchical folder structure enforcement
+ *
+ * @param courseId - Required: Course ID
+ * @param moduleId - Optional: Module ID (for module-level or content-level files)
+ * @param contentId - Optional: Content ID (for content-level files)
+ * @param fileType - Required: FileType.THUMBNAIL or FileType.VIDEO
+ * @param operation - Required: S3Operation.PUT_OBJECT (upload) or S3Operation.GET_OBJECT (download)
+ * @param expiresIn - Optional: URL expiration time in seconds (default: 3600)
+ *
+ * @returns Object containing presignedUrl and s3Key
+ *
+ * Folder structure enforced:
+ * - Course thumbnail: raw-videos/{courseId}/Thumbnail.webp
+ * - Module thumbnail: raw-videos/{courseId}/{moduleId}/Thumbnail.webp
+ * - Content video: raw-videos/{courseId}/{moduleId}/{contentId}/Video.mp4
+ * - Content thumbnail: raw-videos/{courseId}/{moduleId}/{contentId}/Thumbnail.webp
+ */
+export async function generateHierarchicalPresignedUrl(
+    courseId: number,
+    moduleId: number | undefined,
+    contentId: number | undefined,
+    fileType: FileType,
+    operation: S3Operation,
+    expiresIn: number = 3600
+): Promise<{ presignedUrl: string; s3Key: string }> {
+    try {
+        // Input validation
+        if (!courseId || courseId <= 0) {
+            throw new Error('courseId is required and must be a positive number');
+        }
+
+        if (fileType !== FileType.THUMBNAIL && fileType !== FileType.VIDEO) {
+            throw new Error(`fileType must be either "${FileType.THUMBNAIL}" or "${FileType.VIDEO}"`);
+        }
+
+        if (operation !== S3Operation.PUT_OBJECT && operation !== S3Operation.GET_OBJECT) {
+            throw new Error(`operation must be either "${S3Operation.PUT_OBJECT}" or "${S3Operation.GET_OBJECT}"`);
+        }
+
+        // Validate hierarchical requirements
+        if (fileType === FileType.VIDEO && (!moduleId)) {
+            throw new Error('moduleId are required for video uploads');
+        }
+
+        if (moduleId && (!moduleId || moduleId <= 0)) {
+            throw new Error('moduleId must be a positive number when provided');
+        }
+
+        // Generate S3 key based on hierarchy
+        let s3Key: string;
+        let contentType: string;
+
+        if (contentId && moduleId) {
+            // Content level: {courseId}/{moduleId}/{contentId}/Video.mp4 or Thumbnail.webp
+            if (fileType === FileType.VIDEO) {
+                s3Key = generateContentVideoKey(courseId, moduleId, contentId);
+                contentType = 'video/mp4';
+            } else {
+                s3Key = generateContentThumbnailKey(courseId, moduleId, contentId);
+                contentType = 'image/webp';
+            }
+        } else if (moduleId) {
+            // Module level: {courseId}/{moduleId}/Thumbnail.webp
+            if (fileType === FileType.VIDEO) {
+                throw new Error('Video files are only allowed at content level (requires contentId)');
+            }
+            s3Key = generateModuleThumbnailKey(courseId, moduleId);
+            contentType = 'image/webp';
+        } else {
+            // Course level: {courseId}/Thumbnail.webp
+            if (fileType === FileType.VIDEO) {
+                throw new Error('Video files are only allowed at content level (requires moduleId and contentId)');
+            }
+            s3Key = generateCourseThumbnailKey(courseId);
+            contentType = 'image/webp';
+        }
+
+        // Generate presigned URL
+        const bucketName = S3_CONFIG.BUCKET;
+        const prefix = S3_CONFIG.PREFIXES.rawVideos;
+        const fullKey = `${prefix}/${s3Key}`;
+
+        const command = operation === S3Operation.PUT_OBJECT
+            ? new PutObjectCommand({
+                Bucket: bucketName,
+                Key: fullKey,
+                ContentType: contentType,
+            })
+            : new GetObjectCommand({
+                Bucket: bucketName,
+                Key: fullKey,
+                ResponseContentType: contentType,
+            });
+
+        const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn });
+
+        console.log(`✅ Hierarchical presigned URL generated: ${fullKey} (${operation})`);
+
+        return {
+            presignedUrl,
+            s3Key: fullKey
+        };
+    } catch (error) {
+        console.error('❌ Error generating hierarchical presigned URL:', error);
         throw error;
     }
 }
@@ -231,10 +355,9 @@ export async function uploadRawVideo(
     courseId: number,
     moduleId: number,
     contentId: number,
-    fileName: string,
     videoBuffer: Buffer
 ): Promise<string> {
-    const key = generateContentVideoKey(courseId, moduleId, contentId, fileName);
+    const key = generateContentVideoKey(courseId, moduleId, contentId);
 
     return uploadFile({
         prefix: 'rawVideos',
@@ -287,16 +410,15 @@ export async function generateVideoUploadUrl(
     courseId: number,
     moduleId: number,
     contentId: number,
-    fileName: string,
     expiresIn: number = 3600
 ): Promise<string> {
-    const key = generateContentVideoKey(courseId, moduleId, contentId, fileName);
+    const key = generateContentVideoKey(courseId, moduleId, contentId);
 
     return generatePresignedUrl({
         prefix: 'rawVideos',
         key,
         expiresIn,
-        operation: 'putObject',
+        operation: S3Operation.PUT_OBJECT,
     });
 }
 
@@ -310,13 +432,13 @@ export async function generateVideoDownloadUrl(
     fileName: string,
     expiresIn: number = 3600
 ): Promise<string> {
-    const key = generateProcessedVideoKey(courseId, moduleId, contentId, 'master', fileName);
+    const key = generateMasterPlaylistKey(courseId, moduleId, contentId);
 
     return generatePresignedUrl({
         prefix: 'processedVideos',
         key,
         expiresIn,
-        operation: 'getObject',
+        operation: S3Operation.GET_OBJECT,
     });
 }
 
@@ -327,23 +449,22 @@ export async function generateThumbnailUploadUrl(
     courseId: number,
     moduleId: number | null,
     contentId: number | null,
-    fileName: string,
     expiresIn: number = 3600
 ): Promise<string> {
     let key: string;
     if (contentId && moduleId) {
-        key = generateContentThumbnailKey(courseId, moduleId, contentId, fileName);
+        key = generateContentThumbnailKey(courseId, moduleId, contentId);
     } else if (moduleId) {
-        key = generateModuleThumbnailKey(courseId, moduleId, fileName);
+        key = generateModuleThumbnailKey(courseId, moduleId);
     } else {
-        key = generateCourseThumbnailKey(courseId, fileName);
+        key = generateCourseThumbnailKey(courseId);
     }
 
     return generatePresignedUrl({
         prefix: 'rawVideos',
         key,
         expiresIn,
-        operation: 'putObject',
+        operation: S3Operation.PUT_OBJECT,
     });
 }
 
@@ -359,18 +480,18 @@ export async function generateThumbnailDownloadUrl(
 ): Promise<string> {
     let key: string;
     if (contentId && moduleId) {
-        key = generateContentThumbnailKey(courseId, moduleId, contentId, fileName);
+        key = generateProcessedThumbnailKey(courseId, moduleId, contentId, fileName);
     } else if (moduleId) {
-        key = generateModuleThumbnailKey(courseId, moduleId, fileName);
+        key = generateProcessedModuleThumbnailKey(courseId, moduleId, fileName);
     } else {
-        key = generateCourseThumbnailKey(courseId, fileName);
+        key = generateProcessedCourseThumbnailKey(courseId, fileName);
     }
 
     return generatePresignedUrl({
-        prefix: 'rawVideos',
+        prefix: 'processedVideos',
         key,
         expiresIn,
-        operation: 'getObject',
+        operation: S3Operation.GET_OBJECT,
     });
 }
 
