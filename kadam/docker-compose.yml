@@ -1,15 +1,15 @@
 services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    depends_on:
-      - db
-      - redis
-      - jaeger
-    restart: unless-stopped
+  # app:
+  #   build: .
+  #   ports:
+  #     - "3000:3000"
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     - db
+  #     - redis
+  #     - jaeger
+  #   restart: unless-stopped
   db:
     image: pgvector/pgvector:pg15
     environment:

@@ -21,6 +21,7 @@ import creatorsRoutes from './controller/creators.controller';
 import interactionsRoutes from './controller/interactions.controller';
 import authRoutes from './controller/auth.controller';
 import mediaRoutes from './controller/media.controller';
+import aiRoutes from './controller/ai.controller';
 
 const fastifyInstance = Fastify({
     logger: {
@@ -142,6 +143,7 @@ fastifyInstance.register(coursesRoutes, { prefix: '/api/courses' });
 fastifyInstance.register(creatorsRoutes, { prefix: '/api/creators' });
 fastifyInstance.register(interactionsRoutes, { prefix: '/api/interactions' });
 fastifyInstance.register(mediaRoutes, { prefix: '/api/media' });
+fastifyInstance.register(aiRoutes, { prefix: '/api/ai' });
 
 // Connection checks are now handled by centralized infrastructure functions
 

@@ -5,6 +5,7 @@ export * from './course';
 export * from './creator';
 export * from './admin';
 export * from './interaction';
+export * from './ai';
 
 // Re-export commonly used TypeBox utilities
 export { Type } from '@sinclair/typebox';
