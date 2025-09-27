@@ -28,7 +28,7 @@ export const UserSchema = Type.Object({
     email: Type.Optional(Type.String({ format: 'email' })),
     name: Type.Optional(Type.String()),
     phone: Type.String(),
-    avatar_url: Type.Optional(Type.String({ format: 'uri' })),
+    avatar_url: Type.Optional(Type.String()),
     preferred_language: LanguageSchema,
     plan_type: PlanTypeSchema,
     created_at: Type.String({ format: 'date-time' }),
@@ -46,7 +46,7 @@ export const UserSchema = Type.Object({
 export const CreateUserRequestSchema = Type.Object({
     email: Type.Optional(Type.String({ format: 'email' })),
     name: Type.Optional(Type.String()),
-    avatar_url: Type.Optional(Type.String({ format: 'uri' })),
+    avatar_url: Type.Optional(Type.String()),
     phone: Type.String(),
     preferred_language: Type.Optional(LanguageSchema),
     plan_type: Type.Optional(PlanTypeSchema),
@@ -97,13 +97,13 @@ export const UserCertificateSchema = Type.Object({
     created_at: Type.String({ format: 'date-time' }),
     user_id: Type.Number(),
     course_id: Type.Number(),
-    url: Type.String({ format: 'uri' })
+    url: Type.String()
 });
 
 export const BannerSchema = Type.Object({
     id: Type.Number(),
-    image_url: Type.String({ format: 'uri' }),
-    redirect_url: Type.String({ format: 'uri' })
+    image_url: Type.String(),
+    redirect_url: Type.String()
 });
 
 // Additional schemas for missing endpoints

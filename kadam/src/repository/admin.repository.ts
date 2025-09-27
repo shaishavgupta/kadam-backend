@@ -1553,4 +1553,151 @@ export class AdminRepository {
             return false;
         }
     }
+
+    async deleteCourse(courseId: number, adminId: number): Promise<{
+        success: boolean;
+        cascadedDeletes?: {
+            modulesDeleted: number;
+            contentsDeleted: number;
+            enrollmentsDeleted: number;
+        };
+        message?: string;
+    }> {
+        try {
+            await db.query('BEGIN');
+
+            // First, check if the course exists
+            const courseCheckResult = await db.query(
+                `SELECT id, name FROM courses WHERE id = $1 AND is_active = true`,
+                [courseId]
+            );
+
+            if (courseCheckResult.rows.length === 0) {
+                await db.query('ROLLBACK');
+                return {
+                    success: false,
+                    message: 'Course not found or already deleted'
+                };
+            }
+
+            const course = courseCheckResult.rows[0];
+            console.log(`Deleting course ${courseId}: ${course.name}`);
+
+            // Count related records before deletion for reporting
+            const modulesCountResult = await db.query(
+                `SELECT COUNT(*) FROM modules WHERE course_id = $1 AND is_active = true`,
+                [courseId]
+            );
+            const modulesDeleted = parseInt(modulesCountResult.rows[0].count);
+
+            const contentsCountResult = await db.query(
+                `SELECT COUNT(*) FROM contents c
+                 JOIN modules m ON c.module_id = m.id
+                 WHERE m.course_id = $1 AND c.is_active = true`,
+                [courseId]
+            );
+            const contentsDeleted = parseInt(contentsCountResult.rows[0].count);
+
+            const enrollmentsCountResult = await db.query(
+                `SELECT COUNT(*) FROM user_enrollments WHERE course_id = $1`,
+                [courseId]
+            );
+            const enrollmentsDeleted = parseInt(enrollmentsCountResult.rows[0].count);
+
+            // Soft delete all contents in the course
+            await db.query(
+                `UPDATE contents
+                 SET is_active = false, updated_at = NOW()
+                 FROM modules m
+                 WHERE contents.module_id = m.id AND m.course_id = $1`,
+                [courseId]
+            );
+
+            // Soft delete all modules in the course
+            await db.query(
+                `UPDATE modules
+                 SET is_active = false, updated_at = NOW()
+                 WHERE course_id = $1`,
+                [courseId]
+            );
+
+            // Delete user enrollments (hard delete as these are just relationships)
+            await db.query(
+                `DELETE FROM user_enrollments WHERE course_id = $1`,
+                [courseId]
+            );
+
+            // Delete course-category relationships
+            await db.query(
+                `DELETE FROM course_categories WHERE course_id = $1`,
+                [courseId]
+            );
+
+            // Delete course-creator relationships
+            await db.query(
+                `DELETE FROM course_creators WHERE course_id = $1`,
+                [courseId]
+            );
+
+            // Soft delete the course itself
+            const courseDeleteResult = await db.query(
+                `UPDATE courses
+                 SET is_active = false, updated_at = NOW()
+                 WHERE id = $1`,
+                [courseId]
+            );
+
+            if (courseDeleteResult.rowCount === 0) {
+                await db.query('ROLLBACK');
+                return {
+                    success: false,
+                    message: 'Failed to delete course'
+                };
+            }
+
+            // Log admin activity
+            await db.query(
+                `INSERT INTO admin_activities (admin_id, resource_type, resource_id, details, ip_address, user_agent)
+                 VALUES ($1, 'course', $2, $3, '127.0.0.1', 'Admin API')`,
+                [
+                    adminId,
+                    courseId,
+                    JSON.stringify({
+                        action: 'delete_course',
+                        courseName: course.name,
+                        cascadedDeletes: {
+                            modulesDeleted,
+                            contentsDeleted,
+                            enrollmentsDeleted
+                        }
+                    })
+                ]
+            );
+
+            await db.query('COMMIT');
+
+            console.log(`Successfully deleted course ${courseId} with cascaded deletes:`, {
+                modulesDeleted,
+                contentsDeleted,
+                enrollmentsDeleted
+            });
+
+            return {
+                success: true,
+                cascadedDeletes: {
+                    modulesDeleted,
+                    contentsDeleted,
+                    enrollmentsDeleted
+                }
+            };
+
+        } catch (error) {
+            await db.query('ROLLBACK');
+            console.error("Error deleting course:", error);
+            return {
+                success: false,
+                message: 'Database error occurred while deleting course'
+            };
+        }
+    }
 }

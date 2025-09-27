@@ -44,6 +44,7 @@ export interface Config {
     AWS_SECRET_ACCESS_KEY: string;
     AWS_REGION: string;
     AWS_S3_COURSES_BUCKET: string;
+    AWS_S3_CDN_BASE_URL: string;
 
     // Authyo OTP Service
     AUTHYO_CLIENT_ID: string;
@@ -93,7 +94,7 @@ function loadConfig(): Config {
         AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY!,
         AWS_REGION: process.env.AWS_REGION!,
         AWS_S3_COURSES_BUCKET: process.env.AWS_S3_COURSES_BUCKET!,
-
+        AWS_S3_CDN_BASE_URL: process.env.AWS_S3_CDN_BASE_URL!,
         // Authyo OTP Service
         AUTHYO_CLIENT_ID: process.env.AUTHYO_CLIENT_ID!,
         AUTHYO_CLIENT_SECRET: process.env.AUTHYO_CLIENT_SECRET!,
@@ -145,7 +146,7 @@ function validateConfig(config: Config): void {
         'AWS_SECRET_ACCESS_KEY',
         'AWS_REGION',
         'AWS_S3_COURSES_BUCKET',
-
+        'AWS_S3_CDN_BASE_URL',
         // Authyo OTP Service
         'AUTHYO_CLIENT_ID',
         'AUTHYO_CLIENT_SECRET',
@@ -241,6 +242,7 @@ export const awsConfig = {
             processedVideos: 'processed-videos',
         }
     },
+    cdnBaseUrl: config.AWS_S3_CDN_BASE_URL,
 };
 
 export const authyoConfig = {

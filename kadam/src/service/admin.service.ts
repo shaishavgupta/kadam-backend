@@ -25,6 +25,7 @@ export class AdminService {
         this.coursesRepository = new CoursesRepository();
     }
 
+
     /**
      * Create a new admin user
      */
@@ -118,12 +119,12 @@ export class AdminService {
         return this.creatorRepository.getAllCreators(page, limit);
     }
 
-    async getCourses(page: number, limit: number, rejected: boolean = false): Promise<any> {
+    async getCourses(page: number, limit: number, rejected: boolean = false, published?: boolean): Promise<any> {
         if (rejected) {
             // Return rejected courses with hierarchical structure
             return this.adminRepository.getRejectedCoursesWithHierarchy(page, limit);
         } else {
-            return this.coursesRepository.getAllCourses(page, limit, rejected);
+            return this.coursesRepository.getAllCourses(page, limit, rejected, published);
         }
     }
 
@@ -450,5 +451,35 @@ export class AdminService {
         const thumbnailUrl = `s3://${bucket}/RawVideos/${courseId}/${moduleId}/${contentId}/Thumbnail.${fileName.split('.').pop()}`;
 
         return { videoUrl, thumbnailUrl };
+    }
+
+    async deleteCourse(courseId: number, adminId: number): Promise<{
+        success: boolean;
+        cascadedDeletes?: {
+            modulesDeleted: number;
+            contentsDeleted: number;
+            enrollmentsDeleted: number;
+        };
+        message?: string;
+    }> {
+        try {
+            console.log(`Admin ${adminId} attempting to delete course ${courseId}`);
+
+            const result = await this.adminRepository.deleteCourse(courseId, adminId);
+
+            if (result.success) {
+                console.log(`Successfully deleted course ${courseId} via admin service`);
+            } else {
+                console.log(`Failed to delete course ${courseId}: ${result.message}`);
+            }
+
+            return result;
+        } catch (error) {
+            console.error("Error in admin service deleteCourse:", error);
+            return {
+                success: false,
+                message: 'Service error occurred while deleting course'
+            };
+        }
     }
 }

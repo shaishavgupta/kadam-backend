@@ -277,22 +277,22 @@ export function initializeVectorEmbeddingWorker(): void {
     console.log('🔤 Initializing Vector Embedding Worker...');
 
     // Create worker for course embeddings
-    bullMQManager.createWorker(
-        QUEUE_NAMES.VECTOR_EMBEDDING,
-        async (job: Job<VectorEmbeddingJobData>) => {
-            return await vectorEmbeddingWorker.processCourseEmbeddings(job);
-        },
-        { concurrency: 3 }
-    );
+    // bullMQManager.createWorker(
+    //     QUEUE_NAMES.VECTOR_EMBEDDING,
+    //     async (job: Job<VectorEmbeddingJobData>) => {
+    //         return await vectorEmbeddingWorker.processCourseEmbeddings(job);
+    //     },
+    //     { concurrency: 3 }
+    // );
 
-    // Create worker for content embeddings
-    bullMQManager.createWorker(
-        QUEUE_NAMES.VECTOR_EMBEDDING,
-        async (job: Job<ContentEmbeddingJobData>) => {
-            return await vectorEmbeddingWorker.processContentEmbedding(job);
-        },
-        { concurrency: 5 }
-    );
+    // // Create worker for content embeddings
+    // bullMQManager.createWorker(
+    //     QUEUE_NAMES.VECTOR_EMBEDDING,
+    //     async (job: Job<ContentEmbeddingJobData>) => {
+    //         return await vectorEmbeddingWorker.processContentEmbedding(job);
+    //     },
+    //     { concurrency: 5 }
+    // );
 
     console.log('✅ Vector Embedding Worker initialized');
 }

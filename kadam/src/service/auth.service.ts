@@ -234,4 +234,72 @@ export class AuthService {
             refreshToken: refreshToken
         };
     }
+
+    /**
+     * Refresh access token using refresh token
+     */
+    async refreshToken(refreshToken: string, userType: UserTypeEnum): Promise<{
+        success: boolean;
+        data?: {
+            accessToken: string;
+            refreshToken: string;
+            user: {
+                id: number;
+                userType: UserTypeEnum;
+            };
+        };
+        message: string;
+    }> {
+        try {
+            // Verify the refresh token
+            const decoded = jwt.verify(refreshToken, authConfig.JWT_SECRET) as any;
+
+            // Check if the user type matches
+            if (decoded.userType !== userType) {
+                return {
+                    success: false,
+                    message: 'Invalid user type for refresh token'
+                };
+            }
+
+            const userId = decoded.sub;
+            if (!userId) {
+                return {
+                    success: false,
+                    message: 'Invalid refresh token'
+                };
+            }
+
+            // Generate new tokens
+            const newTokens = await this.generateTokens(userId, userType);
+
+            return {
+                success: true,
+                data: {
+                    accessToken: newTokens.accessToken,
+                    refreshToken: newTokens.refreshToken,
+                    user: {
+                        id: userId,
+                        userType: userType
+                    }
+                },
+                message: 'Tokens refreshed successfully'
+            };
+
+        } catch (error) {
+            console.error('Refresh token error:', error);
+
+            if (error instanceof jwt.JsonWebTokenError) {
+                return {
+                    success: false,
+                    message: 'Invalid or expired refresh token'
+                };
+            }
+
+            return {
+                success: false,
+                message: 'Internal server error during token refresh'
+            };
+        }
+    }
 }

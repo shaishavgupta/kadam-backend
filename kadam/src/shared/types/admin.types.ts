@@ -99,6 +99,7 @@ export interface AdminContent {
     rejected_at?: Date;
     rejected_by?: number;
     rejection_reason?: string;
+    abs_url?: string;
 }
 
 export interface AdminModule {
@@ -115,6 +116,9 @@ export interface AdminModule {
     is_active: boolean;
     position: number;
     contents: AdminContent[];
+    rejected_at?: Date;
+    rejected_by?: number;
+    rejection_reason?: string;
 }
 
 export interface CourseWithModulesAndContent {

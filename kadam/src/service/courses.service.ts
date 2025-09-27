@@ -9,6 +9,7 @@ export class CoursesService {
         this.repository = new CoursesRepository();
     }
 
+
     async getCourseList(): Promise<CourseListData> {
         try {
             return await this.repository.getCourseList();
@@ -259,10 +260,14 @@ export class CoursesService {
         position: number;
         is_paid: boolean;
         is_active: boolean;
-        thumbnail_url: string;
+        thumbnail_url?: string;
     }): Promise<Module | null> {
         try {
-            return await this.repository.createModule(courseId, moduleData);
+            const moduleDataWithThumbnail = {
+                ...moduleData,
+                thumbnail_url: moduleData.thumbnail_url || ''
+            };
+            return await this.repository.createModule(courseId, moduleDataWithThumbnail);
         } catch (error) {
             console.error("Error creating module:", error);
             return null;
@@ -352,6 +357,15 @@ export class CoursesService {
         } catch (error) {
             console.error("Error deleting content:", error);
             return false;
+        }
+    }
+
+    async getContentById(contentId: number): Promise<{ id: number; course_id: number; module_id: number; name: string } | null> {
+        try {
+            return await this.repository.getContentById(contentId);
+        } catch (error) {
+            console.error("Error getting content by ID:", error);
+            return null;
         }
     }
 

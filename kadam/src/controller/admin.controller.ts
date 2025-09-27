@@ -26,6 +26,7 @@ import {
     ReorderContentsRequestSchema,
     ReorderContentsResponseSchema,
     SoftDeleteVideoResponseSchema as DeleteVideoResponseSchema,
+    DeleteCourseResponseSchema,
     CreateContentsRequestSchema,
     CreateContentsResponseSchema,
     CourseWithModulesAndContentResponseSchema,
@@ -43,6 +44,7 @@ import {
     ReorderContentsRequest,
     ReorderContentsResponse,
     SoftDeleteVideoResponse as DeleteVideoResponse,
+    DeleteCourseResponse,
     CreateContentsRequest,
     CreateContentsResponse,
     CourseWithModulesAndContentResponse,
@@ -126,7 +128,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 reply.status(404);
                 return {
                     success: false,
-                    data: undefined,
+                    data: null as any,
                     message: 'Admin not found'
                 };
             }
@@ -151,7 +153,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             reply.status(500);
             return {
                 success: false,
-                data: undefined,
+                data: null as any,
                 message: errorMessage
             };
         }
@@ -264,8 +266,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             const page = query?.page ? parseInt(query.page, 10) : 1;
             const limit = query?.limit ? parseInt(query.limit, 10) : 10;
             const rejected = query?.rejected === 'true';
+            const published = query?.published === 'true';
 
-            const data = await adminService.getCourses(page, limit, rejected);
+            const data = await adminService.getCourses(page, limit, rejected, published);
             return {
                 success: true,
                 data,
@@ -450,6 +453,66 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             };
         }
     });
+
+    // Delete course
+    fastify.delete('/courses/:courseId', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Admin - Course Management'],
+            summary: 'Delete course',
+            description: 'Soft delete a course and all its related data (modules, contents, enrollments)',
+            params: Type.Object({
+                courseId: Type.String({ pattern: '^[0-9]+$' })
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: DeleteCourseResponseSchema,
+                404: DeleteCourseResponseSchema,
+                500: DeleteCourseResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<DeleteCourseResponse> => {
+        try {
+            const courseId = parseInt((request.params as any).courseId, 10);
+            const adminId = parseInt(request.user?.userID || '0', 10);
+
+            if (!adminId) {
+                reply.status(401).send(createErrorResponse('Admin authentication required', 401));
+                return {
+                    success: false,
+                    message: 'Admin authentication required'
+                };
+            }
+
+            const result = await adminService.deleteCourse(courseId, adminId);
+
+            if (!result.success) {
+                reply.status(404);
+                return {
+                    success: false,
+                    message: result.message || 'Course not found or could not be deleted'
+                };
+            }
+
+            return {
+                success: true,
+                data: {
+                    courseId,
+                    deletedAt: new Date().toISOString(),
+                    cascadedDeletes: result.cascadedDeletes!
+                },
+                message: 'Course deleted successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
+                message: errorMessage
+            };
+        }
+    });
+
     fastify.post('/reject', {
         preHandler: [authMiddleware, requireAdmin],
         schema: {
@@ -706,20 +769,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         try {
             const courseId = parseInt((request.params as any).courseId, 10);
 
-            const courseData = await adminService.getCourseWithModulesAndContent(courseId);
-
-            if (!courseData) {
-                reply.status(404);
-                return {
-                    success: false,
-                    data: undefined,
-                    message: 'Course not found'
-                };
-            }
-
             return {
                 success: true,
-                data: courseData,
+                data: await adminService.getCourseWithModulesAndContent(courseId),
                 message: 'Course data retrieved successfully'
             };
         } catch (error) {
@@ -727,7 +779,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             reply.status(500);
             return {
                 success: false,
-                data: undefined,
+                data: null as any,
                 message: errorMessage
             };
         }

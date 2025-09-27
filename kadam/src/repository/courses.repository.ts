@@ -1,6 +1,6 @@
 import { db } from "../infra/db";
 import { Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector, ContentType } from "../shared/types/courses.types";
-import { CourseListItem, CourseListData, UserStats } from "../schemas/course";
+import { CourseListItem, CourseListData, UserStats, UpdateCourseRequest } from "../schemas/course";
 
 export class CoursesRepository {
 
@@ -117,15 +117,30 @@ export class CoursesRepository {
     }
   }
 
-  async getAllCourses(page: number, limit: number, rejected: boolean = false): Promise<PaginatedCoursesResponse> {
+  async getAllCourses(page: number, limit: number, rejected: boolean = false, published?: boolean): Promise<PaginatedCoursesResponse> {
     const offset = (page - 1) * limit;
 
     let coursesQuery = 'SELECT * FROM courses';
     let countQuery = 'SELECT COUNT(*) FROM courses';
+    let whereConditions: string[] = [];
 
     if (rejected) {
       // Filter out rejected courses: approved_at IS NULL OR approved_at < rejected_at
-      const whereClause = 'WHERE (approved_at IS NULL OR approved_at < rejected_at)';
+      whereConditions.push('(approved_at IS NULL OR approved_at < rejected_at)');
+    }
+
+    if (published !== undefined) {
+      if (published) {
+        // Filter courses that have creator_published_at as not null
+        whereConditions.push('creator_published_at IS NOT NULL');
+      } else {
+        // Filter courses that have creator_published_at as null
+        whereConditions.push('creator_published_at IS NULL');
+      }
+    }
+
+    if (whereConditions.length > 0) {
+      const whereClause = 'WHERE ' + whereConditions.join(' AND ');
       coursesQuery += ` ${whereClause}`;
       countQuery += ` ${whereClause}`;
     }
@@ -306,7 +321,7 @@ export class CoursesRepository {
     }
   }
 
-  async updateCourse(id: number, courseData: any): Promise<Course | null> {
+  async updateCourse(id: number, courseData: UpdateCourseRequest): Promise<Course | null> {
     try {
       await db.query('BEGIN');
 
@@ -323,9 +338,28 @@ export class CoursesRepository {
       }
 
       const result = await db.query(
-        `UPDATE courses SET name = $1, description = $2, price = $3, next_course_ids = $4, updated_at = NOW()
-                 WHERE id = $5 RETURNING *`,
-        [courseData.name, courseData.description, courseData.price, courseData.next_course_ids || null, id]
+        `UPDATE courses SET
+          name = $1,
+          description = $2,
+          is_paid = $3,
+          is_active = $4,
+          price = $5,
+          thumbnail_url = $6,
+          certificate_id = $7,
+          next_course_ids = $8,
+          updated_at = NOW()
+         WHERE id = $9 RETURNING *`,
+        [
+          courseData.name,
+          courseData.description,
+          courseData.is_paid,
+          courseData.is_active,
+          courseData.price,
+          courseData.thumbnail_url || null,
+          courseData.certificate_id || null,
+          courseData.next_course_ids || null,
+          id
+        ]
       );
 
       if (result.rows.length === 0) {
@@ -346,13 +380,12 @@ export class CoursesRepository {
 
       // Update categories
       await db.query(`DELETE FROM course_categories WHERE course_id = $1`, [id]);
-      if (courseData.categories && courseData.categories.length > 0) {
-        for (const categoryId of courseData.categories) {
-          await db.query(
-            `INSERT INTO course_categories (course_id, category_id) VALUES ($1, $2)`,
-            [id, categoryId]
-          );
-        }
+      if (courseData.category_id) {
+        await db.query(
+          `INSERT INTO course_categories (course_id, category_id, created_at, updated_at)
+           VALUES ($1, $2, NOW(), NOW())`,
+          [id, courseData.category_id]
+        );
       }
 
       await db.query('COMMIT');
@@ -792,6 +825,7 @@ export class CoursesRepository {
           c.is_paid,
           c.is_active,
           c.url,
+          c.abs_url,
           c.duration,
           c.thumbnail_url,
           c.category_id,
@@ -967,6 +1001,7 @@ export class CoursesRepository {
           c.is_paid,
           c.is_active,
           c.url,
+          c.abs_url,
           c.duration,
           c.thumbnail_url,
           c.category_id,
@@ -1179,6 +1214,27 @@ export class CoursesRepository {
     } catch (error) {
       console.error("Error deleting content:", error);
       return false;
+    }
+  }
+
+  async getContentById(contentId: number): Promise<{ id: number; course_id: number; module_id: number; name: string } | null> {
+    try {
+      const result = await db.query(
+        `SELECT c.id, c.module_id, m.course_id, c.name
+         FROM contents c
+         JOIN modules m ON c.module_id = m.id
+         WHERE c.id = $1 AND c.is_active = true`,
+        [contentId]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      return result.rows[0];
+    } catch (error) {
+      console.error("Error getting content by ID:", error);
+      return null;
     }
   }
 

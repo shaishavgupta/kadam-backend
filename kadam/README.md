@@ -56,7 +56,7 @@ npm run seed
 npm run dev
 ```
 
-The API will be available at `http://localhost:3001` with Swagger documentation at `http://localhost:3001/documentation`.
+The API will be available at `http://localhost:3003` with Swagger documentation at `http://localhost:3003/documentation`.
 
 ## Configuration
 
@@ -77,7 +77,7 @@ The main configuration file is located at `src/config/index.ts` and exports:
 
 #### Application Settings
 - `NODE_ENV`: Environment (development, production, local)
-- `PORT`: Server port (default: 3001)
+- `PORT`: Server port (default: 3003)
 - `DOMAIN`: Server domain (default: http://localhost)
 - `LOG_LEVEL`: Logging level (default: info)
 
@@ -550,7 +550,7 @@ await QueueService.cleanQueue('email-queue', 5000);
 ```
 
 #### Bull Board Dashboard
-Access the queue management dashboard at: `http://localhost:3001/admin/queues`
+Access the queue management dashboard at: `http://localhost:3003/admin/queues`
 
 Features:
 - **Real-time Queue Monitoring**: View job counts, processing rates
@@ -959,8 +959,8 @@ npm run lint:fix     # Fix ESLint issues
    ```
 
 4. **Access Documentation**:
-   - API Documentation: http://localhost:3001/documentation
-   - Health Check: http://localhost:3001/health
+   - API Documentation: http://localhost:3003/documentation
+   - Health Check: http://localhost:3003/health
 
 ### Environment File
 
@@ -969,7 +969,7 @@ Create a `.env` file in the project root with your configuration:
 ```env
 # Application
 NODE_ENV=development
-PORT=3001
+PORT=3003
 DOMAIN=http://localhost
 LOG_LEVEL=info
 
@@ -1345,7 +1345,7 @@ npm run dev
 
 #### 3. Test Admin Login
 ```bash
-curl -X POST http://localhost:3001/api/auth/admin/login \
+curl -X POST http://localhost:3003/api/auth/admin/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@kadam.com",
@@ -1355,7 +1355,7 @@ curl -X POST http://localhost:3001/api/auth/admin/login \
 
 #### 4. Test Course Approval (use JWT from login)
 ```bash
-curl -X GET http://localhost:3001/api/admin/courses/unapproved \
+curl -X GET http://localhost:3003/api/admin/courses/unapproved \
   -H "Authorization: Bearer <jwt-token>"
 ```
 
@@ -1789,7 +1789,7 @@ interface ModuleApprovalResponse {
 
 **curl Example:**
 ```bash
-curl -X POST "http://localhost:3001/api/admin/modules/456/approve" \
+curl -X POST "http://localhost:3003/api/admin/modules/456/approve" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -1821,7 +1821,7 @@ interface ContentApprovalResponse {
 
 **curl Example:**
 ```bash
-curl -X POST "http://localhost:3001/api/admin/contents/789/approve" \
+curl -X POST "http://localhost:3003/api/admin/contents/789/approve" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -1911,7 +1911,7 @@ interface ErrorResponse {
 ### Swagger/OpenAPI Documentation
 
 All APIs are fully documented with Swagger schemas available at:
-`http://localhost:3001/documentation`
+`http://localhost:3003/documentation`
 
 The documentation includes:
 - Complete request/response schemas
@@ -1959,7 +1959,7 @@ The documentation includes:
 ### Overview
 This document describes the updated backend APIs for the course/module/content review workflow. The APIs support hierarchical approval/rejection with cascading logic.
 
-Base URL: `http://localhost:3001/api/admin`
+Base URL: `http://localhost:3003/api/admin`
 
 ### Authentication
 All endpoints require admin authentication using Bearer token:
@@ -1975,7 +1975,7 @@ Authorization: Bearer <your_jwt_token>
 
 **Request:**
 ```bash
-curl -X POST "http://localhost:3001/api/admin/courses/123/approve" \
+curl -X POST "http://localhost:3003/api/admin/courses/123/approve" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json"
 ```
@@ -2013,7 +2013,7 @@ curl -X POST "http://localhost:3001/api/admin/courses/123/approve" \
 
 **Request:**
 ```bash
-curl -X POST "http://localhost:3001/api/admin/modules/456/approve" \
+curl -X POST "http://localhost:3003/api/admin/modules/456/approve" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json"
 ```
@@ -2037,7 +2037,7 @@ curl -X POST "http://localhost:3001/api/admin/modules/456/approve" \
 
 **Request:**
 ```bash
-curl -X POST "http://localhost:3001/api/admin/contents/789/approve" \
+curl -X POST "http://localhost:3003/api/admin/contents/789/approve" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json"
 ```
@@ -2072,7 +2072,7 @@ curl -X POST "http://localhost:3001/api/admin/contents/789/approve" \
 
 **Reject Course:**
 ```bash
-curl -X POST "http://localhost:3001/api/admin/reject" \
+curl -X POST "http://localhost:3003/api/admin/reject" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2084,7 +2084,7 @@ curl -X POST "http://localhost:3001/api/admin/reject" \
 
 **Reject Module:**
 ```bash
-curl -X POST "http://localhost:3001/api/admin/reject" \
+curl -X POST "http://localhost:3003/api/admin/reject" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2096,7 +2096,7 @@ curl -X POST "http://localhost:3001/api/admin/reject" \
 
 **Reject Content:**
 ```bash
-curl -X POST "http://localhost:3001/api/admin/reject" \
+curl -X POST "http://localhost:3003/api/admin/reject" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2144,13 +2144,13 @@ curl -X POST "http://localhost:3001/api/admin/reject" \
 
 **Fetch Regular Courses:**
 ```bash
-curl -X GET "http://localhost:3001/api/admin/courses?page=1&limit=10" \
+curl -X GET "http://localhost:3003/api/admin/courses?page=1&limit=10" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 **Fetch Rejected Courses with Hierarchy:**
 ```bash
-curl -X GET "http://localhost:3001/api/admin/courses?page=1&limit=11&rejected=true" \
+curl -X GET "http://localhost:3003/api/admin/courses?page=1&limit=11&rejected=true" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -2222,7 +2222,7 @@ curl -X GET "http://localhost:3001/api/admin/courses?page=1&limit=11&rejected=tr
 
 **Request:**
 ```bash
-curl -X GET "http://localhost:3001/api/admin/courses/123/full" \
+curl -X GET "http://localhost:3003/api/admin/courses/123/full" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
@@ -2317,7 +2317,7 @@ Ensure the following columns exist:
 ### OpenAPI/Swagger Specification
 
 The API is fully documented with Swagger/OpenAPI specifications available at:
-`http://localhost:3001/documentation`
+`http://localhost:3003/documentation`
 
 All endpoints include proper TypeScript typing using TypeBox schemas for request/response validation.
 
@@ -2481,7 +2481,7 @@ The codebase follows a clean layered architecture:
 
 #### Working with Background Jobs
 - Individual workers can be tested by running: `npx tsx src/workers/[worker-name].worker.ts`
-- Monitor jobs via Bull Board dashboard at `http://localhost:3001/admin/queues`
+- Monitor jobs via Bull Board dashboard at `http://localhost:3003/admin/queues`
 - Queue operations available through `QueueService` class methods
 
 #### Database Operations

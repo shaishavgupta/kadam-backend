@@ -83,6 +83,7 @@ export interface VideoProcessingJobData {
     courseId: number;
     videoId: number;
     videoUrl: string;
+    moduleId: number;
     processingOptions?: {
         resolutions?: string[];
         format?: string;
@@ -177,7 +178,7 @@ class BullMQManager {
 
             this.isInitialized = true;
             console.log('✅ Bull Board dashboard setup complete');
-            console.log('🌐 Dashboard available at: http://localhost:3001/admin/queues');
+            console.log('🌐 Dashboard available at: http://localhost:3003/admin/queues');
         } catch (error) {
             console.error('❌ Error setting up Bull Board:', error);
             throw error;

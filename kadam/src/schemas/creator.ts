@@ -24,7 +24,7 @@ export const CreatorSchema = Type.Object({
     updated_at: Type.String({ format: 'date-time' }),
     name: Type.String(),
     bio: Type.Optional(Type.String()),
-    profile_pic: Type.Optional(Type.String({ format: 'uri' })),
+    profile_pic: Type.Optional(Type.String()),
     rating: Type.Optional(Type.Number())
 });
 
@@ -69,7 +69,7 @@ export const CreatorAchievementSchema = Type.Object({
 export const CreateCreatorRequestSchema = Type.Object({
     name: Type.String(),
     bio: Type.Optional(Type.String()),
-    profile_pic: Type.Optional(Type.String({ format: 'uri' })),
+    profile_pic: Type.Optional(Type.String()),
     rating: Type.Optional(Type.Number())
 });
 

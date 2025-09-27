@@ -39,7 +39,7 @@ export const VerifyOtpResponseSchema = Type.Object({
 export const CreateUserWithAuthRequestSchema = Type.Object({
     email: Type.Optional(Type.String({ format: 'email' })),
     name: Type.Optional(Type.String()),
-    avatar_url: Type.Optional(Type.String({ format: 'uri' })),
+    avatar_url: Type.Optional(Type.String()),
     phone: Type.String(),
     preferred_language: Type.Optional(Type.Enum(LanguageEnum)),
     plan_type: Type.Optional(Type.Enum(PlanTypeEnum)),
@@ -63,7 +63,7 @@ export const CreateCreatorWithUserRequestSchema = Type.Object({
     name: Type.String(),
     phone: Type.String(),
     bio: Type.Optional(Type.String()),
-    avatar_url: Type.Optional(Type.String({ format: 'uri' })),
+    avatar_url: Type.Optional(Type.String()),
     specialization: Type.Optional(Type.String()),
     experience_years: Type.Optional(Type.Number()),
     social_links: Type.Optional(Type.Object({
@@ -80,7 +80,7 @@ export const UserWithAuthResponseSchema = ApiResponseSchema(Type.Object({
     email: Type.Optional(Type.String({ format: 'email' })),
     name: Type.Optional(Type.String()),
     phone: Type.String(),
-    avatar_url: Type.Optional(Type.String({ format: 'uri' })),
+    avatar_url: Type.Optional(Type.String()),
     preferred_language: Type.Enum(LanguageEnum),
     plan_type: Type.Enum(PlanTypeEnum),
     created_at: Type.String({ format: 'date-time' }),
@@ -113,7 +113,7 @@ export const CreatorWithUserResponseSchema = ApiResponseSchema(Type.Object({
     name: Type.String(),
     phone: Type.String(),
     bio: Type.Optional(Type.String()),
-    avatar_url: Type.Optional(Type.String({ format: 'uri' })),
+    avatar_url: Type.Optional(Type.String()),
     specialization: Type.Optional(Type.String()),
     experience_years: Type.Optional(Type.Number()),
     social_links: Type.Optional(Type.Object({
@@ -127,6 +127,29 @@ export const CreatorWithUserResponseSchema = ApiResponseSchema(Type.Object({
     is_active: Type.Boolean()
 }));
 
+// Refresh token schemas
+export const RefreshTokenRequestSchema = Type.Object({
+    refreshToken: Type.String({
+        description: 'Refresh token to generate new access token'
+    }),
+    userType: Type.Enum(UserTypeEnum, {
+        description: 'Type of user (user, admin, creator)'
+    })
+});
+
+export const RefreshTokenResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Optional(Type.Object({
+        accessToken: Type.String(),
+        refreshToken: Type.String(),
+        user: Type.Object({
+            id: Type.Number(),
+            userType: Type.Enum(UserTypeEnum)
+        })
+    })),
+    message: Type.String()
+});
+
 // Export inferred TypeScript types using Static
 export type SendOtpRequest = Static<typeof SendOtpRequestSchema>;
 export type SendOtpResponse = Static<typeof SendOtpResponseSchema>;
@@ -135,3 +158,5 @@ export type VerifyOtpResponse = Static<typeof VerifyOtpResponseSchema>;
 export type CreateUserWithAuthRequest = Static<typeof CreateUserWithAuthRequestSchema>;
 export type CreateAdminRequest = Static<typeof CreateAdminRequestSchema>;
 export type CreateCreatorWithUserRequest = Static<typeof CreateCreatorWithUserRequestSchema>;
+export type RefreshTokenRequest = Static<typeof RefreshTokenRequestSchema>;
+export type RefreshTokenResponse = Static<typeof RefreshTokenResponseSchema>;

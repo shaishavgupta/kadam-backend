@@ -81,7 +81,7 @@ export interface UploadFileParams {
 
 // File Download Types
 export interface DownloadFileParams {
-    prefix: keyof typeof S3_CONFIG.PREFIXES;
+    prefix?: keyof typeof S3_CONFIG.PREFIXES;
     key: string;
 }
 
@@ -128,8 +128,13 @@ export async function uploadFile(params: UploadFileParams): Promise<string> {
 export async function downloadFile(params: DownloadFileParams): Promise<Buffer> {
     try {
         const bucketName = S3_CONFIG.BUCKET;
-        const prefix = S3_CONFIG.PREFIXES[params.prefix];
-        const fullKey = `${prefix}/${params.key}`;
+        let fullKey = '';
+        if (params.prefix) {
+            const prefix = S3_CONFIG.PREFIXES[params.prefix];
+            fullKey = `${prefix}/${params.key}`;
+        } else {
+            fullKey = params.key;
+        }
 
         const command = new GetObjectCommand({
             Bucket: bucketName,
@@ -165,8 +170,13 @@ export async function downloadFile(params: DownloadFileParams): Promise<Buffer> 
 export async function deleteFile(params: DownloadFileParams): Promise<void> {
     try {
         const bucketName = S3_CONFIG.BUCKET;
-        const prefix = S3_CONFIG.PREFIXES[params.prefix];
-        const fullKey = `${prefix}/${params.key}`;
+        let fullKey = '';
+        if (params.prefix) {
+            const prefix = S3_CONFIG.PREFIXES[params.prefix];
+            fullKey = `${prefix}/${params.key}`;
+        } else {
+            fullKey = params.key;
+        }
 
         const command = new DeleteObjectCommand({
             Bucket: bucketName,

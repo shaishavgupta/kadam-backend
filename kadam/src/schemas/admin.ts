@@ -14,6 +14,10 @@ export const AdminCoursesQuerySchema = Type.Object({
     rejected: Type.Optional(Type.String({
         enum: ['true', 'false'],
         description: 'Include rejected courses'
+    })),
+    published: Type.Optional(Type.String({
+        enum: ['true', 'false'],
+        description: 'Filter courses by creator_published_at status'
     }))
 });
 
@@ -204,6 +208,20 @@ export const SoftDeleteVideoResponseSchema = Type.Object({
     message: Type.String()
 });
 
+export const DeleteCourseResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Optional(Type.Object({
+        courseId: Type.Number(),
+        deletedAt: Type.String(),
+        cascadedDeletes: Type.Object({
+            modulesDeleted: Type.Number(),
+            contentsDeleted: Type.Number(),
+            enrollmentsDeleted: Type.Number()
+        })
+    })),
+    message: Type.String()
+});
+
 
 // Response schemas
 export const AdminConfigurationResponseWrapperSchema = ApiResponseSchema(AdminConfigurationResponseSchema);
@@ -281,6 +299,7 @@ export const CreateContentsResponseSchema = Type.Object({
             is_active: Type.Boolean(),
             module_id: Type.Optional(Type.Number()),
             url: Type.String(),
+            abs_url: Type.Optional(Type.String()),
             thumbnail_url: Type.Optional(Type.String()),
             course_id: Type.Number(),
             created_at: Type.String({ format: 'date-time' }),
@@ -305,6 +324,7 @@ export const AdminContentSchema = Type.Object({
     approved_by: Type.Optional(Type.Number()),
     position: Type.Number(),
     url: Type.Optional(Type.String()),
+    abs_url: Type.Optional(Type.String()),
     duration: Type.Optional(Type.Number()),
     thumbnail_url: Type.Optional(Type.String()),
     category_id: Type.Optional(Type.Number()),
@@ -387,6 +407,7 @@ export type ReorderVideosResponse = Static<typeof ReorderVideosResponseSchema>;
 export type ReorderContentsRequest = Static<typeof ReorderContentsRequestSchema>;
 export type ReorderContentsResponse = Static<typeof ReorderContentsResponseSchema>;
 export type SoftDeleteVideoResponse = Static<typeof SoftDeleteVideoResponseSchema>;
+export type DeleteCourseResponse = Static<typeof DeleteCourseResponseSchema>;
 export type VideoMetadata = Static<typeof VideoMetadataSchema>;
 export type CreateContentsRequest = Static<typeof CreateContentsRequestSchema>;
 export type CreateContentsResponse = Static<typeof CreateContentsResponseSchema>;

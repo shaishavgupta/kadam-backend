@@ -41,7 +41,8 @@ CREATE TABLE course_categories (
   id BIGSERIAL PRIMARY KEY,
   course_id BIGINT NOT NULL,
   category_id BIGINT NOT NULL,
-  created_at TIMESTAMP DEFAULT (now())
+  created_at TIMESTAMP DEFAULT (now()),
+  updated_at TIMESTAMP NOT NULL
 );
 
 CREATE TABLE course_creators (

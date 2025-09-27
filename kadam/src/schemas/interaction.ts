@@ -38,7 +38,7 @@ export const ShareSchema = Type.Object({
     user_id: Type.Number(),
     parent_id: Type.Number(),
     parent_type: ParentTypeSchema,
-    shared_url: Type.Optional(Type.String({ format: 'uri' }))
+    shared_url: Type.Optional(Type.String())
 });
 
 export const SaveSchema = Type.Object({
@@ -99,11 +99,11 @@ export const CreateShareDTOSchema = Type.Object({
     user_id: Type.Number(),
     parent_id: Type.Number(),
     parent_type: ParentTypeSchema,
-    shared_url: Type.Optional(Type.String({ format: 'uri' }))
+    shared_url: Type.Optional(Type.String())
 });
 
 export const UpdateShareDTOSchema = Type.Object({
-    shared_url: Type.Optional(Type.String({ format: 'uri' }))
+    shared_url: Type.Optional(Type.String())
 });
 
 export const CreateSaveDTOSchema = Type.Object({

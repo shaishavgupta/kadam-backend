@@ -16,6 +16,8 @@ import {
     CreateUserWithAuthRequestSchema,
     CreateAdminRequestSchema,
     CreateCreatorWithUserRequestSchema,
+    RefreshTokenRequestSchema,
+    RefreshTokenResponseSchema,
     UserWithAuthResponseSchema,
     AdminResponseSchema,
     CreatorWithUserResponseSchema,
@@ -25,7 +27,9 @@ import {
     VerifyOtpResponse,
     CreateUserWithAuthRequest,
     CreateAdminRequest,
-    CreateCreatorWithUserRequest
+    CreateCreatorWithUserRequest,
+    RefreshTokenRequest,
+    RefreshTokenResponse
 } from '../schemas/auth';
 import {
     AdminLoginRequestSchema,
@@ -211,6 +215,51 @@ export default async function authRoutes(fastify: FastifyInstance) {
             return {
                 success: false,
                 message: 'Internal server error during admin authentication'
+            };
+        }
+    });
+
+    // Refresh token endpoint
+    fastify.post('/refresh-token', {
+        schema: {
+            tags: ['Authentication'],
+            summary: 'Refresh Access Token',
+            description: 'Generate new access token using refresh token for users, admins, and creators',
+            body: RefreshTokenRequestSchema,
+            response: {
+                200: RefreshTokenResponseSchema,
+                401: RefreshTokenResponseSchema,
+                500: RefreshTokenResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest<{ Body: RefreshTokenRequest }>, reply: FastifyReply): Promise<RefreshTokenResponse> => {
+        try {
+            const { refreshToken, userType } = request.body;
+
+            // Use auth service to refresh the token
+            const result = await authService.refreshToken(refreshToken, userType);
+
+            if (!result.success) {
+                reply.status(401);
+                return {
+                    success: false,
+                    message: result.message
+                };
+            }
+
+            return {
+                success: true,
+                data: result.data,
+                message: result.message
+            };
+
+        } catch (error) {
+            console.error('Refresh token error:', error);
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500);
+            return {
+                success: false,
+                message: errorMessage
             };
         }
     });

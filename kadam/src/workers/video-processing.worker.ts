@@ -1,9 +1,8 @@
 import { Job } from 'bullmq';
 import { bullMQManager, QUEUE_NAMES, VideoProcessingJobData, CourseVideoProcessingJobData, JOB_TYPES } from '../infra';
-import { downloadFile, uploadFile, S3_CONFIG } from '../infra/aws/s3';
-import { existsSync, mkdirSync, unlinkSync, readFileSync, statSync } from 'fs';
+import { downloadFile, generateMasterPlaylistKey, uploadFile } from '../infra/aws/s3';
+import { existsSync, mkdirSync, readFileSync, statSync } from 'fs';
 import { join, basename, extname } from 'path';
-import { tmpdir } from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { CoursesService } from '../service/courses.service';
@@ -543,7 +542,6 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
         // Filter only video content
         const videoContents = contents.filter(content =>
             content.type === ContentType.VIDEO &&
-            content.url &&
             content.is_active
         );
 
@@ -565,6 +563,7 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
                 courseId,
                 videoId: videoContent.id,
                 videoUrl: videoContent.url!,
+                moduleId: videoContent.module_id!,
                 processingOptions,
                 metadata: {
                     originalFileName: basename(videoContent.url!),
@@ -609,13 +608,15 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
 
 // Individual Video Processing Worker Processor
 const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
-    const { courseId, videoId, videoUrl, processingOptions } = job.data;
+    const { courseId, videoId, videoUrl, processingOptions, moduleId } = job.data;
 
-    console.log(`🎬 Processing video ${videoId} for course ${courseId}: ${videoUrl}`);
+    console.log(`🎬 Processing video ${videoId} for course ${courseId}: ${videoUrl} moduleId: ${moduleId}`);
 
-    const tempDir = join(tmpdir(), 'video-processing', `course-${courseId}-video-${videoId}-${Date.now()}`);
+    // Use current directory for temporary files instead of system temp
+    const tempDir = join(process.cwd(), 'temp-video-processing', `course-${courseId}-video-${videoId}-${Date.now()}`);
     let inputPath: string | null = null;
     let outputDir: string | null = null;
+    let actualDuration: number = 0; // Store the actual duration from FFprobe
 
     try {
         // Create temporary directories
@@ -623,25 +624,65 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
         outputDir = join(tempDir, 'output');
         mkdirSync(outputDir, { recursive: true });
 
-        // Download video from S3 raw-videos prefix
+        // Download video from S3 using logical path construction
         console.log(`📥 Downloading video from S3: ${videoUrl}`);
 
-        // Extract the key from the full URL (remove the bucket and prefix parts)
-        const urlParts = videoUrl.split('/');
-        const keyIndex = urlParts.findIndex(part => part === 'RawVideos') + 1;
-        const key = urlParts.slice(keyIndex).join('/');
+        // Construct S3 key using logical pattern: courseId/moduleId/contentId/video.mp4
+        // First, we need to get the moduleId and contentId from the database
+        const coursesService = new CoursesService();
+        const content = await coursesService.getContentById(videoId);
+
+        if (!content) {
+            throw new Error(`Content with ID ${videoId} not found`);
+        }
 
         const videoBuffer = await downloadFile({
-            prefix: 'rawVideos',
-            key: key
+            key: videoUrl
         });
 
-        // Save video to temporary file
-        const inputFileName = basename(videoUrl);
-        inputPath = join(tempDir, inputFileName);
-        require('fs').writeFileSync(inputPath, videoBuffer);
+        // Validate the downloaded buffer
+        if (!videoBuffer || videoBuffer.length === 0) {
+            throw new Error('Downloaded video buffer is empty or invalid');
+        }
 
-        console.log(`✅ Video downloaded to: ${inputPath}`);
+        console.log(`📊 Downloaded buffer size: ${videoBuffer.length} bytes`);
+
+        // Save video to temporary file with proper extension
+        const fileName = `video-${videoId}.mp4`;
+        inputPath = join(tempDir, fileName);
+
+        // Write file with proper error handling
+        const fs = require('fs');
+        fs.writeFileSync(inputPath, videoBuffer);
+
+        // Validate the written file
+        const stats = fs.statSync(inputPath);
+        if (stats.size === 0) {
+            throw new Error('Written video file is empty');
+        }
+
+        console.log(`✅ Video downloaded to: ${inputPath} (${stats.size} bytes)`);
+
+        // Validate video file integrity with FFprobe
+        try {
+            console.log(`🔍 Validating video file integrity...`);
+            const probeCommand = `ffprobe -v quiet -print_format json -show_format -show_streams "${inputPath}"`;
+            const probeResult = await execAsync(probeCommand);
+            const probeData = JSON.parse(probeResult.stdout);
+
+            if (!probeData.format || !probeData.streams || probeData.streams.length === 0) {
+                throw new Error('Video file appears to be corrupted or invalid');
+            }
+
+            // Store the actual duration from FFprobe
+            actualDuration = parseFloat(probeData.format.duration) || 0;
+
+            console.log(`✅ Video file validation passed - Duration: ${actualDuration}s, Format: ${probeData.format.format_name}`);
+        } catch (probeError) {
+            console.error(`❌ Video file validation failed:`, probeError);
+            const errorMessage = probeError instanceof Error ? probeError.message : 'Unknown validation error';
+            throw new Error(`Invalid video file: ${errorMessage}`);
+        }
 
         // Check if FFmpeg is available
         const isFFmpegAvailable = await videoProcessor.isAvailable();
@@ -678,6 +719,7 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
                 const uploadPromise = uploadResolutionDirectory(
                     resolutionDir,
                     courseId,
+                    moduleId,
                     videoId,
                     resolutionResult.resolution,
                     resolutionResult.segmentFiles
@@ -690,6 +732,7 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
                 const masterUploadPromise = uploadMasterPlaylist(
                     result.masterPlaylist,
                     courseId,
+                    moduleId,
                     videoId
                 );
                 uploadPromises.push(masterUploadPromise);
@@ -705,10 +748,18 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
 
         console.log(`🎉 Video processing completed successfully for video ${videoId} in course ${courseId}`);
 
+        // Update content with the master playlist URL and actual duration
+        await coursesService.updateContent(videoId, {
+            abs_url: generateMasterPlaylistKey(courseId, moduleId, videoId),
+            duration: actualDuration
+        });
+
+        console.log(`✅ Updated content ${videoId} with master playlist URL and duration: ${actualDuration}s`);
         return {
             success: true,
             courseId,
             videoId,
+            duration: actualDuration,
             resolutionsProcessed: result.resolutions?.length || 0,
             metadata: result.metadata
         };
@@ -730,6 +781,7 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
 async function uploadResolutionDirectory(
     resolutionDir: string,
     courseId: number,
+    moduleId: number,
     videoId: number,
     resolution: string,
     segmentFiles: string[]
@@ -741,9 +793,6 @@ async function uploadResolutionDirectory(
         const playlistPath = join(resolutionDir, 'playlist.m3u8');
         if (existsSync(playlistPath)) {
             const playlistBuffer = readFileSync(playlistPath);
-            // For now, we'll use videoId as contentId and assume moduleId is 1
-            // TODO: Update this to get actual moduleId and contentId from database
-            const moduleId = 1; // This should be retrieved from the content record
             const contentId = videoId;
             const playlistKey = `${courseId}/${moduleId}/${contentId}/${resolution}/playlist.m3u8`;
 
@@ -766,9 +815,6 @@ async function uploadResolutionDirectory(
         for (const segmentFile of segmentFiles) {
             const segmentBuffer = readFileSync(segmentFile);
             const segmentFileName = basename(segmentFile);
-            // For now, we'll use videoId as contentId and assume moduleId is 1
-            // TODO: Update this to get actual moduleId and contentId from database
-            const moduleId = 1; // This should be retrieved from the content record
             const contentId = videoId;
             const segmentKey = `${courseId}/${moduleId}/${contentId}/${resolution}/${segmentFileName}`;
 
@@ -798,17 +844,15 @@ async function uploadResolutionDirectory(
 async function uploadMasterPlaylist(
     masterPlaylistPath: string,
     courseId: number,
+    moduleId: number,
     videoId: number
 ): Promise<void> {
     try {
         console.log(`📤 Uploading master playlist for video ${videoId}...`);
 
         const playlistBuffer = readFileSync(masterPlaylistPath);
-        // For now, we'll use videoId as contentId and assume moduleId is 1
-        // TODO: Update this to get actual moduleId and contentId from database
-        const moduleId = 1; // This should be retrieved from the content record
         const contentId = videoId;
-        const playlistKey = `${courseId}/${moduleId}/${contentId}/master.m3u8`;
+        const playlistKey = generateMasterPlaylistKey(courseId, moduleId, videoId);
 
         await uploadFile({
             prefix: 'processedVideos',
@@ -840,29 +884,48 @@ async function cleanupTempFiles(
     videoId: number
 ): Promise<void> {
     try {
-        if (inputPath && existsSync(inputPath)) {
-            unlinkSync(inputPath);
+        const fs = require('fs');
+
+        // Clean up input file
+        if (inputPath && fs.existsSync(inputPath)) {
+            try {
+                fs.unlinkSync(inputPath);
+                console.log(`🗑️ Cleaned up input file: ${inputPath}`);
+            } catch (error) {
+                console.warn(`⚠️ Could not delete input file ${inputPath}:`, error);
+            }
         }
 
-        if (outputDir && existsSync(outputDir)) {
-            const fs = require('fs');
-            const files = fs.readdirSync(outputDir);
-            for (const file of files) {
-                const filePath = join(outputDir, file);
-                if (existsSync(filePath)) {
-                    if (fs.statSync(filePath).isDirectory()) {
-                        fs.rmdirSync(filePath, { recursive: true });
-                    } else {
-                        unlinkSync(filePath);
+        // Clean up output directory
+        if (outputDir && fs.existsSync(outputDir)) {
+            try {
+                const files = fs.readdirSync(outputDir);
+                for (const file of files) {
+                    const filePath = join(outputDir, file);
+                    if (fs.existsSync(filePath)) {
+                        const stat = fs.statSync(filePath);
+                        if (stat.isDirectory()) {
+                            fs.rmSync(filePath, { recursive: true, force: true });
+                        } else {
+                            fs.unlinkSync(filePath);
+                        }
                     }
                 }
+                fs.rmdirSync(outputDir);
+                console.log(`🗑️ Cleaned up output directory: ${outputDir}`);
+            } catch (error) {
+                console.warn(`⚠️ Could not clean output directory ${outputDir}:`, error);
             }
-            fs.rmdirSync(outputDir);
         }
 
-        if (tempDir && existsSync(tempDir)) {
-            const fs = require('fs');
-            fs.rmdirSync(tempDir, { recursive: true });
+        // Clean up temp directory
+        if (tempDir && fs.existsSync(tempDir)) {
+            try {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+                console.log(`🗑️ Cleaned up temp directory: ${tempDir}`);
+            } catch (error) {
+                console.warn(`⚠️ Could not clean temp directory ${tempDir}:`, error);
+            }
         }
 
         console.log(`🧹 Cleaned up temporary files for video ${videoId} in course ${courseId}`);

@@ -56,7 +56,7 @@ export const CertificatesResponseSchema = Type.Object({
 export const CategorySchema = Type.Object({
     id: Type.Number(),
     name: Type.String(),
-    image_url: Type.String({ format: 'uri' })
+    image_url: Type.String()
 });
 
 export const ModuleSchema = Type.Object({
@@ -66,7 +66,7 @@ export const ModuleSchema = Type.Object({
     position: Type.Number(),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    thumbnail_url: Type.Optional(Type.String()),
     approved_at: Type.Optional(Type.String({ format: 'date-time' })),
     approved_by: Type.Optional(Type.Number()),
     created_at: Type.String({ format: 'date-time' }),
@@ -81,10 +81,10 @@ export const ContentSchema = Type.Object({
     position: Type.Number(),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
-    url: Type.Optional(Type.String({ format: 'uri' })),
-    abs_url: Type.Optional(Type.String({ format: 'uri' })),
+    url: Type.Optional(Type.String()),
+    abs_url: Type.Optional(Type.String()),
     duration: Type.Optional(Type.Number()),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    thumbnail_url: Type.Optional(Type.String()),
     category_id: Type.Optional(Type.Number()),
     next_content_id: Type.Optional(Type.Number()),
     approved_at: Type.Optional(Type.String({ format: 'date-time' })),
@@ -99,7 +99,7 @@ export const CourseSchema = Type.Object({
     description: Type.String(),
     is_paid: Type.Boolean(),
     price: Type.Number(),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    thumbnail_url: Type.Optional(Type.String()),
     certificate_id: Type.Optional(Type.Number()),
     rank: Type.Number(),
     published_at: Type.Optional(Type.String({ format: 'date-time' })),
@@ -125,10 +125,10 @@ export const CreateContentRequestSchema = Type.Object({
     position: Type.Number(),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
-    url: Type.Optional(Type.String({ format: 'uri' })),
-    abs_url: Type.Optional(Type.String({ format: 'uri' })),
+    url: Type.Optional(Type.String()),
+    abs_url: Type.Optional(Type.String()),
     duration: Type.Optional(Type.Number()),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    thumbnail_url: Type.Optional(Type.String()),
     category_id: Type.Optional(Type.Number()),
     next_content_id: Type.Optional(Type.Number()),
     module_name: Type.Optional(Type.String())
@@ -142,7 +142,7 @@ export const CreateCourseRequestSchema = Type.Object({
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
     price: Type.Number(),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    thumbnail_url: Type.Optional(Type.String()),
     certificate_id: Type.Optional(Type.Number()),
     contents: Type.Optional(Type.Array(CreateContentRequestSchema)),
     next_course_ids: Type.Optional(Type.Array(Type.Number()))
@@ -161,7 +161,7 @@ export const CreateModuleRequestSchema = Type.Object({
     position: Type.Number(),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' }))
+    thumbnail_url: Type.Optional(Type.String())
 });
 
 export const PublishCourseRequestSchema = Type.Object({
@@ -262,7 +262,7 @@ export type CategoryIdParam = Static<typeof CategoryIdParamSchema>;
 export const CourseListItemSchema = Type.Object({
     id: Type.Number(),
     title: Type.String(),
-    thumbnail: Type.Optional(Type.String({ format: 'uri' })),
+    thumbnail: Type.Optional(Type.String()),
     description: Type.String(),
     category: Type.String(),
     total_videos: Type.Number(),
@@ -306,7 +306,7 @@ export const CreateModuleRequestSchemaNew = Type.Object({
     position: Type.Number({ minimum: 1 }),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
-    thumbnail_url: Type.String({ format: 'uri' })
+    thumbnail_url: Type.String()
 });
 
 export const UpdateModuleRequestSchema = Type.Object({
@@ -315,7 +315,7 @@ export const UpdateModuleRequestSchema = Type.Object({
     position: Type.Optional(Type.Number({ minimum: 1 })),
     is_paid: Type.Optional(Type.Boolean()),
     is_active: Type.Optional(Type.Boolean()),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' }))
+    thumbnail_url: Type.Optional(Type.String())
 });
 
 export const ModuleIdParamSchema = Type.Object({
@@ -353,10 +353,10 @@ export const CreateContentRequestSchemaNew = Type.Object({
     position: Type.Number({ minimum: 1 }),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
-    url: Type.Optional(Type.String({ format: 'uri' })),
-    abs_url: Type.Optional(Type.String({ format: 'uri' })),
+    url: Type.Optional(Type.String()),
+    abs_url: Type.Optional(Type.String()),
     duration: Type.Optional(Type.Number({ minimum: 0 })),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    thumbnail_url: Type.Optional(Type.String()),
     category_id: Type.Optional(Type.Number()),
     next_content_id: Type.Optional(Type.Number())
 });
@@ -367,10 +367,10 @@ export const UpdateContentRequestSchema = Type.Object({
     position: Type.Optional(Type.Number({ minimum: 1 })),
     is_paid: Type.Optional(Type.Boolean()),
     is_active: Type.Optional(Type.Boolean()),
-    url: Type.Optional(Type.String({ format: 'uri' })),
-    abs_url: Type.Optional(Type.String({ format: 'uri' })),
+    url: Type.Optional(Type.String()),
+    abs_url: Type.Optional(Type.String()),
     duration: Type.Optional(Type.Number({ minimum: 0 })),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    thumbnail_url: Type.Optional(Type.String()),
     category_id: Type.Optional(Type.Number()),
     next_content_id: Type.Optional(Type.Number())
 });
@@ -410,7 +410,7 @@ export const CourseWithModulesSchema = Type.Object({
     description: Type.String(),
     is_paid: Type.Boolean(),
     price: Type.Number(),
-    thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+    thumbnail_url: Type.Optional(Type.String()),
     certificate_id: Type.Optional(Type.Number()),
     rank: Type.Number(),
     published_at: Type.Optional(Type.String({ format: 'date-time' })),
@@ -426,7 +426,7 @@ export const CourseWithModulesSchema = Type.Object({
         course_id: Type.Number(),
         is_paid: Type.Boolean(),
         is_active: Type.Boolean(),
-        thumbnail_url: Type.Optional(Type.String({ format: 'uri' })),
+        thumbnail_url: Type.Optional(Type.String()),
         approved_at: Type.Optional(Type.String({ format: 'date-time' })),
         approved_by: Type.Optional(Type.Number()),
         created_at: Type.String({ format: 'date-time' }),
