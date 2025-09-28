@@ -470,3 +470,73 @@ export type DeleteContentResponse = Static<typeof DeleteContentResponseSchema>;
 export type CourseWithModules = Static<typeof CourseWithModulesSchema>;
 export type CourseWithModulesResponse = Static<typeof CourseWithModulesResponseSchema>;
 
+// User Course schemas for frontend rendering
+export const UserContentSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    module_id: Type.Number(),
+    content_type: ContentTypeSchema,
+    position: Type.Number(),
+    is_paid: Type.Boolean(),
+    is_active: Type.Boolean(),
+    url: Type.Optional(Type.String()),
+    abs_url: Type.Optional(Type.String()),
+    duration: Type.Optional(Type.Number()),
+    thumbnail_url: Type.Optional(Type.String()),
+    category_id: Type.Optional(Type.Number()),
+    next_content_id: Type.Optional(Type.Number()),
+    approved_at: Type.Optional(Type.String({ format: 'date-time' })),
+    approved_by: Type.Optional(Type.Number()),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' })
+});
+
+export const UserModuleSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    description: Type.String(),
+    position: Type.Number(),
+    is_paid: Type.Boolean(),
+    is_active: Type.Boolean(),
+    thumbnail_url: Type.Optional(Type.String()),
+    approved_at: Type.Optional(Type.String({ format: 'date-time' })),
+    approved_by: Type.Optional(Type.Number()),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' }),
+    contents: Type.Array(UserContentSchema)
+});
+
+export const UserCourseSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    description: Type.String(),
+    is_paid: Type.Boolean(),
+    price: Type.Number(),
+    thumbnail_url: Type.Optional(Type.String()),
+    certificate_id: Type.Optional(Type.Number()),
+    rank: Type.Number(),
+    creator_published_at: Type.Optional(Type.String({ format: 'date-time' })),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' }),
+    next_course_ids: Type.Optional(Type.Array(Type.Number())),
+    totalModules: Type.Number(),
+    totalContent: Type.Number(),
+    modules: Type.Array(UserModuleSchema)
+});
+
+export const UserCoursesResponseSchema = Type.Object({
+    courses: Type.Array(UserCourseSchema),
+    total: Type.Number(),
+    page: Type.Number(),
+    limit: Type.Number(),
+    totalPages: Type.Number()
+});
+
+export const UserCoursesResponseWrapperSchema = ApiResponseSchema(UserCoursesResponseSchema);
+
+// User Course Types
+export type UserContent = Static<typeof UserContentSchema>;
+export type UserModule = Static<typeof UserModuleSchema>;
+export type UserCourse = Static<typeof UserCourseSchema>;
+export type UserCoursesResponse = Static<typeof UserCoursesResponseSchema>;
+

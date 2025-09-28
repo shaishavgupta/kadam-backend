@@ -1,6 +1,7 @@
 import { db } from "../infra/db";
 import { Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector, ContentType } from "../shared/types/courses.types";
 import { CourseListItem, CourseListData, UserStats, UpdateCourseRequest } from "../schemas/course";
+import { UserCourse, UserCoursesResponse } from "../schemas/course";
 
 export class CoursesRepository {
 
@@ -1314,6 +1315,81 @@ export class CoursesRepository {
       return await this.getCourseWithModulesAndContent(courseId);
     } catch (error) {
       console.error("Error getting course with modules and content by video ID:", error);
+      return null;
+    }
+  }
+
+  // Get approved and active course by ID with modules and content for frontend
+  async getApprovedCourseWithHierarchy(courseId: number): Promise<UserCourse | null> {
+    try {
+      // Get the specific course
+      const courseResult = await db.query(
+        `SELECT c.* FROM courses c
+         WHERE c.id = $1
+           AND c.is_active = true
+           AND c.creator_published_at IS NOT NULL
+           AND c.approved_at IS NOT NULL
+           AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))`,
+        [courseId]
+      );
+
+      if (courseResult.rows.length === 0) {
+        return null;
+      }
+
+      const course = courseResult.rows[0];
+
+      // Get modules for this course (only active and approved)
+      const modulesResult = await db.query(
+        `SELECT m.* FROM modules m
+         WHERE m.course_id = $1
+           AND m.is_active = true
+           AND (m.approved_at IS NOT NULL OR m.approved_at IS NULL)
+         ORDER BY m.position ASC, m.created_at ASC`,
+        [courseId]
+      );
+
+      // For each module, get its contents (only active and approved)
+      const modules = await Promise.all(
+        modulesResult.rows.map(async (module) => {
+          const contentsResult = await db.query(
+            `SELECT c.* FROM contents c
+             WHERE c.module_id = $1
+               AND c.is_active = true
+               AND (c.approved_at IS NOT NULL OR c.approved_at IS NULL)
+             ORDER BY c.position ASC, c.created_at ASC`,
+            [module.id]
+          );
+
+          return {
+            ...module,
+            contents: contentsResult.rows
+          };
+        })
+      );
+
+      // Calculate totals
+      const totalModules = modules.length;
+      const totalContentResult = await db.query(
+        `SELECT COUNT(*) as total FROM contents c
+         JOIN modules m ON c.module_id = m.id
+         WHERE m.course_id = $1
+           AND c.is_active = true
+           AND m.is_active = true
+           AND (c.approved_at IS NOT NULL OR c.approved_at IS NULL)
+           AND (m.approved_at IS NOT NULL OR m.approved_at IS NULL)`,
+        [courseId]
+      );
+      const totalContent = parseInt(totalContentResult.rows[0].total);
+
+      return {
+        ...course,
+        totalModules,
+        totalContent,
+        modules
+      } as UserCourse;
+    } catch (error) {
+      console.error("Error getting approved course with hierarchy:", error);
       return null;
     }
   }

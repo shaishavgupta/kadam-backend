@@ -22,6 +22,7 @@ export const PlanTypeSchema = Type.Union([
     Type.Literal(PlanTypeEnum.PRO)
 ]);
 
+
 // Base schemas matching existing interfaces
 export const UserSchema = Type.Object({
     id: Type.Number(),
@@ -152,4 +153,3 @@ export type CleanupOtpsResponse = Static<typeof CleanupOtpsResponseSchema>;
 export type UserIdParam = Static<typeof UserIdParamSchema>;
 export type UserPhoneParam = Static<typeof UserPhoneParamSchema>;
 export type UserEmailParam = Static<typeof UserEmailParamSchema>;
-

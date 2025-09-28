@@ -1,5 +1,6 @@
 import { CoursesRepository } from "../repository/courses.repository";
 import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
+import { UserCourse } from "../schemas/course";
 import { ContentType, CourseListData, UserStats } from "../schemas/course";
 
 export class CoursesService {
@@ -386,6 +387,15 @@ export class CoursesService {
         } catch (error) {
             console.error("Error getting course with modules and content by video ID:", error);
             return null;
+        }
+    }
+
+    async getApprovedCourseWithHierarchy(courseId: number): Promise<UserCourse | null> {
+        try {
+            return this.repository.getApprovedCourseWithHierarchy(courseId);
+        } catch (error) {
+            console.error("Error getting approved course with hierarchy:", error);
+            throw error;
         }
     }
 }

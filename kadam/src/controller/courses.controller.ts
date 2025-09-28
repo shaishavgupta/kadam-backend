@@ -80,6 +80,9 @@ import {
 import { PaginationQuery, PaginationQuerySchema } from '../schemas/common';
 import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin } from '../shared/middleware/auth';
 import { ContentType } from '../shared/enums';
+import { UserService } from '../service/users.service';
+import { UserCourse, UserCourseSchema } from '../schemas/course';
+import { Type } from '@sinclair/typebox';
 
 // Helper to convert all Date values in objects/arrays to ISO strings
 function serializeDates<T>(value: any): T {
@@ -99,6 +102,68 @@ function createErrorResponse(message: string, statusCode: number = 500) {
 
 export default async function coursesRoutes(fastify: FastifyInstance) {
     const coursesService = new CoursesService();
+
+    // Get approved course by ID with modules and content for frontend
+    fastify.get('/approved/:courseId', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Courses'],
+            summary: 'Get approved course with hierarchy by ID',
+            description: 'Get approved and active course with modules and content for frontend rendering',
+            params: Type.Object({
+                courseId: Type.String({ pattern: '^[0-9]+$' })
+            }),
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Optional(UserCourseSchema),
+                    message: Type.String()
+                }),
+                404: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Null(),
+                    message: Type.String()
+                }),
+                500: Type.Object({
+                    success: Type.Boolean(),
+                    data: Type.Null(),
+                    message: Type.String()
+                })
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: UserCourse | null; message: string }> => {
+        try {
+            const courseId = parseInt((request.params as any).courseId, 10);
+
+            const data = await coursesService.getApprovedCourseWithHierarchy(courseId);
+
+            if (!data) {
+                reply.status(404);
+                return {
+                    success: false,
+                    data: null,
+                    message: "Course not found or not approved"
+                };
+            }
+
+            const serializedData = serializeDates<UserCourse>(data);
+
+            return {
+                success: true,
+                data: serializedData,
+                message: "Approved course retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
+    });
 
     // Get course categories
     fastify.get('/categories', {
