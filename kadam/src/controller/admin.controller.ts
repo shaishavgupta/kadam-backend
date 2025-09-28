@@ -265,8 +265,8 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             const query = request.query as any;
             const page = query?.page ? parseInt(query.page, 10) : 1;
             const limit = query?.limit ? parseInt(query.limit, 10) : 10;
-            const rejected = query?.rejected === 'true';
-            const published = query?.published === 'true';
+            const rejected = query?.rejected;
+            const published = query?.published;
 
             const data = await adminService.getCourses(page, limit, rejected, published);
             return {

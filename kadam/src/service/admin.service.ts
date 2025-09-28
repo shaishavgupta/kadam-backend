@@ -119,13 +119,9 @@ export class AdminService {
         return this.creatorRepository.getAllCreators(page, limit);
     }
 
-    async getCourses(page: number, limit: number, rejected: boolean = false, published?: boolean): Promise<any> {
-        if (rejected) {
-            // Return rejected courses with hierarchical structure
-            return this.adminRepository.getRejectedCoursesWithHierarchy(page, limit);
-        } else {
-            return this.coursesRepository.getAllCourses(page, limit, rejected, published);
-        }
+    async getCourses(page: number, limit: number, rejected?: boolean, published?: boolean): Promise<any> {
+        // Always return courses with hierarchical structure matching the given filters
+        return this.adminRepository.getCoursesWithHierarchy(page, limit, rejected, published);
     }
 
     // Enhanced Admin Authentication

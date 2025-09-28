@@ -832,12 +832,12 @@ export class AdminRepository {
             const moduleUpdateResult = await db.query(
                 `UPDATE modules
                  SET rejected_at = NOW(),
-                     rejected_by = $2,
-                     rejection_reason = $3,
+                     rejected_by = $1,
+                     rejection_reason = $2,
                      approved_at = NULL,
                      approved_by = NULL
-                 WHERE id = $4`,
-                [reason, adminId, reason, module_id]
+                 WHERE id = $3`,
+                [adminId, reason, module_id]
             );
 
             const moduleUpdated = (moduleUpdateResult.rowCount || 0) > 0;
@@ -846,13 +846,13 @@ export class AdminRepository {
             const courseUpdateResult = await db.query(
                 `UPDATE courses
                  SET rejected_at = NOW(),
-                     rejected_by = $2,
-                     rejection_reason = $3,
+                     rejected_by = $1,
+                     rejection_reason = $2,
                      approved_at = NULL,
                      approved_by = NULL,
                      creator_published_at = NULL
-                 WHERE id = $4`,
-                [reason, adminId, reason, course_id]
+                 WHERE id = $3`,
+                [adminId, reason, course_id]
             );
 
             const courseUpdated = (courseUpdateResult.rowCount || 0) > 0;
@@ -1333,8 +1333,8 @@ export class AdminRepository {
         }
     }
 
-    // Get rejected courses with hierarchical structure
-    async getRejectedCoursesWithHierarchy(page: number = 1, limit: number = 10): Promise<{
+    // Get courses with hierarchical structure based on filters
+    async getCoursesWithHierarchy(page: number = 1, limit: number = 10, rejected?: boolean, published?: boolean): Promise<{
         courses: CourseWithModulesAndContent[];
         total: number;
         page: number;
@@ -1344,22 +1344,41 @@ export class AdminRepository {
         try {
             const offset = (page - 1) * limit;
 
-            // Get total count of rejected courses
+            // Build WHERE conditions based on filters
+            let whereConditions: string[] = ['c.is_active = true'];
+            let orderBy = 'c.created_at DESC';
+
+            if (rejected !== undefined) {
+                if (rejected) {
+                    whereConditions.push('c.rejected_at IS NOT NULL');
+                    whereConditions.push('(c.approved_at IS NULL OR c.approved_at < c.rejected_at)');
+                    orderBy = 'c.rejected_at DESC';
+                } else {
+                    whereConditions.push('(c.rejected_at IS NULL OR c.approved_at > c.rejected_at)');
+                }
+            }
+
+            if (published !== undefined) {
+                if (published) {
+                    whereConditions.push('c.creator_published_at IS NOT NULL');
+                } else {
+                    whereConditions.push('c.creator_published_at IS NULL');
+                }
+            }
+
+            const whereClause = whereConditions.join(' AND ');
+
+            // Get total count
             const countResult = await db.query(
-                `SELECT COUNT(*) FROM courses c
-                 WHERE c.rejected_at IS NOT NULL
-                   AND (c.approved_at IS NULL OR c.approved_at < c.rejected_at)
-                   AND c.is_active = true`
+                `SELECT COUNT(*) FROM courses c WHERE ${whereClause}`
             );
             const total = parseInt(countResult.rows[0].count, 10);
 
-            // Get paginated rejected courses
+            // Get paginated courses
             const coursesResult = await db.query(
                 `SELECT c.* FROM courses c
-                 WHERE c.rejected_at IS NOT NULL
-                   AND (c.approved_at IS NULL OR c.approved_at < c.rejected_at)
-                   AND c.is_active = true
-                 ORDER BY c.rejected_at DESC
+                 WHERE ${whereClause}
+                 ORDER BY ${orderBy}
                  LIMIT $1 OFFSET $2`,
                 [limit, offset]
             );
@@ -1419,7 +1438,7 @@ export class AdminRepository {
                 totalPages: Math.ceil(total / limit)
             };
         } catch (error) {
-            console.error("Error getting rejected courses with hierarchy:", error);
+            console.error("Error getting courses with hierarchy:", error);
             return {
                 courses: [],
                 total: 0,
@@ -1428,6 +1447,17 @@ export class AdminRepository {
                 totalPages: 0
             };
         }
+    }
+
+    // Get rejected courses with hierarchical structure (legacy method for backward compatibility)
+    async getRejectedCoursesWithHierarchy(page: number = 1, limit: number = 10): Promise<{
+        courses: CourseWithModulesAndContent[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+    }> {
+        return this.getCoursesWithHierarchy(page, limit, true);
     }
 
     // Individual Module Approval
