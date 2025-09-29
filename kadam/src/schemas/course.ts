@@ -274,11 +274,11 @@ export const CourseListItemSchema = Type.Object({
 });
 
 export const CourseListDataSchema = Type.Object({
-    keep_watching: Type.Array(CourseListItemSchema),
-    for_you: Type.Array(CourseListItemSchema),
-    top_10: Type.Array(CourseListItemSchema),
-    popular: Type.Array(CourseListItemSchema),
-    latest: Type.Array(CourseListItemSchema)
+    keep_watching: Type.Array(Type.Any()),
+    for_you: Type.Array(Type.Any()),
+    top_10: Type.Array(Type.Any()),
+    popular: Type.Array(Type.Any()),
+    latest: Type.Array(Type.Any())
 });
 
 export const CourseListResponseSchema = Type.Object({

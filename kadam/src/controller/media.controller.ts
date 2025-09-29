@@ -79,13 +79,21 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<HomePageContentResponse> => {
             try {
                 const banners = await adminService.getConfiguration(AdminConfigurations.homePageBanners)
-                const categories = await adminService.getConfiguration(AdminConfigurations.homePagePopularCategories)
+                const categoryIds = await adminService.getConfiguration(AdminConfigurations.homePagePopularCategories);
+                const categories = await coursesService.getCategoriesByIds(categoryIds?.value as number[]);
+                // const approvedCourses = [67, 83]
+                // const courses = [];
+                // for (const courseId of approvedCourses) {
+                //     const course = await adminService.getCourseWithModulesAndContent(courseId);
+                //     courses.push(course);
+                // }
 
                 return {
                     success: true,
                     data: {
                         banners: (banners?.value as Banners[]) || [],
-                        categories: (categories?.value as Categories[]) || [],
+                        categories: categories as Categories[] || [],
+                        courses: []
                     },
                     message: "Home page content retrieved successfully"
                 };

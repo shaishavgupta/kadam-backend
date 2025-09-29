@@ -1,7 +1,7 @@
 import { CoursesRepository } from "../repository/courses.repository";
 import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
 import { UserCourse } from "../schemas/course";
-import { ContentType, CourseListData, UserStats } from "../schemas/course";
+import { ContentType, CourseListData, UserStats, CourseListItem } from "../schemas/course";
 
 export class CoursesService {
     private repository: CoursesRepository;
@@ -13,7 +13,29 @@ export class CoursesService {
 
     async getCourseList(): Promise<CourseListData> {
         try {
-            return await this.repository.getCourseList();
+            // return await this.repository.getCourseList();
+            const courses = [
+                {
+                    id: 83,
+                    title: "AI for Content Creators",
+                    thumbnail: "raw-videos/83/Thumbnail.webp",
+                    description: "Social media channel grow karne ke liye AI tools and unke features ka use karna seekho.¶YouTube and Instagram grow karne ke best ideas milenge aapko iss course mein.",
+                    category: "",
+                    total_videos: 0,
+                    total_duration: 0,
+                    likes: 0,
+                    views: 0,
+                    saves: 0,
+                    shares: 0
+                }
+            ] as CourseListItem[];
+            return {
+                keep_watching: courses,
+                for_you: courses,
+                top_10: courses,
+                popular: courses,
+                latest: courses
+            };
         } catch (error) {
             console.error("Error getting course list:", error);
             return {
@@ -49,6 +71,15 @@ export class CoursesService {
             return await this.repository.getCategories();
         } catch (error) {
             console.error("Error getting categories:", error);
+            return [];
+        }
+    }
+
+    async getCategoriesByIds(categoryIds: number[]): Promise<Category[]> {
+        try {
+            return await this.repository.getCategoriesByIds(categoryIds);
+        } catch (error) {
+            console.error("Error getting categories by IDs:", error);
             return [];
         }
     }
@@ -262,13 +293,13 @@ export class CoursesService {
         is_paid: boolean;
         is_active: boolean;
         thumbnail_url?: string;
-    }): Promise<Module | null> {
+    }, createdBy: string): Promise<Module | null> {
         try {
             const moduleDataWithThumbnail = {
                 ...moduleData,
                 thumbnail_url: moduleData.thumbnail_url || ''
             };
-            return await this.repository.createModule(courseId, moduleDataWithThumbnail);
+            return await this.repository.createModule(courseId, moduleDataWithThumbnail, createdBy);
         } catch (error) {
             console.error("Error creating module:", error);
             return null;
@@ -322,9 +353,9 @@ export class CoursesService {
         thumbnail_url?: string;
         category_id?: number;
         next_content_id?: number;
-    }): Promise<ContentWithModule | null> {
+    }, createdBy: string): Promise<ContentWithModule | null> {
         try {
-            return await this.repository.createContent(moduleId, contentData);
+            return await this.repository.createContent(moduleId, contentData, createdBy);
         } catch (error) {
             console.error("Error creating content:", error);
             return null;

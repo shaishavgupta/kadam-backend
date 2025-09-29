@@ -386,7 +386,7 @@ export class AdminService {
         }
     }
 
-    // Create contents for a course
+    // Create contents for a module
     async createContents(courseId: number, videos: Array<{
         title: string;
         description?: string;

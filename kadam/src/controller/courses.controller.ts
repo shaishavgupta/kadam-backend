@@ -83,6 +83,7 @@ import { ContentType } from '../shared/enums';
 import { UserService } from '../service/users.service';
 import { UserCourse, UserCourseSchema } from '../schemas/course';
 import { Type } from '@sinclair/typebox';
+import { AdminService } from '../service/admin.service';
 
 // Helper to convert all Date values in objects/arrays to ISO strings
 function serializeDates<T>(value: any): T {
@@ -102,6 +103,7 @@ function createErrorResponse(message: string, statusCode: number = 500) {
 
 export default async function coursesRoutes(fastify: FastifyInstance) {
     const coursesService = new CoursesService();
+    const adminService = new AdminService();
 
     // Get approved course by ID with modules and content for frontend
     fastify.get('/approved/:courseId', {
@@ -545,10 +547,24 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CourseListResponse> => {
         try {
-            const data = await coursesService.getCourseList();
+            // const data = await coursesService.getCourseList();
+            const courses = (await adminService.getCourses(1, 100, false, true)).courses.map((c: any) => {
+                return {
+                    ...c,
+                    thumbnail: c.thumbnail_url,
+                    thumbnail_url: undefined,
+                }
+            }).reverse();
+
             return {
                 success: true,
-                data,
+                data: {
+                    keep_watching: courses,
+                    for_you: courses,
+                    top_10: courses,
+                    popular: courses,
+                    latest: courses
+                },
                 message: "Home page courses retrieved successfully"
             };
         } catch (error) {
@@ -1117,7 +1133,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             const courseId = parseInt((request.params as any).courseId, 10);
             const moduleData = request.body as CreateModuleRequestNew;
 
-            const module = await coursesService.createModule(courseId, moduleData);
+            const module = await coursesService.createModule(courseId, moduleData, request.user!.userID);
 
             if (!module) {
                 reply.status(400);
@@ -1250,7 +1266,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             const moduleId = parseInt((request.params as any).moduleId, 10);
             const contentData = request.body as CreateContentRequestNew;
 
-            const content = await coursesService.createContent(moduleId, contentData);
+            const content = await coursesService.createContent(moduleId, contentData, request.user!.userID);
 
             if (!content) {
                 reply.status(400);

@@ -218,6 +218,22 @@ export class CoursesRepository {
     }
   }
 
+  async getCategoriesByIds(categoryIds: number[]): Promise<Category[]> {
+    try {
+      if (categoryIds.length === 0) return [];
+
+      const placeholders = categoryIds.map((_, index) => `$${index + 1}`).join(',');
+      const result = await db.query(
+        `SELECT * FROM categories WHERE id IN (${placeholders}) ORDER BY name`,
+        categoryIds
+      );
+      return result.rows as Category[];
+    } catch (error) {
+      console.error("Error getting categories by IDs:", error);
+      return [];
+    }
+  }
+
   async createCategory(name: string, description?: string): Promise<Category | null> {
     try {
       const existingCategory = await db.query(
@@ -256,6 +272,19 @@ export class CoursesRepository {
 
       if (creatorCheck.rows.length === 0) {
         throw new Error(`Creator with ID ${courseData.creator_id} does not exist`);
+      }
+
+      // Check uniqueness by name and creator
+      const existingCourse = await db.query(
+        `SELECT c.* FROM courses c
+         JOIN course_creators cc ON c.id = cc.course_id
+         WHERE c.name = $1 AND cc.creator_id = $2 AND c.is_active = true`,
+        [courseData.name, courseData.creator_id]
+      );
+
+      if (existingCourse.rows.length > 0) {
+        await db.query('COMMIT');
+        return existingCourse.rows[0] as Course;
       }
 
       const courseResult = await db.query(
@@ -898,8 +927,21 @@ export class CoursesRepository {
     is_paid: boolean;
     is_active: boolean;
     thumbnail_url: string;
-  }): Promise<Module | null> {
+  }, createdBy: string): Promise<Module | null> {
     try {
+      // Check uniqueness by courseId, name, and createdBy
+      const existingModule = await db.query(
+        `SELECT m.* FROM modules m
+         JOIN courses c ON m.course_id = c.id
+         JOIN course_creators cc ON c.id = cc.course_id
+         WHERE m.course_id = $1 AND m.name = $2 AND cc.creator_id = $3 AND m.is_active = true`,
+        [courseId, moduleData.name, createdBy]
+      );
+
+      if (existingModule.rows.length > 0) {
+        return existingModule.rows[0] as Module;
+      }
+
       const result = await db.query(
         `INSERT INTO modules (name, description, course_id, position, is_paid, is_active, thumbnail_url, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
@@ -1038,7 +1080,7 @@ export class CoursesRepository {
     thumbnail_url?: string;
     category_id?: number;
     next_content_id?: number;
-  }): Promise<ContentWithModule | null> {
+  }, createdBy: string): Promise<ContentWithModule | null> {
     try {
       // Get course_id from module
       const moduleResult = await db.query(
@@ -1048,6 +1090,22 @@ export class CoursesRepository {
 
       if (moduleResult.rows.length === 0 || moduleResult.rows[0].course_id === null) {
         throw new Error(`Module with ID ${moduleId} does not exist or does not belong to a course`);
+      }
+
+      const courseId = moduleResult.rows[0].course_id;
+
+      // Check uniqueness by courseId, moduleId, name, and createdBy
+      const existingContent = await db.query(
+        `SELECT c.*, m.name as module_title, m.description as module_description FROM contents c
+         JOIN modules m ON c.module_id = m.id
+         JOIN courses co ON m.course_id = co.id
+         JOIN course_creators cc ON co.id = cc.course_id
+         WHERE c.module_id = $1 AND c.name = $2 AND cc.creator_id = $3 AND c.is_active = true`,
+        [moduleId, contentData.name, createdBy]
+      );
+
+      if (existingContent.rows.length > 0) {
+        return existingContent.rows[0] as ContentWithModule;
       }
 
       const result = await db.query(
