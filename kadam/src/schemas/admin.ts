@@ -369,7 +369,7 @@ export const CourseWithModulesAndContentSchema = Type.Object({
     rejected_at: Type.Optional(Type.String({ format: 'date-time' })),
     rejected_by: Type.Optional(Type.Number()),
     rejected_reason: Type.Optional(Type.String()),
-    published_at: Type.Optional(Type.String({ format: 'date-time' })),
+    creator_published_at: Type.Optional(Type.String({ format: 'date-time' })),
     next_course_ids: Type.Optional(Type.Array(Type.Number())),
     totalModules: Type.Number(),
     totalContent: Type.Number(),

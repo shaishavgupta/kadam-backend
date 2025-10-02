@@ -275,7 +275,7 @@ export class CreatorRepository {
             const result = await db.query(
                 `SELECT
                     COUNT(DISTINCT c.id) as total_courses,
-                    COUNT(DISTINCT CASE WHEN c.published_at IS NOT NULL THEN c.id END) as published_courses,
+                    COUNT(DISTINCT CASE WHEN c.creator_published_at IS NOT NULL THEN c.id END) as published_courses,
                     COALESCE(AVG(r.rating), 0) as rating,
                     COUNT(DISTINCT r.id) as num_ratings
                  FROM creators cr

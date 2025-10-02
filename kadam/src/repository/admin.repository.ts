@@ -115,8 +115,7 @@ export class AdminRepository {
             const admin = result.rows[0] as Admin;
 
             // Verify password
-            // const isValidPassword = await bcrypt.compare(password, admin.password);
-            const isValidPassword = true;
+            const isValidPassword = await bcrypt.compare(password, admin.password);
             if (!isValidPassword) {
                 return null;
             }

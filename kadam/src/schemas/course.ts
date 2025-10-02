@@ -76,6 +76,7 @@ export const ModuleSchema = Type.Object({
 export const ContentSchema = Type.Object({
     id: Type.Number(),
     name: Type.String(),
+    description: Type.String(),
     module_id: Type.Number(),
     type: ContentTypeSchema,
     position: Type.Number(),
@@ -102,7 +103,7 @@ export const CourseSchema = Type.Object({
     thumbnail_url: Type.Optional(Type.String()),
     certificate_id: Type.Optional(Type.Number()),
     rank: Type.Number(),
-    published_at: Type.Optional(Type.String({ format: 'date-time' })),
+    creator_published_at: Type.Optional(Type.String({ format: 'date-time' })),
     created_at: Type.String({ format: 'date-time' }),
     updated_at: Type.String({ format: 'date-time' }),
     next_course_ids: Type.Optional(Type.Array(Type.Number()))
@@ -121,6 +122,7 @@ export const VectorSchema = Type.Object({
 // Request schemas
 export const CreateContentRequestSchema = Type.Object({
     name: Type.String(),
+    description: Type.String(),
     type: ContentTypeSchema,
     position: Type.Number(),
     is_paid: Type.Boolean(),
@@ -166,7 +168,7 @@ export const CreateModuleRequestSchema = Type.Object({
 
 export const PublishCourseRequestSchema = Type.Object({
     course_id: Type.Number(),
-    published_at: Type.Optional(Type.String({ format: 'date-time' }))
+    creator_published_at: Type.Optional(Type.String({ format: 'date-time' }))
 });
 
 // Response schemas
@@ -349,6 +351,7 @@ export const DeleteModuleResponseSchema = Type.Object({
 // Content Management Schemas
 export const CreateContentRequestSchemaNew = Type.Object({
     name: Type.String({ minLength: 1 }),
+    description: Type.String({ minLength: 1 }),
     content_type: ContentTypeSchema,
     position: Type.Number({ minimum: 1 }),
     is_paid: Type.Boolean(),
@@ -363,6 +366,7 @@ export const CreateContentRequestSchemaNew = Type.Object({
 
 export const UpdateContentRequestSchema = Type.Object({
     name: Type.Optional(Type.String({ minLength: 1 })),
+    description: Type.Optional(Type.String({ minLength: 1 })),
     content_type: Type.Optional(ContentTypeSchema),
     position: Type.Optional(Type.Number({ minimum: 1 })),
     is_paid: Type.Optional(Type.Boolean()),
@@ -413,7 +417,7 @@ export const CourseWithModulesSchema = Type.Object({
     thumbnail_url: Type.Optional(Type.String()),
     certificate_id: Type.Optional(Type.Number()),
     rank: Type.Number(),
-    published_at: Type.Optional(Type.String({ format: 'date-time' })),
+    creator_published_at: Type.Optional(Type.String({ format: 'date-time' })),
     created_at: Type.String({ format: 'date-time' }),
     updated_at: Type.String({ format: 'date-time' }),
     totalModules: Type.Number(),
@@ -474,6 +478,7 @@ export type CourseWithModulesResponse = Static<typeof CourseWithModulesResponseS
 export const UserContentSchema = Type.Object({
     id: Type.Number(),
     name: Type.String(),
+    description: Type.String(),
     module_id: Type.Number(),
     content_type: ContentTypeSchema,
     position: Type.Number(),
@@ -534,9 +539,19 @@ export const UserCoursesResponseSchema = Type.Object({
 
 export const UserCoursesResponseWrapperSchema = ApiResponseSchema(UserCoursesResponseSchema);
 
+// Search Response Schema
+export const SearchCoursesResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        courses: Type.Array(CourseSchema)
+    }),
+    message: Type.String()
+});
+
 // User Course Types
 export type UserContent = Static<typeof UserContentSchema>;
 export type UserModule = Static<typeof UserModuleSchema>;
 export type UserCourse = Static<typeof UserCourseSchema>;
 export type UserCoursesResponse = Static<typeof UserCoursesResponseSchema>;
+export type SearchCoursesResponse = Static<typeof SearchCoursesResponseSchema>;
 

@@ -22,8 +22,8 @@ import { xAI } from '@genkit-ai/compat-oai/xai';
 //   }),
 // });
 export const ai = genkit({
-    plugins: [xAI({ apiKey: process.env.XAI_API_KEY })],
-    model: xAI.model('grok-4-fast-non-reasoning', {
+  plugins: [xAI({ apiKey: process.env.XAI_API_KEY })],
+  model: xAI.model('grok-4-fast-non-reasoning', {
     temperature: 0.8,
   }),
 });
@@ -139,7 +139,7 @@ const courseSearchTool = ai.defineTool(
         LEFT JOIN course_categories cc ON c.id = cc.course_id
         WHERE 1=1
       `;
-      
+
       const params: any[] = [];
       let paramCount = 1;
 
@@ -160,7 +160,7 @@ const courseSearchTool = ai.defineTool(
 
       const result = await db.query(query, params);
       const results = result.rows;
-      
+
       return {
         courses: results.map(row => ({
           id: row.id,
@@ -200,11 +200,11 @@ const contentRetriever = ai.defineRetriever(
         embedder: googleAI.embedder('text-embedding-004'),
         content: query,
       });
-      
+
       if (!embeddingResult || !embeddingResult[0] || !embeddingResult[0].embedding) {
         throw new Error('Failed to generate embedding');
       }
-      
+
       const embedding = embeddingResult[0].embedding;
 
       // Build the vector similarity query
@@ -215,7 +215,7 @@ const contentRetriever = ai.defineRetriever(
         WHERE v.source = 'contents'
         AND 1 - (v.vector <=> $1::vector) > 0.7
       `;
-      
+
       const params: any[] = [toSql(embedding)];
       let paramCount = 2;
 
@@ -242,7 +242,7 @@ const contentRetriever = ai.defineRetriever(
 
       const result = await db.query(sqlQuery, params);
       const results = result.rows;
-      
+
       return {
         documents: results.map((row) => {
           const { similarity, ...contentData } = row;
@@ -277,11 +277,11 @@ const courseRetriever = ai.defineRetriever(
         embedder: googleAI.embedder('text-embedding-004'),
         content: query,
       });
-      
+
       if (!embeddingResult || !embeddingResult[0] || !embeddingResult[0].embedding) {
         throw new Error('Failed to generate embedding');
       }
-      
+
       const embedding = embeddingResult[0].embedding;
 
       let sqlQuery = `
@@ -291,13 +291,13 @@ const courseRetriever = ai.defineRetriever(
         WHERE v.source = 'courses'
         AND 1 - (v.vector <=> $1::vector) > 0.3
       `;
-      
+
       const params: any[] = [toSql(embedding)];
       let paramCount = 2;
 
       if (options.categoryId) {
         sqlQuery += ` AND EXISTS (
-          SELECT 1 FROM course_categories cc 
+          SELECT 1 FROM course_categories cc
           WHERE cc.course_id = c.id AND cc.category_id = $${paramCount}
         )`;
         params.push(options.categoryId);
@@ -309,11 +309,11 @@ const courseRetriever = ai.defineRetriever(
 
       console.log('Course retriever SQL query:', sqlQuery);
       // console.log('Course retriever params:', params);
-      
+
       const result = await db.query(sqlQuery, params);
       const results = result.rows;
       console.log(`Course retriever found ${results.length} results`);
-      
+
       return {
         documents: results.map((row) => {
           const { similarity, ...courseData } = row;
@@ -344,7 +344,7 @@ const contentSearchTool = ai.defineTool(
   async (input: any) => {
     try {
       let results: any[] = [];
-      
+
       if (input.query && input.query.trim() !== '') {
         // Use the pgvector retriever
         const retrievedDocs = await ai.retrieve({
@@ -357,7 +357,7 @@ const contentSearchTool = ai.defineTool(
             limit: input.limit,
           },
         });
-        
+
         results = retrievedDocs.map((doc: any) => ({
           id: BigInt(doc.metadata.id),
           name: doc.metadata.name,
@@ -409,7 +409,7 @@ const contentSearchTool = ai.defineTool(
           is_active: row.is_active,
         }));
       }
-      
+
       return {
         contents: results,
         total: results.length,
@@ -440,14 +440,14 @@ const vectorSearchTool = ai.defineTool(
         ORDER BY v.created_at DESC
         LIMIT $3
       `;
-      
+
       const result = await db.query(query, [
         input.source,
         `%${input.query}%`,
         input.limit
       ]);
       const results = result.rows;
-      
+
       return {
         results: results.map(row => ({
           id: row.id,
@@ -489,7 +489,7 @@ const vectorSimilarityTool = ai.defineTool(
   async (input: any) => {
     try {
       const query = `
-        SELECT v.*, 
+        SELECT v.*,
                1 - (v.vector <=> $1::vector) as similarity
         FROM vectors v
         WHERE v.source = $2
@@ -497,7 +497,7 @@ const vectorSimilarityTool = ai.defineTool(
         ORDER BY similarity DESC
         LIMIT $4
       `;
-      
+
       const result = await db.query(query, [
         JSON.stringify(input.queryVector),
         input.source,
@@ -505,7 +505,7 @@ const vectorSimilarityTool = ai.defineTool(
         input.limit
       ]);
       const results = result.rows;
-      
+
       return {
         results: results.map(row => ({
           id: row.id,
@@ -642,12 +642,12 @@ const getCourseDetailsTool = ai.defineTool(
 async function generateCourseEmbeddings() {
   try {
     console.log('Generating embeddings for all courses...');
-    
+
     // Get all courses from database
     const result = await db.query('SELECT * FROM courses WHERE is_active = true');
     const courses = result.rows;
     console.log(`Found ${courses.length} active courses`);
-    
+
     for (const course of courses) {
       // Generate embedding for course name + description
       const courseText = `${course.name} - ${course.description}`;
@@ -655,29 +655,29 @@ async function generateCourseEmbeddings() {
         embedder: googleAI.embedder('text-embedding-004'),
         content: courseText,
       });
-      
+
       if (!embeddingResult || !embeddingResult[0] || !embeddingResult[0].embedding) {
         console.error(`Failed to generate embedding for course ${course.id}: ${course.name}`);
         continue;
       }
-      
+
       const embedding = embeddingResult[0].embedding;
-      
+
       // Use UPSERT to insert or update embedding
       await db.query(
-        `INSERT INTO vectors (string, vector, source, source_id, updated_at) 
+        `INSERT INTO vectors (string, vector, source, source_id, updated_at)
          VALUES ($1, $2, $3, $4, NOW())
-         ON CONFLICT (source, source_id) 
-         DO UPDATE SET 
+         ON CONFLICT (source, source_id)
+         DO UPDATE SET
            string = EXCLUDED.string,
            vector = EXCLUDED.vector,
            updated_at = NOW()`,
         [courseText, toSql(embedding), 'courses', course.id]
       );
-      
+
       console.log(`Generated/updated embedding for course ${course.id}: ${course.name}`);
     }
-    
+
     console.log('Finished generating course embeddings');
   } catch (error) {
     console.error('Error generating course embeddings:', error);
@@ -714,10 +714,10 @@ export const courseRecommendationFlow = ai.defineFlow(
   async (input: any) => {
     // Generate embeddings for courses if they don't exist
     // await generateCourseEmbeddings();
-    
+
     // Get all categories first
     const categoriesResult = await getCategoriesTool({});
-    
+
     // Use semantic search with embeddings for better course recommendations
     console.log(`Searching for courses with query: "${input.userQuery}"`);
     const retrievedDocs = await ai.retrieve({
@@ -728,7 +728,7 @@ export const courseRecommendationFlow = ai.defineFlow(
         limit: 2, // Maximum 2 courses as requested
       },
     });
-    
+
     console.log(`Retrieved ${retrievedDocs.length} documents`);
 
     // Generate reasons for each recommendation using AI
@@ -738,7 +738,7 @@ export const courseRecommendationFlow = ai.defineFlow(
         if (!courseData) {
           throw new Error('Course data is missing from document metadata');
         }
-        
+
         const { output } = await ai.generate({
           prompt: `Explain why this course "${courseData.name}" would be a good recommendation for someone searching for "${input.userQuery}". Keep it brief and specific.`,
           output: { schema: z.object({ reason: z.string() }) },
@@ -761,21 +761,21 @@ export const courseRecommendationFlow = ai.defineFlow(
     // Get category IDs for the recommended courses
     const recommendedCourseIds = recommendations.map((rec: any) => rec.id);
     const courseCategoryRelations = await Promise.all(
-      recommendedCourseIds.map((courseId: any) => 
+      recommendedCourseIds.map((courseId: any) =>
         db.query(
           'SELECT category_id FROM course_categories WHERE course_id = $1',
           [courseId]
         ).then(result => result.rows)
       )
     );
-    
+
     // Flatten and get unique category IDs
     const categoryIds = [...new Set(
       courseCategoryRelations.flat().map((rel: any) => rel.category_id)
     )];
-    
+
     // Filter categories to only include those associated with recommendations
-    const relevantCategories = categoriesResult.categories.filter((cat: any) => 
+    const relevantCategories = categoriesResult.categories.filter((cat: any) =>
       categoryIds.includes(cat.id)
     );
 
@@ -840,7 +840,7 @@ export const contentDiscoveryFlow = ai.defineFlow(
     // Count content per module
     const modulesWithCount = courseDetails.modules.map((module: any) => ({
       ...module,
-      contentCount: contents.filter((content: any) => 
+      contentCount: contents.filter((content: any) =>
         // This would need to be implemented based on your module-content relationship
         true // Placeholder
       ).length,
@@ -928,18 +928,18 @@ export const vectorReindexFlow = ai.defineFlow(
   async (input: any) => {
     const errors: string[] = [];
     let processed = 0;
-    
+
     try {
       // Determine which sources to process
       const sources = input.source === 'all' ? ['contents', 'courses'] : [input.source];
-      
+
       for (const source of sources) {
         console.log(`🔄 Starting reindexing for ${source}...`);
-        
+
         // Get all items for this source
         const coursesRepo = new CoursesRepository();
         let items: any[] = [];
-        
+
         if (source === 'contents') {
           const result = await db.query('SELECT * FROM contents WHERE is_active = true');
           items = result.rows;
@@ -947,48 +947,48 @@ export const vectorReindexFlow = ai.defineFlow(
           const result = await coursesRepo.getAllCourses(1, 1000);
           items = result.courses;
         }
-        
+
         console.log(`📊 Found ${items.length} ${source} items to process`);
-        
+
         // Process in batches
         for (let i = 0; i < items.length; i += input.batchSize) {
           const batch = items.slice(i, i + input.batchSize);
-          
+
           await Promise.all(batch.map(async (item) => {
             try {
               // Generate embedding for the item
-              const textToEmbed = source === 'contents' 
+              const textToEmbed = source === 'contents'
                 ? `${item.name} ${(item as any).content_type || ''}`.trim()
                 : `${item.name} ${(item as any).description || ''}`.trim();
-              
+
               const embeddingResult = await ai.embed({
                 embedder: googleAI.embedder('text-embedding-004'),
                 content: textToEmbed,
               });
-              
+
               if (!embeddingResult || !embeddingResult[0] || !embeddingResult[0].embedding) {
                 console.error(`Failed to generate embedding for ${source} ${item.id}: ${item.name}`);
                 return;
               }
-              
+
               const embedding = embeddingResult[0].embedding;
-              
+
               if (embedding) {
                 // Validate embedding dimensions
                 // await validateEmbedding(embedding);
-                
+
                 // Use UPSERT to insert or update vector
                 await db.query(
-                  `INSERT INTO vectors (string, vector, source, source_id, created_at, updated_at) 
+                  `INSERT INTO vectors (string, vector, source, source_id, created_at, updated_at)
                    VALUES ($1, $2, $3, $4, NOW(), NOW())
-                   ON CONFLICT (source, source_id) 
-                   DO UPDATE SET 
+                   ON CONFLICT (source, source_id)
+                   DO UPDATE SET
                      string = EXCLUDED.string,
                      vector = EXCLUDED.vector,
                      updated_at = NOW()`,
                   [textToEmbed, toSql(embedding), source, item.id]
                 );
-                
+
                 processed++;
                 console.log(`✅ Processed ${source} item ${item.id}: ${item.name}`);
               } else {
@@ -1000,19 +1000,19 @@ export const vectorReindexFlow = ai.defineFlow(
               console.error(errorMsg);
             }
           }));
-          
+
           // Small delay between batches to avoid overwhelming the AI service
           if (i + input.batchSize < items.length) {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
-        
+
         console.log(`✅ Completed reindexing for ${source}`);
       }
-      
+
       const summary = `Successfully processed ${processed} items across ${sources.join(', ')}. ${errors.length} errors occurred.`;
       console.log(`🎉 Reindexing complete: ${summary}`);
-      
+
       return {
         processed,
         errors,
@@ -1022,7 +1022,7 @@ export const vectorReindexFlow = ai.defineFlow(
       const errorMsg = `Critical error during reindexing: ${error instanceof Error ? error.message : 'Unknown error'}`;
       errors.push(errorMsg);
       console.error(errorMsg);
-      
+
       return {
         processed,
         errors,
@@ -1065,16 +1065,18 @@ Detect:
 2. DIALECT: Based on their language patterns, classify their regional dialect:
    - hinglish: Hindi + English mix (default)
    - telugu: Telugu words in English letters
-   - tamil: Tamil words in English letters  
+   - tamil: Tamil words in English letters
    - bengali: Bengali words in English letters
    - punjabi: Punjabi words in English letters
    - gujarati: Gujarati words in English letters
 
 Return only a JSON object with persona and dialect fields.`,
-      output: { schema: z.object({ 
-        persona: z.enum(['student', 'jobbie', 'dylan', 'content_creator']),
-        dialect: z.enum(['hinglish', 'telugu', 'tamil', 'bengali', 'punjabi', 'gujarati'])
-      }) },
+      output: {
+        schema: z.object({
+          persona: z.enum(['student', 'jobbie', 'dylan', 'content_creator']),
+          dialect: z.enum(['hinglish', 'telugu', 'tamil', 'bengali', 'punjabi', 'gujarati'])
+        })
+      },
     });
 
     const result = {
@@ -1224,20 +1226,20 @@ export const chatFlow = ai.defineFlow(
     name: 'chatFlow',
     inputSchema: z.object({
       message: z.string().describe('User message'),
+      userId: z.string().describe('User ID for profile tracking'),
       type: z.string().optional().describe('Message type'),
-      userId: z.string().optional().describe('User ID for profile tracking'),
     }),
     outputSchema: ChatResponseSchema,
   },
   async (input: any) => {
     try {
-      const userId = input.userId || 'default-user';
+      const userId = input.userId;
       const currentProfile = userProfiles.get(userId) || {};
-      
+
       // Analyze the user's message to extract profile information
       const profileAnalysis = await ai.generate({
         prompt: `Analyze this user message and extract any information about their learning profile: "${input.message}"
-        
+
         Look for information about:
         - Current job role or profession
         - Experience level (beginner, intermediate, advanced)
@@ -1247,9 +1249,9 @@ export const chatFlow = ai.defineFlow(
         - Preferred learning style
         - Current skills they have
         - Challenges they're facing
-        
+
         Return a JSON object with any information you can extract. If no information is found for a field, omit it.
-        
+
         Current profile: ${JSON.stringify(currentProfile)}`,
         output: { schema: UserProfileSchema },
       });
@@ -1259,20 +1261,19 @@ export const chatFlow = ai.defineFlow(
         ...currentProfile,
         ...profileAnalysis.output,
       };
-      
-      // Detect user persona and dialect using LLM
-      // Detect persona and dialect using LLM
+
+      // Detect user persona and dialect
       const { persona: detectedPersona, dialect: detectedDialect } = await detectPersonaAndDialect(updatedProfile, input.message, userId).catch(() => {
         console.log('LLM detection failed, using fallback');
         return { persona: 'student', dialect: 'hinglish' };
       });
       const detectedTier = 'tier2'; // Default to tier2 for now
-      
+
       // Update profile with detected persona, dialect, and tier
       updatedProfile.persona = detectedPersona;
       updatedProfile.dialect = detectedDialect;
       updatedProfile.tier = detectedTier;
-      
+
       // Store updated profile
       userProfiles.set(userId, updatedProfile);
 
@@ -1281,7 +1282,7 @@ export const chatFlow = ai.defineFlow(
 
       // Determine conversation stage and generate appropriate response
       const conversationStage = determineConversationStage(updatedProfile);
-      
+
       let response;
       let nextQuestions: Array<{ text: string; metadata: string }> = [];
       let learningPath: any = {
@@ -1471,13 +1472,15 @@ Then generate 3 casual, friendly next steps that represent:
 Focus on casual conversation topics, not formal learning questions.
 
 Return as JSON with messages array and nextQuestions array with text and metadata fields.`,
-    output: { schema: z.object({ 
-      messages: z.array(z.string()),
-      nextQuestions: z.array(z.object({
-        text: z.string(),
-        metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
-      }))
-    }) },
+    output: {
+      schema: z.object({
+        messages: z.array(z.string()),
+        nextQuestions: z.array(z.object({
+          text: z.string(),
+          metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
+        }))
+      })
+    },
     config: { temperature: 0 }
   });
 
@@ -1511,13 +1514,15 @@ Then generate 3 contextual next steps that feel natural:
 - METADATA FIELD: What the user would actually type in their dialect
 
 Return as JSON with messages array and nextQuestions array with text and metadata fields.`,
-    output: { schema: z.object({ 
-      messages: z.array(z.string()),
-      nextQuestions: z.array(z.object({
-        text: z.string(),
-        metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
-      }))
-    }) },
+    output: {
+      schema: z.object({
+        messages: z.array(z.string()),
+        nextQuestions: z.array(z.object({
+          text: z.string(),
+          metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
+        }))
+      })
+    },
     config: { temperature: 0 }
   });
 
@@ -1553,13 +1558,15 @@ Then generate 3 contextual next steps that feel natural:
 - METADATA FIELD: What the user would actually type in their dialect
 
 Return as JSON with messages array and nextQuestions array with text and metadata fields.`,
-    output: { schema: z.object({ 
-      messages: z.array(z.string()),
-      nextQuestions: z.array(z.object({
-        text: z.string(),
-        metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
-      }))
-    }) },
+    output: {
+      schema: z.object({
+        messages: z.array(z.string()),
+        nextQuestions: z.array(z.object({
+          text: z.string(),
+          metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
+        }))
+      })
+    },
     config: { temperature: 0 }
   });
 
@@ -1599,13 +1606,15 @@ Then generate 3 contextual next steps for their personalized learning path:
 - METADATA FIELD: What the user would actually type in their dialect
 
 Return as JSON with messages array and nextQuestions array with text and metadata fields.`,
-    output: { schema: z.object({ 
-      messages: z.array(z.string()),
-      nextQuestions: z.array(z.object({
-        text: z.string(),
-        metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
-      }))
-    }) },
+    output: {
+      schema: z.object({
+        messages: z.array(z.string()),
+        nextQuestions: z.array(z.object({
+          text: z.string(),
+          metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
+        }))
+      })
+    },
     config: { temperature: 0 }
   });
 
@@ -1645,13 +1654,15 @@ Then generate 3 contextual next steps for continued learning:
 - METADATA FIELD: What the user would actually type in their dialect
 
 Return as JSON with messages array and nextQuestions array with text and metadata fields.`,
-    output: { schema: z.object({ 
-      messages: z.array(z.string()),
-      nextQuestions: z.array(z.object({
-        text: z.string(),
-        metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
-      }))
-    }) },
+    output: {
+      schema: z.object({
+        messages: z.array(z.string()),
+        nextQuestions: z.array(z.object({
+          text: z.string(),
+          metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
+        }))
+      })
+    },
     config: { temperature: 0 }
   });
 
@@ -1685,13 +1696,15 @@ Then generate 3 contextual next steps for general learning:
 - METADATA FIELD: What the user would actually type in their dialect
 
 Return as JSON with messages array and nextQuestions array with text and metadata fields.`,
-    output: { schema: z.object({ 
-      messages: z.array(z.string()),
-      nextQuestions: z.array(z.object({
-        text: z.string(),
-        metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
-      }))
-    }) },
+    output: {
+      schema: z.object({
+        messages: z.array(z.string()),
+        nextQuestions: z.array(z.object({
+          text: z.string(),
+          metadata: z.string().describe('What user would actually type in their dialect, e.g., "Main HTML seekhna chahta hun, please guide karo"')
+        }))
+      })
+    },
     config: { temperature: 0 }
   });
 
@@ -1736,12 +1749,12 @@ async function getPersonalizedRecommendations(profile: any): Promise<any[]> {
 
         const { output } = await ai.generate({
           prompt: `Explain why this course "${courseData.name}" is perfect for someone with this profile:
-          
+
           Role: ${profile.currentRole || 'Not specified'}
           Goals: ${profile.learningGoals?.join(', ') || 'Not specified'}
           Experience: ${profile.experienceLevel || 'Not specified'}
           Persona: ${profile.persona || 'Not specified'}
-          
+
           Keep the explanation personal and specific to their situation. Use Hinglish naturally and make it relatable for Tier 2/3 users.`,
           output: { schema: z.object({ reason: z.string() }) },
         });
@@ -1785,31 +1798,31 @@ export const userProfileManager = {
 async function runExamples() {
   try {
     console.log('🚀 Running course recommendation example...');
-    
+
     const recommendation = await courseRecommendationFlow({
       userQuery: 'machine learning fundamentals',
     });
-    
+
     console.log('Course Recommendations:', JSON.stringify(recommendation, null, 2));
 
     console.log('\n🔍 Running content discovery example...');
-    
+
     if (recommendation.recommendations.length > 0 && recommendation.recommendations[0]) {
       const contentDiscovery = await contentDiscoveryFlow({
         courseId: z.bigint().parse(recommendation.recommendations[0].id),
         contentType: 'video',
       });
-      
+
       console.log('Content Discovery:', JSON.stringify(contentDiscovery, null, 2));
     }
 
     console.log('\n🎯 Running text search example...');
-    
+
     const similarContent = await similarContentFlow({
       query: 'artificial intelligence and neural networks',
       source: 'courses',
     });
-    
+
     console.log('Similar Content:', JSON.stringify(similarContent, null, 2));
 
   } catch (error) {

@@ -19,7 +19,6 @@ export const HomePageContentResponseSchema = Type.Object({
     data: Type.Object({
         banners: Type.Array(Banners),
         categories: Type.Optional(Type.Array(Categories)),
-        courses: Type.Any()
     }),
     message: Type.String()
 });

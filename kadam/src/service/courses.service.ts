@@ -11,31 +11,9 @@ export class CoursesService {
     }
 
 
-    async getCourseList(): Promise<CourseListData> {
+    async getHomePageCourseList(): Promise<CourseListData> {
         try {
-            // return await this.repository.getCourseList();
-            const courses = [
-                {
-                    id: 83,
-                    title: "AI for Content Creators",
-                    thumbnail: "raw-videos/83/Thumbnail.webp",
-                    description: "Social media channel grow karne ke liye AI tools and unke features ka use karna seekho.¶YouTube and Instagram grow karne ke best ideas milenge aapko iss course mein.",
-                    category: "",
-                    total_videos: 0,
-                    total_duration: 0,
-                    likes: 0,
-                    views: 0,
-                    saves: 0,
-                    shares: 0
-                }
-            ] as CourseListItem[];
-            return {
-                keep_watching: courses,
-                for_you: courses,
-                top_10: courses,
-                popular: courses,
-                latest: courses
-            };
+            return await this.repository.getHomePageCourseList();
         } catch (error) {
             console.error("Error getting course list:", error);
             return {
@@ -343,6 +321,7 @@ export class CoursesService {
 
     async createContent(moduleId: number, contentData: {
         name: string;
+        description: string;
         content_type: ContentType;
         position: number;
         is_paid: boolean;
@@ -364,6 +343,7 @@ export class CoursesService {
 
     async updateContent(contentId: number, contentData: {
         name?: string;
+        description?: string;
         content_type?: ContentType;
         position?: number;
         is_paid?: boolean;

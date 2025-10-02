@@ -86,9 +86,9 @@ export const SimilarContentApiResponseSchema = Type.Object({
 
 // Vector Reindex Request Schema
 export const VectorReindexRequestSchema = Type.Object({
-    source: Type.Union([Type.Literal('contents'), Type.Literal('courses'), Type.Literal('all')], { 
+    source: Type.Union([Type.Literal('contents'), Type.Literal('courses'), Type.Literal('all')], {
         default: 'all',
-        description: 'Source type to reindex' 
+        description: 'Source type to reindex'
     }),
     batchSize: Type.Number({ default: 10, description: 'Number of items to process in each batch' })
 });
@@ -167,5 +167,5 @@ export interface VectorReindexRequest {
 export interface ChatRequest {
     message: string;
     type?: string;
-    userId?: string;
+    userId: string;
 }

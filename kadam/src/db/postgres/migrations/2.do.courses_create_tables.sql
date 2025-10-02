@@ -78,6 +78,7 @@ CREATE TABLE contents (
   updated_at TIMESTAMP NOT NULL,
   is_active BOOLEAN DEFAULT true,
   name TEXT NOT NULL,
+  description TEXT NOT NULL,
   module_id BIGINT,
   content_type TEXT NOT NULL,
   next_content_id BIGINT UNIQUE,

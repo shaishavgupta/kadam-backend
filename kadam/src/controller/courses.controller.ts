@@ -74,14 +74,15 @@ import {
     DeleteContentResponse,
     // Enhanced Course
     CourseWithModulesResponseSchema,
-    CourseWithModulesResponse
+    CourseWithModulesResponse,
+    CourseSchema
 } from '../schemas/course';
 
 import { PaginationQuery, PaginationQuerySchema } from '../schemas/common';
 import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin } from '../shared/middleware/auth';
 import { ContentType } from '../shared/enums';
 import { UserService } from '../service/users.service';
-import { UserCourse, UserCourseSchema } from '../schemas/course';
+import { UserCourse, UserCourseSchema, SearchCoursesResponseSchema, SearchCoursesResponse } from '../schemas/course';
 import { Type } from '@sinclair/typebox';
 import { AdminService } from '../service/admin.service';
 
@@ -292,7 +293,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 thumbnail_url: body.thumbnail_url,
                 certificate_id: body.certificate_id,
                 rank: 0,
-                published_at: undefined,
+                creator_published_at: undefined,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             };
@@ -351,7 +352,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 thumbnail_url: body.thumbnail_url,
                 certificate_id: body.certificate_id,
                 rank: (updated as any)?.rank ?? 0,
-                published_at: (updated as any)?.published_at ? serializeDates<{ published_at?: string }>((updated as any)).published_at : undefined,
+                creator_published_at: (updated as any)?.creator_published_at ? serializeDates<{ creator_published_at?: string }>((updated as any)).creator_published_at : undefined,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             };
@@ -491,7 +492,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         try {
             const publishData = {
                 ...(request.body as PublishCourseRequest),
-                published_at: (request.body as PublishCourseRequest).published_at ? new Date((request.body as PublishCourseRequest).published_at!) : undefined
+                creator_published_at: (request.body as PublishCourseRequest).creator_published_at ? new Date((request.body as PublishCourseRequest).creator_published_at!) : undefined
             };
             const success = await coursesService.publishCourse(publishData);
             return {
@@ -547,24 +548,10 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CourseListResponse> => {
         try {
-            // const data = await coursesService.getCourseList();
-            const courses = (await adminService.getCourses(1, 100, false, true)).courses.map((c: any) => {
-                return {
-                    ...c,
-                    thumbnail: c.thumbnail_url,
-                    thumbnail_url: undefined,
-                }
-            }).reverse();
-
+            const data = await coursesService.getHomePageCourseList();
             return {
                 success: true,
-                data: {
-                    keep_watching: courses,
-                    for_you: courses,
-                    top_10: courses,
-                    popular: courses,
-                    latest: courses
-                },
+                data: data,
                 message: "Home page courses retrieved successfully"
             };
         } catch (error) {
@@ -1001,41 +988,22 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Search'],
-            summary: 'Fuzzy search courses and contents',
-            description: 'Search for courses and contents using fuzzy matching on names and descriptions',
+            summary: 'Search courses',
+            description: 'Search for courses using LIKE matching on names and descriptions',
             querystring: {
                 type: 'object',
                 required: ['q'],
                 properties: {
                     q: { type: 'string', description: 'Search query string' },
-                    limit: { type: 'number', default: 5, description: 'Maximum number of results per type' }
+                    limit: { type: 'number', default: 5, description: 'Maximum number of results' }
                 }
             },
             security: [{ bearerAuth: [] }],
             response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        data: {
-                            type: 'object',
-                            properties: {
-                                courses: {
-                                    type: 'array',
-                                    items: CourseResponseSchema
-                                },
-                                contents: {
-                                    type: 'array',
-                                    items: ContentsResponseSchema
-                                }
-                            }
-                        },
-                        message: { type: 'string' }
-                    }
-                }
+                200: SearchCoursesResponseSchema
             }
         }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: { courses: Course[]; contents: ContentWithModule[] }; message: string }> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<SearchCoursesResponse> => {
         try {
             const { q: searchString, limit = 5 } = request.query as { q: string; limit?: number };
 
@@ -1043,28 +1011,27 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 reply.status(400).send(createErrorResponse("Search query is required", 400));
                 return {
                     success: false,
-                    data: { courses: [], contents: [] },
+                    data: { courses: [] },
                     message: "Search query is required"
                 };
             }
 
-            const raw = await coursesService.fuzzySearchCombined(searchString.trim(), limit);
+            const courses = await coursesService.fuzzySearchCourses(searchString.trim(), limit);
             const data = {
-                courses: serializeDates<Course[]>(raw.courses),
-                contents: serializeDates<ContentWithModule[]>(raw.contents)
+                courses: serializeDates<Course[]>(courses)
             };
 
             return {
                 success: true,
                 data,
-                message: `Found ${raw.courses.length} courses and ${raw.contents.length} contents matching "${searchString}"`
+                message: `Found ${courses.length} courses matching "${searchString}"`
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
             reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
-                data: { courses: [], contents: [] },
+                data: { courses: [] },
                 message: errorMessage
             };
         }
@@ -1242,6 +1209,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             data: {
                 id: 0,
                 name: '',
+                description: '',
                 module_id: 0,
                 type: ContentType.VIDEO as any,
                 position: 0,
@@ -1384,6 +1352,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                     data: {
                         id: 0,
                         name: '',
+                        description: '',
                         module_id: 0,
                         type: 'VIDEO' as any,
                         position: 0,
@@ -1410,6 +1379,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 data: {
                     id: 0,
                     name: '',
+                    description: '',
                     module_id: 0,
                     type: 'VIDEO' as any,
                     position: 0,

@@ -5,7 +5,7 @@ import { UserCourse, UserCoursesResponse } from "../schemas/course";
 
 export class CoursesRepository {
 
-  async getCourseList(): Promise<CourseListData> {
+  async getHomePageCourseList(): Promise<CourseListData> {
     // Base query for course data with ratings
     const baseQuery = `
       SELECT
@@ -166,6 +166,7 @@ export class CoursesRepository {
       `SELECT
         c.id,
         c.name,
+        c.description,
         c.module_id,
         c.content_type as type,
         c.position,
@@ -489,7 +490,7 @@ export class CoursesRepository {
   async unpublishCourse(id: number): Promise<boolean> {
     try {
       const result = await db.query(
-        `UPDATE courses SET published_at = NULL WHERE id = $1`,
+        `UPDATE courses SET creator_published_at = NULL WHERE id = $1`,
         [id]
       );
       return (result.rowCount || 0) > 0;
@@ -811,12 +812,11 @@ export class CoursesRepository {
           c.thumbnail_url,
           c.certificate_id,
           c.rank,
-          c.published_at,
+          c.creator_published_at,
           c.created_at,
           c.updated_at,
           c.next_course_ids,
-          cat.name as category_name,
-          SIMILARITY(c.name, $1) as similarity_score
+          cat.name as category_name
         FROM courses c
         LEFT JOIN course_categories cc ON c.id = cc.course_id
         LEFT JOIN categories cat ON cc.category_id = cat.id
@@ -825,17 +825,15 @@ export class CoursesRepository {
           AND c.approved_at IS NOT NULL
           AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
           AND (
-            SIMILARITY(c.name, $1) > 0.1
-            OR SIMILARITY(c.description, $1) > 0.1
-            OR c.name ILIKE $2
-            OR c.description ILIKE $2
+            c.name ILIKE $1
+            OR c.description ILIKE $1
           )
-        ORDER BY similarity_score DESC, c.rank DESC
-        LIMIT $3
+        ORDER BY c.rank DESC
+        LIMIT $2
       `;
 
       const searchPattern = `%${searchString}%`;
-      const result = await db.query(query, [searchString, searchPattern, limit]);
+      const result = await db.query(query, [searchPattern, limit]);
       return result.rows;
     } catch (error) {
       console.error('Error in fuzzy search courses:', error);
@@ -865,21 +863,20 @@ export class CoursesRepository {
           c.created_at,
           c.updated_at,
           m.name as module_name,
-          m.description as module_description,
-          SIMILARITY(c.name, $1) as similarity_score
+          m.description as module_description
         FROM contents c
         LEFT JOIN modules m ON c.module_id = m.id
         WHERE c.is_active = true
           AND (
-            SIMILARITY(c.name, $1) > 0.1
-            OR c.name ILIKE $2
+            c.name ILIKE $1
+            OR c.description ILIKE $1
           )
-        ORDER BY similarity_score DESC, c.position ASC
-        LIMIT $3
+        ORDER BY c.position ASC
+        LIMIT $2
       `;
 
       const searchPattern = `%${searchString}%`;
-      const result = await db.query(query, [searchString, searchPattern, limit]);
+      const result = await db.query(query, [searchPattern, limit]);
       return result.rows;
     } catch (error) {
       console.error('Error in fuzzy search contents:', error);
@@ -1038,6 +1035,7 @@ export class CoursesRepository {
         `SELECT
           c.id,
           c.name,
+          c.description,
           c.module_id,
           c.content_type as type,
           c.position,
@@ -1070,6 +1068,7 @@ export class CoursesRepository {
 
   async createContent(moduleId: number, contentData: {
     name: string;
+    description: string;
     content_type: ContentType;
     position: number;
     is_paid: boolean;
@@ -1109,11 +1108,12 @@ export class CoursesRepository {
       }
 
       const result = await db.query(
-        `INSERT INTO contents (name, content_type, module_id, position, is_paid, is_active, url, abs_url, duration, thumbnail_url, category_id, next_content_id, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+        `INSERT INTO contents (name, description, content_type, module_id, position, is_paid, is_active, url, abs_url, duration, thumbnail_url, category_id, next_content_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
          RETURNING
            id,
            name,
+           description,
            module_id,
            content_type as type,
            position,
@@ -1129,7 +1129,7 @@ export class CoursesRepository {
            approved_by,
            created_at,
            updated_at`,
-        [contentData.name, contentData.content_type, moduleId, contentData.position, contentData.is_paid, contentData.is_active, contentData.url, contentData.abs_url, contentData.duration, contentData.thumbnail_url, contentData.category_id, contentData.next_content_id]
+        [contentData.name, contentData.description, contentData.content_type, moduleId, contentData.position, contentData.is_paid, contentData.is_active, contentData.url, contentData.abs_url, contentData.duration, contentData.thumbnail_url, contentData.category_id, contentData.next_content_id]
       );
 
       const content = result.rows[0];
@@ -1146,6 +1146,7 @@ export class CoursesRepository {
 
   async updateContent(contentId: number, contentData: {
     name?: string;
+    description?: string;
     content_type?: ContentType;
     position?: number;
     is_paid?: boolean;
@@ -1165,6 +1166,11 @@ export class CoursesRepository {
       if (contentData.name !== undefined) {
         updateFields.push(`name = $${paramCount}`);
         values.push(contentData.name);
+        paramCount++;
+      }
+      if (contentData.description !== undefined) {
+        updateFields.push(`description = $${paramCount}`);
+        values.push(contentData.description);
         paramCount++;
       }
       if (contentData.content_type !== undefined) {
@@ -1229,6 +1235,7 @@ export class CoursesRepository {
         `UPDATE contents SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING
           id,
           name,
+          description,
           module_id,
           content_type as type,
           position,
@@ -1276,10 +1283,10 @@ export class CoursesRepository {
     }
   }
 
-  async getContentById(contentId: number): Promise<{ id: number; course_id: number; module_id: number; name: string } | null> {
+  async getContentById(contentId: number): Promise<{ id: number; course_id: number; module_id: number; name: string; description: string } | null> {
     try {
       const result = await db.query(
-        `SELECT c.id, c.module_id, m.course_id, c.name
+        `SELECT c.id, c.module_id, m.course_id, c.name, c.description
          FROM contents c
          JOIN modules m ON c.module_id = m.id
          WHERE c.id = $1 AND c.is_active = true`,

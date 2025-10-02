@@ -25,6 +25,7 @@ export interface Module {
 export interface Content {
     id: number;
     name: string;
+    description: string;
     module_id: number;
     course_id: number;
     type: ContentType;
@@ -93,6 +94,7 @@ export interface CreateModuleRequest {
 
 export interface CreateContentRequest {
     name: string;
+    description: string;
     type: ContentType;
     position: number;
     is_paid: boolean;
@@ -123,6 +125,7 @@ export interface UpdateCourseRequest {
 export interface ContentWithModule {
     id: number;
     name: string;
+    description: string;
     module_id: number;
     type: ContentType;
     position: number;
@@ -150,5 +153,5 @@ export interface PaginatedCoursesResponse {
 
 export interface PublishCourseRequest {
     course_id: number;
-    published_at?: Date; // Optional, defaults to current timestamp if not provided
+    creator_published_at?: Date; // Optional, defaults to current timestamp if not provided
 }

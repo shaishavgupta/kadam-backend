@@ -89,7 +89,7 @@ export class AuthService {
             const authyoRequest: AuthyoSendOtpRequest = {
                 to: `91${phone}`,
                 expiry: 600, // 10 minutes
-                otplength: 6,
+                otplength: 4,
                 authway: 'SMS'
             };
 

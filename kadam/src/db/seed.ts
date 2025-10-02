@@ -119,14 +119,6 @@ async function seedAdmins(): Promise<number[]> {
             password: await bcrypt.hash('admin123', 10),
             is_active: true,
             profile_pic: 'https://example.com/admin1.jpg'
-        },
-        {
-            name: 'Content Manager',
-            email: 'content@kadam.com',
-            phone: '+918765432109',
-            password: await bcrypt.hash('content123', 10),
-            is_active: true,
-            profile_pic: 'https://example.com/admin2.jpg'
         }
     ];
 

@@ -139,7 +139,7 @@ export interface CourseWithModulesAndContent {
     rejected_at?: Date;
     rejected_by?: number;
     rejected_reason?: string;
-    published_at?: Date;
+    creator_published_at?: Date;
     next_course_ids?: number[];
     totalModules: number;
     totalContent: number;

@@ -68,6 +68,57 @@ export default async function userRoutes(fastify: FastifyInstance) {
         };
     });
 
+    // Get current user profile
+    fastify.get('/profile', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Users'],
+            summary: 'Get current user profile',
+            description: 'Get the profile of the currently authenticated user',
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: UserResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: User; message: string }> => {
+        try {
+            const userId = parseInt(request.user!.userID);
+            const raw = await userService.getUserById(userId);
+            const data = serializeDates<User>(raw);
+            return {
+                success: true,
+                data,
+                message: "User profile retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Internal server error";
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
+                data: {
+                    id: 0,
+                    email: '',
+                    name: '',
+                    phone: '',
+                    avatar_url: '',
+                    preferred_language: Language.ENGLISH,
+                    plan_type: PlanType.FREE,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    is_active: false,
+                    last_active_at: undefined,
+                    paid_at: undefined,
+                    dob: undefined,
+                    bio: '',
+                    gender: Gender.OTHERS,
+                    onboarding_completed: false,
+                    whatsapp_allowed: false
+                },
+                message: errorMessage
+            };
+        }
+    });
+
     // Register protected routes with auth middleware
     fastify.register(async function (fastify) {
         fastify.addHook('preHandler', authMiddleware);
