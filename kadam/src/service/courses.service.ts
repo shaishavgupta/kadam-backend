@@ -354,9 +354,9 @@ export class CoursesService {
         thumbnail_url?: string;
         category_id?: number;
         next_content_id?: number;
-    }, creatorId: string): Promise<ContentWithModule | null> {
+    }, creatorId?: string): Promise<ContentWithModule | null> {
         try {
-            return await this.repository.updateContent(contentId, contentData, creatorId);
+            return await this.repository.updateContent(contentId, contentData, creatorId ?? '');
         } catch (error) {
             console.error("Error updating content:", error);
             return null;
