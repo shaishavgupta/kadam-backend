@@ -1,5 +1,5 @@
 import { CoursesRepository } from "../repository/courses.repository";
-import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector } from "../shared/types/courses.types";
+import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector } from "../schemas/course";
 import { UserCourse } from "../schemas/course";
 import { ContentType, CourseListData, UserStats, CourseListItem } from "../schemas/course";
 
@@ -111,9 +111,9 @@ export class CoursesService {
         }
     }
 
-    async unpublishCourse(courseId: number): Promise<boolean> {
+    async unpublishCourse(courseId: number, creatorId: string): Promise<boolean> {
         try {
-            return await this.repository.unpublishCourse(courseId);
+            return await this.repository.unpublishCourse(courseId, creatorId);
         } catch (error) {
             console.error("Error unpublishing course:", error);
             return false;
@@ -291,18 +291,18 @@ export class CoursesService {
         is_paid?: boolean;
         is_active?: boolean;
         thumbnail_url?: string;
-    }): Promise<Module | null> {
+    }, creatorId: string): Promise<Module | null> {
         try {
-            return await this.repository.updateModule(moduleId, moduleData);
+            return await this.repository.updateModule(moduleId, moduleData, creatorId);
         } catch (error) {
             console.error("Error updating module:", error);
             return null;
         }
     }
 
-    async deleteModule(moduleId: number): Promise<boolean> {
+    async deleteModule(moduleId: number, creatorId: string): Promise<boolean> {
         try {
-            return await this.repository.deleteModule(moduleId);
+            return await this.repository.deleteModule(moduleId, creatorId);
         } catch (error) {
             console.error("Error deleting module:", error);
             return false;
@@ -354,18 +354,18 @@ export class CoursesService {
         thumbnail_url?: string;
         category_id?: number;
         next_content_id?: number;
-    }): Promise<ContentWithModule | null> {
+    }, creatorId: string): Promise<ContentWithModule | null> {
         try {
-            return await this.repository.updateContent(contentId, contentData);
+            return await this.repository.updateContent(contentId, contentData, creatorId);
         } catch (error) {
             console.error("Error updating content:", error);
             return null;
         }
     }
 
-    async deleteContent(contentId: number): Promise<boolean> {
+    async deleteContent(contentId: number, creatorId: string): Promise<boolean> {
         try {
-            return await this.repository.deleteContent(contentId);
+            return await this.repository.deleteContent(contentId, creatorId);
         } catch (error) {
             console.error("Error deleting content:", error);
             return false;

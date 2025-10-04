@@ -137,7 +137,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: UserCourse | null; message: string }> => {
         try {
-            const courseId = parseInt((request.params as any).courseId, 10);
+            const courseId = parseInt((request.params as any).courseId);
 
             const data = await coursesService.getApprovedCourseWithHierarchy(courseId);
 
@@ -214,7 +214,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: ContentWithModule[]; message: string }> => {
         try {
-            const courseId = parseInt((request.params as any).courseId, 10);
+            const courseId = parseInt((request.params as any).courseId);
             const raw = await coursesService.getContentsByCourseId(courseId);
             const data = serializeDates<ContentWithModule[]>(raw);
             return {
@@ -248,7 +248,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Module[]; message: string }> => {
         try {
-            const creatorId = parseInt((request.params as any).creatorId, 10);
+            const creatorId = parseInt((request.params as any).creatorId);
             const raw = await coursesService.getModulesByCreatorId(creatorId);
             const data = serializeDates<Module[]>(raw);
             return {
@@ -282,7 +282,8 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Course; message: string }> => {
         try {
-            const created = await coursesService.createCourse(request.body as CreateCourseRequest);
+            const creatorId = parseInt(request.user!.userID);
+            const created = await coursesService.createCourse({ ...(request.body as any), creator_id: creatorId } as CreateCourseRequest);
             const body = request.body as CreateCourseRequest;
             const data: Course = {
                 id: (created as any)?.id ?? (created as any)?.courseId ?? 0,
@@ -340,8 +341,10 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Course; message: string }> => {
         try {
-            const courseId = parseInt((request.params as any).id, 10);
-            const updated = await coursesService.updateCourse(courseId, request.body as UpdateCourseRequest);
+            const courseId = parseInt((request.params as any).id);
+            const creatorId = parseInt(request.user!.userID);
+            const courseData = { ...(request.body as any), creator_id: creatorId } as UpdateCourseRequest;
+            const updated = await coursesService.updateCourse(courseId, courseData);
             const body = request.body as UpdateCourseRequest;
             const data: Course = {
                 id: (updated as any)?.id ?? courseId,
@@ -399,7 +402,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: PaginatedCoursesResponse; message: string }> => {
         try {
-            const categoryId = parseInt((request.params as any).categoryId, 10);
+            const categoryId = parseInt((request.params as any).categoryId);
             const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
             const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
 
@@ -457,7 +460,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                     message: "User not authenticated"
                 };
             }
-            const raw = await coursesService.getCurrentlyEnrolledCourses(parseInt(userId));
+            const raw = await coursesService.getCurrentlyEnrolledCourses(parseInt(userId as string));
             const data = serializeDates<Course[]>(raw);
             return {
                 success: true,
@@ -490,9 +493,8 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<PublishCourseResponse> => {
         try {
-            const publishData = {
-                ...(request.body as PublishCourseRequest),
-                creator_published_at: (request.body as PublishCourseRequest).creator_published_at ? new Date((request.body as PublishCourseRequest).creator_published_at!) : undefined
+            const publishData: PublishCourseRequest = {
+                course_id: (request.body as PublishCourseRequest).course_id
             };
             const success = await coursesService.publishCourse(publishData);
             return {
@@ -521,8 +523,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<UnpublishCourseResponse> => {
         try {
-            const courseId = parseInt((request.params as any).courseId, 10);
-            const success = await coursesService.unpublishCourse(courseId);
+            const courseId = parseInt((request.params as any).courseId);
+            const creatorId = request.user!.userID;
+            const success = await coursesService.unpublishCourse(courseId, creatorId);
             return {
                 success,
                 message: "Course unpublished successfully"
@@ -1275,8 +1278,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         try {
             const moduleId = parseInt((request.params as any).moduleId, 10);
             const moduleData = request.body as UpdateModuleRequest;
+            const creatorId = request.user!.userID;
 
-            const module = await coursesService.updateModule(moduleId, moduleData);
+            const module = await coursesService.updateModule(moduleId, moduleData, creatorId);
 
             if (!module) {
                 reply.status(404);
@@ -1342,8 +1346,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         try {
             const contentId = parseInt((request.params as any).contentId, 10);
             const contentData = request.body as UpdateContentRequest;
+            const creatorId = request.user!.userID;
 
-            const content = await coursesService.updateContent(contentId, contentData);
+            const content = await coursesService.updateContent(contentId, contentData, creatorId);
 
             if (!content) {
                 reply.status(404);
@@ -1411,8 +1416,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<DeleteModuleResponse> => {
         try {
             const moduleId = parseInt((request.params as any).moduleId, 10);
+            const creatorId = request.user!.userID;
 
-            const success = await coursesService.deleteModule(moduleId);
+            const success = await coursesService.deleteModule(moduleId, creatorId);
 
             if (!success) {
                 reply.status(404);
@@ -1466,8 +1472,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<DeleteContentResponse> => {
         try {
             const contentId = parseInt((request.params as any).contentId, 10);
+            const creatorId = request.user!.userID;
 
-            const success = await coursesService.deleteContent(contentId);
+            const success = await coursesService.deleteContent(contentId, creatorId);
 
             if (!success) {
                 reply.status(404);

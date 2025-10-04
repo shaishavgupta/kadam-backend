@@ -1,7 +1,8 @@
 import {
-    CreateLikeDTO, Like, UpdateLikeDTO, ParentType, Comment, CreateCommentDTO, UpdateCommentDTO,
+    CreateLikeDTO, Like, UpdateLikeDTO, Comment, CreateCommentDTO, UpdateCommentDTO,
     Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, View, CreateViewDTO, UpdateViewDTO
-} from "../shared/types/interactions.types";
+} from "../schemas/interaction";
+import { ParentType } from "../shared/enums";
 import { InteractionsRepository } from "../repository/interactions.repository";
 
 export class InteractionsService {
@@ -12,9 +13,9 @@ export class InteractionsService {
     }
 
     // Like operations
-    async createLike(data: CreateLikeDTO): Promise<Like> {
+    async createLike(likeData: CreateLikeDTO, userId: number): Promise<Like> {
         try {
-            const like = await this.interactionsRepository.createLike(data);
+            const like = await this.interactionsRepository.createLike(likeData, userId);
             if (like) {
                 return like;
             }
@@ -66,9 +67,9 @@ export class InteractionsService {
     }
 
     // Comment operations
-    async createComment(data: CreateCommentDTO): Promise<Comment> {
+    async createComment(data: CreateCommentDTO, userId: number): Promise<Comment> {
         try {
-            const comment = await this.interactionsRepository.createComment(data);
+            const comment = await this.interactionsRepository.createComment(data, userId);
             if (comment) {
                 return comment;
             }
@@ -111,9 +112,9 @@ export class InteractionsService {
     }
 
     // Share operations
-    async createShare(data: CreateShareDTO): Promise<Share> {
+    async createShare(data: CreateShareDTO, userId: number): Promise<Share> {
         try {
-            const share = await this.interactionsRepository.createShare(data);
+            const share = await this.interactionsRepository.createShare(data, userId);
             if (share) {
                 return share;
             }
@@ -147,9 +148,9 @@ export class InteractionsService {
     }
 
     // Save operations
-    async createSave(data: CreateSaveDTO): Promise<Save> {
+    async createSave(data: CreateSaveDTO, userId: number): Promise<Save> {
         try {
-            const save = await this.interactionsRepository.createSave(data);
+            const save = await this.interactionsRepository.createSave(data, userId);
             if (save) {
                 return save;
             }
@@ -179,9 +180,9 @@ export class InteractionsService {
     }
 
     // View operations
-    async createView(data: CreateViewDTO): Promise<View> {
+    async createView(data: CreateViewDTO, userId: number): Promise<View> {
         try {
-            const view = await this.interactionsRepository.createView(data);
+            const view = await this.interactionsRepository.createView(data, userId);
             if (view) {
                 return view;
             }

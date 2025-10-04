@@ -3,9 +3,9 @@ import { AuthService } from '../service/auth.service';
 import { UserService } from '../service/users.service';
 import { AdminService } from '../service/admin.service';
 import { CreatorService } from '../service/creators.service';
-import { User } from '../shared/types/users.types';
+import { User } from '../schemas/user';
 import { Admin } from '../shared/types/admin.types';
-import { Creator } from '../shared/types/creators.types';
+import { Creator } from '../schemas/creator';
 import { authMiddleware, AuthenticatedRequest } from '../shared/middleware/auth';
 import { UserType as UserTypeEnum } from '../shared/enums';
 import {

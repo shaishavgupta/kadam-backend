@@ -69,7 +69,6 @@ export const RatingSchema = Type.Object({
 
 // Request schemas
 export const CreateLikeDTOSchema = Type.Object({
-    user_id: Type.Number(),
     parent_id: Type.Number(),
     parent_type: ParentTypeSchema
 });
@@ -83,7 +82,6 @@ export const GetLikesByUserIdDTOSchema = Type.Object({
 });
 
 export const CreateCommentDTOSchema = Type.Object({
-    user_id: Type.Number(),
     parent_id: Type.Number(),
     parent_type: ParentTypeSchema,
     comment_text: Type.String(),
@@ -96,7 +94,6 @@ export const UpdateCommentDTOSchema = Type.Object({
 });
 
 export const CreateShareDTOSchema = Type.Object({
-    user_id: Type.Number(),
     parent_id: Type.Number(),
     parent_type: ParentTypeSchema,
     shared_url: Type.Optional(Type.String())
@@ -107,13 +104,11 @@ export const UpdateShareDTOSchema = Type.Object({
 });
 
 export const CreateSaveDTOSchema = Type.Object({
-    user_id: Type.Number(),
     parent_id: Type.Number(),
     parent_type: ParentTypeSchema
 });
 
 export const CreateViewDTOSchema = Type.Object({
-    user_id: Type.Number(),
     parent_id: Type.Number(),
     parent_type: ParentTypeSchema,
     duration: Type.Optional(Type.Number())
@@ -124,7 +119,6 @@ export const UpdateViewDTOSchema = Type.Object({
 });
 
 export const CreateRatingDTOSchema = Type.Object({
-    user_id: Type.Number(),
     course_id: Type.Number(),
     rating: Type.Number({ minimum: 1, maximum: 5 }),
     review: Type.Optional(Type.String())

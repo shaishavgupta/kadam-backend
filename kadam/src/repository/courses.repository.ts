@@ -1,5 +1,6 @@
 import { db } from "../infra/db";
-import { Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector, ContentType } from "../shared/types/courses.types";
+import { Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector } from "../schemas/course";
+import { ContentType } from "../shared/enums";
 import { CourseListItem, CourseListData, UserStats, UpdateCourseRequest } from "../schemas/course";
 import { UserCourse, UserCoursesResponse } from "../schemas/course";
 
@@ -487,8 +488,20 @@ export class CoursesRepository {
     }
   }
 
-  async unpublishCourse(id: number): Promise<boolean> {
+  async unpublishCourse(id: number, creatorId: string): Promise<boolean> {
     try {
+      // First verify that the creator owns this course
+      const ownershipCheck = await db.query(
+        `SELECT c.id FROM courses c
+         JOIN course_creators cc ON c.id = cc.course_id
+         WHERE c.id = $1 AND cc.creator_id = $2 AND cc.is_active = true`,
+        [id, creatorId]
+      );
+
+      if (ownershipCheck.rows.length === 0) {
+        throw new Error("You don't have permission to unpublish this course");
+      }
+
       const result = await db.query(
         `UPDATE courses SET creator_published_at = NULL WHERE id = $1`,
         [id]
@@ -959,8 +972,21 @@ export class CoursesRepository {
     is_paid?: boolean;
     is_active?: boolean;
     thumbnail_url?: string;
-  }): Promise<Module | null> {
+  }, creatorId: string): Promise<Module | null> {
     try {
+      // First verify that the creator owns the course that contains this module
+      const ownershipCheck = await db.query(
+        `SELECT m.id FROM modules m
+         JOIN courses c ON m.course_id = c.id
+         JOIN course_creators cc ON c.id = cc.course_id
+         WHERE m.id = $1 AND cc.creator_id = $2 AND cc.is_active = true`,
+        [moduleId, creatorId]
+      );
+
+      if (ownershipCheck.rows.length === 0) {
+        throw new Error("You don't have permission to update this module");
+      }
+
       const updateFields = [];
       const values = [];
       let paramCount = 1;
@@ -1015,8 +1041,21 @@ export class CoursesRepository {
     }
   }
 
-  async deleteModule(moduleId: number): Promise<boolean> {
+  async deleteModule(moduleId: number, creatorId: string): Promise<boolean> {
     try {
+      // First verify that the creator owns the course that contains this module
+      const ownershipCheck = await db.query(
+        `SELECT m.id FROM modules m
+         JOIN courses c ON m.course_id = c.id
+         JOIN course_creators cc ON c.id = cc.course_id
+         WHERE m.id = $1 AND cc.creator_id = $2 AND cc.is_active = true`,
+        [moduleId, creatorId]
+      );
+
+      if (ownershipCheck.rows.length === 0) {
+        throw new Error("You don't have permission to delete this module");
+      }
+
       const result = await db.query(
         `UPDATE modules SET is_active = false, updated_at = NOW() WHERE id = $1`,
         [moduleId]
@@ -1157,8 +1196,22 @@ export class CoursesRepository {
     thumbnail_url?: string;
     category_id?: number;
     next_content_id?: number;
-  }): Promise<ContentWithModule | null> {
+  }, creatorId: string): Promise<ContentWithModule | null> {
     try {
+      // First verify that the creator owns the course that contains this content
+      const ownershipCheck = await db.query(
+        `SELECT c.id FROM contents c
+         JOIN modules m ON c.module_id = m.id
+         JOIN courses co ON m.course_id = co.id
+         JOIN course_creators cc ON co.id = cc.course_id
+         WHERE c.id = $1 AND cc.creator_id = $2 AND cc.is_active = true`,
+        [contentId, creatorId]
+      );
+
+      if (ownershipCheck.rows.length === 0) {
+        throw new Error("You don't have permission to update this content");
+      }
+
       const updateFields = [];
       const values = [];
       let paramCount = 1;
@@ -1270,8 +1323,22 @@ export class CoursesRepository {
     }
   }
 
-  async deleteContent(contentId: number): Promise<boolean> {
+  async deleteContent(contentId: number, creatorId: string): Promise<boolean> {
     try {
+      // First verify that the creator owns the course that contains this content
+      const ownershipCheck = await db.query(
+        `SELECT c.id FROM contents c
+         JOIN modules m ON c.module_id = m.id
+         JOIN courses co ON m.course_id = co.id
+         JOIN course_creators cc ON co.id = cc.course_id
+         WHERE c.id = $1 AND cc.creator_id = $2 AND cc.is_active = true`,
+        [contentId, creatorId]
+      );
+
+      if (ownershipCheck.rows.length === 0) {
+        throw new Error("You don't have permission to delete this content");
+      }
+
       const result = await db.query(
         `UPDATE contents SET is_active = false, updated_at = NOW() WHERE id = $1`,
         [contentId]

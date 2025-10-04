@@ -106,8 +106,7 @@ export const VectorReindexApiResponseSchema = Type.Object({
 // Chat Request Schema
 export const ChatRequestSchema = Type.Object({
     message: Type.String({ description: 'User message' }),
-    type: Type.Optional(Type.String({ description: 'Message type' })),
-    userId: Type.Optional(Type.String({ description: 'User ID for profile tracking' }))
+    type: Type.Optional(Type.String({ description: 'Message type' }))
 });
 
 export const ChatApiResponseSchema = Type.Object({

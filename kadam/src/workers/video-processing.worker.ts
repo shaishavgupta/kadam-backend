@@ -6,7 +6,7 @@ import { join, basename, extname } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { CoursesService } from '../service/courses.service';
-import { ContentWithModule } from '../shared/types/courses.types';
+import { ContentWithModule } from '../schemas/course';
 import { ContentType } from '../shared/enums';
 
 const execAsync = promisify(exec);
@@ -570,7 +570,7 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
                     fileSize: 0, // Will be populated by the worker
                     duration: videoContent.duration || 0,
                     uploadedBy: 'system',
-                    uploadedAt: videoContent.created_at.toISOString()
+                    uploadedAt: videoContent.created_at
                 }
             };
 

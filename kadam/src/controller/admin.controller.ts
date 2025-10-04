@@ -2,7 +2,9 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { AdminService } from '../service/admin.service';
 import { authMiddleware, AuthenticatedRequest, requireAdmin } from '../shared/middleware/auth';
 import {
-    DashboardData,
+    DashboardData
+} from '../shared/types/admin.types';
+import {
     AdminDashboardResponse,
     AdminUsersResponse,
     AdminCreatorsResponse,

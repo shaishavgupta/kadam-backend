@@ -34,7 +34,7 @@ export const JOB_TYPES = {
         OTP_NOTIFICATION: 'otp-notification',
     },
     COURSE_RANKING: {
-        CALCULATE_RANKINGS: 'calculate-rankings',
+        CALCULATE_RANKINGS: 'calculate-rankings-cron',
         UPDATE_SINGLE_COURSE_RANKING: 'update-single-course-ranking',
     },
     VIDEO_PROCESSING: {

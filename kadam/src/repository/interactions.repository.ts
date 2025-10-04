@@ -1,17 +1,18 @@
 import { db } from "../infra/db";
 import {
-    Like, CreateLikeDTO, UpdateLikeDTO, ParentType, Comment, CreateCommentDTO, UpdateCommentDTO,
+    Like, CreateLikeDTO, UpdateLikeDTO, Comment, CreateCommentDTO, UpdateCommentDTO,
     Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, View, CreateViewDTO, UpdateViewDTO
-} from "../shared/types/interactions.types";
+} from "../schemas/interaction";
+import { ParentType } from "../shared/enums";
 
 export class InteractionsRepository {
     // Like operations
-    async createLike(likeData: CreateLikeDTO): Promise<Like | null> {
+    async createLike(likeData: CreateLikeDTO, userId: number): Promise<Like | null> {
         try {
             const result = await db.query(
                 `INSERT INTO likes (user_id, parent_id, parent_type, is_active, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
-                [likeData.user_id, likeData.parent_id, likeData.parent_type, true]
+                [userId, likeData.parent_id, likeData.parent_type, true]
             );
 
             if (result.rows.length > 0) {
@@ -80,12 +81,12 @@ export class InteractionsRepository {
     }
 
     // Comment operations
-    async createComment(commentData: CreateCommentDTO): Promise<Comment | null> {
+    async createComment(commentData: CreateCommentDTO, userId: number): Promise<Comment | null> {
         try {
             const result = await db.query(
                 `INSERT INTO comments (user_id, parent_id, parent_type, comment_text, is_active, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
-                [commentData.user_id, commentData.parent_id, commentData.parent_type, commentData.comment_text, commentData.is_active || true]
+                [userId, commentData.parent_id, commentData.parent_type, commentData.comment_text, commentData.is_active || true]
             );
 
             if (result.rows.length > 0) {
@@ -142,12 +143,12 @@ export class InteractionsRepository {
     }
 
     // Share operations
-    async createShare(shareData: CreateShareDTO): Promise<Share | null> {
+    async createShare(shareData: CreateShareDTO, userId: number): Promise<Share | null> {
         try {
             const result = await db.query(
                 `INSERT INTO shares (user_id, parent_id, parent_type, shared_url, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
-                [shareData.user_id, shareData.parent_id, shareData.parent_type, shareData.shared_url]
+                [userId, shareData.parent_id, shareData.parent_type, shareData.shared_url]
             );
 
             if (result.rows.length > 0) {
@@ -191,12 +192,12 @@ export class InteractionsRepository {
     }
 
     // Save operations
-    async createSave(saveData: CreateSaveDTO): Promise<Save | null> {
+    async createSave(saveData: CreateSaveDTO, userId: number): Promise<Save | null> {
         try {
             const result = await db.query(
                 `INSERT INTO saves (user_id, parent_id, parent_type, created_at, updated_at)
                  VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *`,
-                [saveData.user_id, saveData.parent_id, saveData.parent_type]
+                [userId, saveData.parent_id, saveData.parent_type]
             );
 
             if (result.rows.length > 0) {
@@ -236,12 +237,12 @@ export class InteractionsRepository {
     }
 
     // View operations
-    async createView(viewData: CreateViewDTO): Promise<View | null> {
+    async createView(viewData: CreateViewDTO, userId: number): Promise<View | null> {
         try {
             const result = await db.query(
                 `INSERT INTO views (user_id, parent_id, parent_type, duration, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
-                [viewData.user_id, viewData.parent_id, viewData.parent_type, viewData.duration]
+                [userId, viewData.parent_id, viewData.parent_type, viewData.duration]
             );
 
             if (result.rows.length > 0) {

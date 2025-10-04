@@ -56,7 +56,7 @@ export default async function aiRoutes(fastify: FastifyInstance) {
         try {
             const requestData = request.body as CourseRecommendationRequest;
             const result = await aiService.courseRecommendationFlow(requestData);
-            
+
             return {
                 success: true,
                 data: result,
@@ -106,7 +106,7 @@ export default async function aiRoutes(fastify: FastifyInstance) {
         try {
             const requestData = request.body as ContentDiscoveryRequest;
             const result = await aiService.contentDiscoveryFlow(requestData);
-            
+
             return {
                 success: true,
                 data: result,
@@ -156,7 +156,7 @@ export default async function aiRoutes(fastify: FastifyInstance) {
         try {
             const requestData = request.body as SimilarContentRequest;
             const result = await aiService.similarContentFlow(requestData);
-            
+
             return {
                 success: true,
                 data: result,
@@ -206,7 +206,7 @@ export default async function aiRoutes(fastify: FastifyInstance) {
         try {
             const requestData = request.body as VectorReindexRequest;
             const result = await aiService.vectorReindexFlow(requestData);
-            
+
             return {
                 success: true,
                 data: result,
@@ -254,9 +254,10 @@ export default async function aiRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
         try {
-            const requestData = request.body as ChatRequest;
+            const userId = request.user!.userID;
+            const requestData = { ...(request.body as any), userId } as ChatRequest;
             const result = await aiService.chatFlow(requestData);
-            
+
             return {
                 success: true,
                 data: result,

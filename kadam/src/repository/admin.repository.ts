@@ -1,4 +1,5 @@
-import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, Admin, CourseWithModulesAndContent } from "../shared/types/admin.types";
+import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationResponse, Admin } from "../shared/types/admin.types";
+import { CourseWithModulesAndContent } from "../schemas/admin";
 import { db } from "../infra/db";
 import { CreateAdminRequest } from "../schemas/auth";
 import { ContentType } from "../shared/enums";

@@ -9,7 +9,7 @@ import {
     CreateQualificationRequest,
     CreateAchievementRequest,
     CreatorStats
-} from "../shared/types/creators.types";
+} from "../schemas/creator";
 
 export class CreatorRepository {
     async createCreator(creatorData: CreateCreatorRequest): Promise<Creator | null> {

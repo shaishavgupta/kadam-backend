@@ -96,9 +96,10 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: LikeResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
-            const data = await interactionsService.createLike(request.body as any as any);
+            const userId = parseInt(request.user!.userID);
+            const data = await interactionsService.createLike(request.body as any as CreateLikeDTO, userId);
             return {
                 success: true,
                 data,
@@ -259,9 +260,10 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: CommentResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
-            const data = await interactionsService.createComment(request.body as any);
+            const userId = parseInt(request.user!.userID);
+            const data = await interactionsService.createComment(request.body as any as CreateCommentDTO, userId);
             return {
                 success: true,
                 data,
@@ -391,9 +393,10 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: ShareResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
-            const data = await interactionsService.createShare(request.body as any);
+            const userId = parseInt(request.user!.userID);
+            const data = await interactionsService.createShare(request.body as any as CreateShareDTO, userId);
             return {
                 success: true,
                 data,
@@ -490,9 +493,10 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: SaveResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
-            const data = await interactionsService.createSave(request.body as any);
+            const userId = parseInt(request.user!.userID);
+            const data = await interactionsService.createSave(request.body as any as CreateSaveDTO, userId);
             return {
                 success: true,
                 data,
@@ -588,9 +592,10 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 200: ViewResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
-            const data = await interactionsService.createView(request.body as any);
+            const userId = parseInt(request.user!.userID);
+            const data = await interactionsService.createView(request.body as any as CreateViewDTO, userId);
             return {
                 success: true,
                 data,

@@ -3,11 +3,9 @@ import {
     User,
     CreateUserRequest,
     UpdateUserRequest,
-    Language,
-    Gender,
-    PlanType,
     PaginatedUsersResponse
-} from "../shared/types/users.types";
+} from "../schemas/user";
+import { Language, Gender, PlanType } from "../shared/enums";
 
 export class UserRepository {
 
@@ -20,12 +18,12 @@ export class UserRepository {
             avatar_url: row.avatar_url || undefined,
             preferred_language: row.preferred_language,
             plan_type: row.plan_type,
-            created_at: new Date(row.created_at),
-            updated_at: new Date(row.updated_at),
+            created_at: row.created_at,
+            updated_at: row.updated_at,
             is_active: row.is_active,
-            last_active_at: row.last_active_at ? new Date(row.last_active_at) : undefined,
-            paid_at: row.paid_at ? new Date(row.paid_at) : undefined,
-            dob: row.dob ? new Date(row.dob) : undefined,
+            last_active_at: row.last_active_at || undefined,
+            paid_at: row.paid_at || undefined,
+            dob: row.dob || undefined,
             bio: row.bio || undefined,
             gender: row.gender && Object.values(Gender).includes(row.gender) ? row.gender : undefined,
             onboarding_completed: row.onboarding_completed,

@@ -10,7 +10,7 @@ import {
     CreateQualificationRequest,
     CreateAchievementRequest,
     CreatorStats
-} from "../shared/types/creators.types";
+} from "../schemas/creator";
 import { CreateCreatorWithUserRequest, CreateUserWithAuthRequest } from "../schemas/auth";
 
 export class CreatorService {

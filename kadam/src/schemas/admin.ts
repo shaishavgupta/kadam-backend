@@ -383,14 +383,8 @@ export const CourseWithModulesAndContentResponseSchema = Type.Object({
     message: Type.String()
 });
 
-// Export inferred TypeScript types using Static
+// Export inferred TypeScript types using Static for schema-only types
 export type AdminCoursesQuery = Static<typeof AdminCoursesQuerySchema>;
-export type AdminConfigurationRequest = Static<typeof AdminConfigurationRequestSchema>;
-export type AdminConfigurationResponse = Static<typeof AdminConfigurationResponseSchema>;
-export type DashboardData = Static<typeof DashboardDataSchema>;
-export type AdminDashboardResponse = Static<typeof AdminDashboardResponseSchema>;
-export type AdminUsersResponse = Static<typeof AdminUsersResponseSchema>;
-export type AdminCreatorsResponse = Static<typeof AdminCreatorsResponseSchema>;
 export type AdminLoginRequest = Static<typeof AdminLoginRequestSchema>;
 export type AdminLoginResponse = Static<typeof AdminLoginResponseSchema>;
 export type AdminResponse = Static<typeof AdminResponseSchema>;
@@ -408,13 +402,19 @@ export type ReorderContentsRequest = Static<typeof ReorderContentsRequestSchema>
 export type ReorderContentsResponse = Static<typeof ReorderContentsResponseSchema>;
 export type SoftDeleteVideoResponse = Static<typeof SoftDeleteVideoResponseSchema>;
 export type DeleteCourseResponse = Static<typeof DeleteCourseResponseSchema>;
-export type VideoMetadata = Static<typeof VideoMetadataSchema>;
 export type CreateContentsRequest = Static<typeof CreateContentsRequestSchema>;
 export type CreateContentsResponse = Static<typeof CreateContentsResponseSchema>;
-export type AdminContent = Static<typeof AdminContentSchema>;
-export type AdminModule = Static<typeof AdminModuleSchema>;
-export type CourseWithModulesAndContent = Static<typeof CourseWithModulesAndContentSchema>;
 export type CourseWithModulesAndContentResponse = Static<typeof CourseWithModulesAndContentResponseSchema>;
 export type UnifiedRejectRequest = Static<typeof UnifiedRejectRequestSchema>;
 export type UnifiedRejectResponse = Static<typeof UnifiedRejectResponseSchema>;
+
+// Export TypeBox-derived types for core entity types (schema-first approach)
+export type AdminContent = Static<typeof AdminContentSchema>;
+export type AdminModule = Static<typeof AdminModuleSchema>;
+export type CourseWithModulesAndContent = Static<typeof CourseWithModulesAndContentSchema>;
+
+// Response types derived from schemas
+export type AdminDashboardResponse = Static<typeof AdminDashboardResponseSchema>;
+export type AdminUsersResponse = Static<typeof AdminUsersResponseSchema>;
+export type AdminCreatorsResponse = Static<typeof AdminCreatorsResponseSchema>;
 

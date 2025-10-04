@@ -1,5 +1,5 @@
 import { UserRepository } from "../repository/users.repository";
-import { User, CreateUserRequest, UpdateUserRequest, PaginatedUsersResponse } from "../shared/types/users.types";
+import { User, CreateUserRequest, UpdateUserRequest, PaginatedUsersResponse } from "../schemas/user";
 import { CreateUserWithAuthRequest } from "../schemas/auth";
 
 export class UserService {

@@ -3,9 +3,9 @@ import { AdminConfigurations, AdminConfigurationRequest, AdminConfigurationRespo
 import { UserRepository } from "../repository/users.repository";
 import { CreatorRepository } from "../repository/creators.repository";
 import { CoursesRepository } from "../repository/courses.repository";
-import { PaginatedUsersResponse } from "../shared/types/users.types";
-import { PaginatedCreatorsResponse } from "../shared/types/creators.types";
-import { PaginatedCoursesResponse } from "../shared/types/courses.types";
+import { PaginatedUsersResponse } from "../schemas/user";
+import { PaginatedCreatorsResponse } from "../schemas/creator";
+import { PaginatedCoursesResponse } from "../schemas/course";
 import { CreateAdminRequest, CreateUserWithAuthRequest } from "../schemas/auth";
 import { PlanType } from "../shared/enums";
 import jwt from 'jsonwebtoken';

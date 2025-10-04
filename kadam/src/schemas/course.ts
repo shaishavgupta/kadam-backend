@@ -139,7 +139,6 @@ export const CreateContentRequestSchema = Type.Object({
 export const CreateCourseRequestSchema = Type.Object({
     name: Type.String(),
     description: Type.String(),
-    creator_id: Type.Number(),
     category_id: Type.Number(),
     is_paid: Type.Boolean(),
     is_active: Type.Boolean(),
@@ -153,7 +152,7 @@ export const CreateCourseRequestSchema = Type.Object({
 export const UpdateCourseRequestSchema = Type.Intersect([
     CreateCourseRequestSchema,
     Type.Object({
-        id: Type.Number()
+        creator_id: Type.Optional(Type.Number())
     })
 ]);
 
@@ -372,7 +371,6 @@ export const UpdateContentRequestSchema = Type.Object({
     is_paid: Type.Optional(Type.Boolean()),
     is_active: Type.Optional(Type.Boolean()),
     url: Type.Optional(Type.String()),
-    abs_url: Type.Optional(Type.String()),
     duration: Type.Optional(Type.Number({ minimum: 0 })),
     thumbnail_url: Type.Optional(Type.String()),
     category_id: Type.Optional(Type.Number()),

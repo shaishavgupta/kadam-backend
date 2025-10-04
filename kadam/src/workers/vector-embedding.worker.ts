@@ -1,7 +1,7 @@
 import { Job } from 'bullmq';
 import { CoursesService } from '../service/courses.service';
 import { VectorEmbeddingJobData, ContentEmbeddingJobData, QUEUE_NAMES, bullMQManager } from '../infra/bullmq';
-import { Vector } from '../shared/types/courses.types';
+import { Vector } from '../schemas/course';
 
 export class VectorEmbeddingWorker {
     private coursesService: CoursesService;

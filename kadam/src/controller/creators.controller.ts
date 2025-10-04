@@ -80,11 +80,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             }
             return {
                 success: true,
-                data: {
-                    ...result.creator!,
-                    created_at: result.creator!.created_at.toISOString(),
-                    updated_at: result.creator!.updated_at.toISOString()
-                },
+                data: result.creator!,
                 message: "Creator created successfully"
             };
         } catch (error) {
@@ -202,11 +198,7 @@ export default async function creatorsRoutes(fastify: FastifyInstance) {
             }
             return {
                 success: true,
-                data: {
-                    ...result.creator!,
-                    created_at: result.creator!.created_at.toISOString(),
-                    updated_at: result.creator!.updated_at.toISOString()
-                },
+                data: result.creator!,
                 message: "Creator updated successfully"
             };
         } catch (error) {
