@@ -63,3 +63,8 @@ export enum S3Operation {
     PUT_OBJECT = 'putObject',
     GET_OBJECT = 'getObject'
 }
+
+export enum S3Prefix {
+    RAW_VIDEOS = 'raw-videos',
+    PROCESSED_VIDEOS = 'processed-videos'
+}

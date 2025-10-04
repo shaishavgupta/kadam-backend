@@ -751,7 +751,7 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
         // Update content with the master playlist URL and actual duration
         await coursesService.updateContent(videoId, {
             abs_url: generateMasterPlaylistKey(courseId, moduleId, videoId),
-            duration: actualDuration
+            duration: parseInt(actualDuration.toString())
         });
 
         console.log(`✅ Updated content ${videoId} with master playlist URL and duration: ${actualDuration}s`);
@@ -759,7 +759,7 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
             success: true,
             courseId,
             videoId,
-            duration: actualDuration,
+            duration: parseInt(actualDuration.toString()),
             resolutionsProcessed: result.resolutions?.length || 0,
             metadata: result.metadata
         };

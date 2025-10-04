@@ -8,13 +8,7 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config, awsConfig } from '../../config';
-import { FileType, S3Operation } from '../../shared/enums';
-
-console.log('AWS Region:', config.AWS_REGION);
-console.log('AWS Access Key ID:', config.AWS_ACCESS_KEY_ID);
-console.log('AWS Secret Access Key:', config.AWS_SECRET_ACCESS_KEY);
-console.log('AWS S3 Courses Bucket:', awsConfig.s3.coursesBucket);
-console.log('AWS S3 Prefixes:', awsConfig.s3.prefixes);
+import { FileType, S3Operation, S3Prefix } from '../../shared/enums';
 
 // S3 Client Configuration
 const s3Client = new S3Client({
@@ -35,39 +29,27 @@ export const S3_CONFIG = {
 // Enforces: raw-videos/{courseId}/Thumbnail.webp | {moduleId}/Thumbnail.webp | {contentId}/Video.mp4 | {contentId}/Thumbnail.webp
 
 export function generateCourseThumbnailKey(courseId: number): string {
-    return `${courseId}/Thumbnail.webp`;
+    return `${S3Prefix.RAW_VIDEOS}/${courseId}/Thumbnail.webp`;
 }
 
 export function generateModuleThumbnailKey(courseId: number, moduleId: number): string {
-    return `${courseId}/${moduleId}/Thumbnail.webp`;
+    return `${S3Prefix.RAW_VIDEOS}/${courseId}/${moduleId}/Thumbnail.webp`;
 }
 
 export function generateContentVideoKey(courseId: number, moduleId: number, contentId: number): string {
-    return `${courseId}/${moduleId}/${contentId}/Video.mp4`;
+    return `${S3Prefix.RAW_VIDEOS}/${courseId}/${moduleId}/${contentId}/Video.mp4`;
 }
 
 export function generateContentThumbnailKey(courseId: number, moduleId: number, contentId: number): string {
-    return `${courseId}/${moduleId}/${contentId}/Thumbnail.webp`;
+    return `${S3Prefix.RAW_VIDEOS}/${courseId}/${moduleId}/${contentId}/Thumbnail.webp`;
 }
 
 export function generateProcessedVideoKey(courseId: number, moduleId: number, contentId: number, resolution: string, fileName: string): string {
-    return `${courseId}/${moduleId}/${contentId}/${resolution}/${fileName}`;
+    return `${S3Prefix.PROCESSED_VIDEOS}/${courseId}/${moduleId}/${contentId}/${resolution}/${fileName}`;
 }
 
 export function generateMasterPlaylistKey(courseId: number, moduleId: number, contentId: number): string {
-    return `${courseId}/${moduleId}/${contentId}/master.m3u8`;
-}
-
-export function generateProcessedThumbnailKey(courseId: number, moduleId: number, contentId: number, fileName: string): string {
-    return `${courseId}/${moduleId}/${contentId}/Thumbnail.${fileName.split('.').pop()}`;
-}
-
-export function generateProcessedModuleThumbnailKey(courseId: number, moduleId: number, fileName: string): string {
-    return `${courseId}/${moduleId}/Thumbnail.${fileName.split('.').pop()}`;
-}
-
-export function generateProcessedCourseThumbnailKey(courseId: number, fileName: string): string {
-    return `${courseId}/Thumbnail.${fileName.split('.').pop()}`;
+    return `${S3Prefix.PROCESSED_VIDEOS}/${courseId}/${moduleId}/${contentId}/master.m3u8`;
 }
 
 // File Upload Types
@@ -475,33 +457,6 @@ export async function generateThumbnailUploadUrl(
         key,
         expiresIn,
         operation: S3Operation.PUT_OBJECT,
-    });
-}
-
-/**
- * Generate presigned URL for thumbnail download
- */
-export async function generateThumbnailDownloadUrl(
-    courseId: number,
-    moduleId: number | null,
-    contentId: number | null,
-    fileName: string,
-    expiresIn: number = 3600
-): Promise<string> {
-    let key: string;
-    if (contentId && moduleId) {
-        key = generateProcessedThumbnailKey(courseId, moduleId, contentId, fileName);
-    } else if (moduleId) {
-        key = generateProcessedModuleThumbnailKey(courseId, moduleId, fileName);
-    } else {
-        key = generateProcessedCourseThumbnailKey(courseId, fileName);
-    }
-
-    return generatePresignedUrl({
-        prefix: 'processedVideos',
-        key,
-        expiresIn,
-        operation: S3Operation.GET_OBJECT,
     });
 }
 
