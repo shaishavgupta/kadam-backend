@@ -316,6 +316,7 @@ export const AdminContentSchema = Type.Object({
     updated_at: Type.String({ format: 'date-time' }),
     is_active: Type.Boolean(),
     name: Type.String(),
+    description: Type.String(),
     module_id: Type.Number(),
     content_type: Type.String(),
     next_content_id: Type.Optional(Type.Number()),
