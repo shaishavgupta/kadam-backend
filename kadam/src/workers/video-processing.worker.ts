@@ -351,9 +351,9 @@ class FFmpegVideoProcessor {
         // Video codec
         parts.push('-c:v', format.codec);
 
-        // Resolution with aspect ratio preservation
-        const { width, height } = this.parseResolution(format.resolution);
-        parts.push('-vf', `"scale=${width}:-2"`); // Auto-adjust height to maintain aspect ratio
+        // Resolution with aspect ratio preservation for portrait videos
+        const { height } = this.parseResolution(format.resolution);
+        parts.push('-vf', `"scale=-2:${height}"`); // Height-based scaling for portrait videos (9:16)
 
         // Video bitrate
         if (format.bitrate) {
@@ -433,7 +433,7 @@ class FFmpegVideoProcessor {
         bitrate: string,
         segmentDuration: number
     ): string {
-        const { width, height } = this.parseResolution(resolution);
+        const { height } = this.parseResolution(resolution);
 
         const parts = [
             this.ffmpegPath,
@@ -442,7 +442,7 @@ class FFmpegVideoProcessor {
             '-c:v', 'libx264',
             '-preset', 'medium',
             '-crf', '23',
-            '-vf', `"scale=${width}:-2"`, // Auto-adjust height to maintain aspect ratio
+            '-vf', `"scale=-2:${height}"`, // Height-based scaling for portrait videos (9:16)
             '-b:v', bitrate,
             '-maxrate', bitrate,
             '-bufsize', `${parseInt(bitrate.replace('k', '')) * 2}k`,
