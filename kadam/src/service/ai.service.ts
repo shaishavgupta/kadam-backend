@@ -1,10 +1,7 @@
 import { 
-    courseRecommendationFlow, 
-    contentDiscoveryFlow, 
-    similarContentFlow, 
-    vectorReindexFlow, 
-    chatFlow 
-} from '../repository/ai.repository';
+    chatFlow,
+    sessionManagerExports
+} from '../repository/ai';
 import { 
     CourseRecommendationRequest, 
     ContentDiscoveryRequest, 
@@ -14,74 +11,70 @@ import {
 } from '../schemas';
 
 export class AIService {
-    
-    async courseRecommendationFlow(request: CourseRecommendationRequest) {
-        try {
-            const result = await courseRecommendationFlow({
-                userQuery: request.userQuery,
-                categoryId: request.categoryId ? BigInt(request.categoryId) : undefined
-            });
-            
-            return result;
-        } catch (error) {
-            console.error('Error in course recommendation flow:', error);
-            throw error;
-        }
-    }
-
-    async contentDiscoveryFlow(request: ContentDiscoveryRequest) {
-        try {
-            const result = await contentDiscoveryFlow({
-                courseId: BigInt(request.courseId),
-                contentType: request.contentType
-            });
-            
-            return result;
-        } catch (error) {
-            console.error('Error in content discovery flow:', error);
-            throw error;
-        }
-    }
-
-    async similarContentFlow(request: SimilarContentRequest) {
-        try {
-            const result = await similarContentFlow({
-                query: request.query,
-                source: request.source
-            });
-            
-            return result;
-        } catch (error) {
-            console.error('Error in similar content flow:', error);
-            throw error;
-        }
-    }
-
-    async vectorReindexFlow(request: VectorReindexRequest) {
-        try {
-            const result = await vectorReindexFlow({
-                source: request.source,
-                batchSize: request.batchSize
-            });
-            
-            return result;
-        } catch (error) {
-            console.error('Error in vector reindex flow:', error);
-            throw error;
-        }
-    }
 
     async chatFlow(request: ChatRequest) {
         try {
             const result = await chatFlow({
                 message: request.message,
                 type: request.type,
-                userId: request.userId
+                userId: request.userId,
+                sessionId: request.sessionId,
+                newSession: request.newSession || false
             });
             
             return result;
         } catch (error) {
             console.error('Error in chat flow:', error);
+            throw error;
+        }
+    }
+
+    // Session management methods
+    async getUserSessions(userId: string) {
+        try {
+            return await sessionManagerExports.chatDatabase.getUserSessions(userId);
+        } catch (error) {
+            console.error('Error getting user sessions:', error);
+            throw error;
+        }
+    }
+
+    async getSessionMessages(sessionId: string, limit?: number) {
+        try {
+            return await sessionManagerExports.chatDatabase.getSessionMessages(sessionId, limit);
+        } catch (error) {
+            console.error('Error getting session messages:', error);
+            throw error;
+        }
+    }
+
+    async deleteSession(sessionId: string) {
+        try {
+            await sessionManagerExports.chatDatabase.deleteSession(sessionId);
+            return { success: true };
+        } catch (error) {
+            console.error('Error deleting session:', error);
+            throw error;
+        }
+    }
+
+    async updateSessionTitle(sessionId: string, title: string) {
+        try {
+            await sessionManagerExports.chatDatabase.updateSessionTitle(sessionId, title);
+            return { success: true };
+        } catch (error) {
+            console.error('Error updating session title:', error);
+            throw error;
+        }
+    }
+
+    async createNewSession(userId: string, title?: string) {
+        try {
+            const sessionId = `session_${userId}_${Date.now()}`;
+            await sessionManagerExports.chatDatabase.createSession(sessionId, userId, title);
+            return { sessionId, success: true };
+        } catch (error) {
+            console.error('Error creating new session:', error);
             throw error;
         }
     }

@@ -1,227 +1,23 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyReply } from 'fastify';
 import { AIService } from '../service/ai.service';
 import { authMiddleware, AuthenticatedRequest, requireUser } from '../shared/middleware/auth';
 import {
-    CourseRecommendationRequestSchema,
-    CourseRecommendationApiResponseSchema,
-    ContentDiscoveryRequestSchema,
-    ContentDiscoveryApiResponseSchema,
-    SimilarContentRequestSchema,
-    SimilarContentApiResponseSchema,
-    VectorReindexRequestSchema,
-    VectorReindexApiResponseSchema,
     ChatRequestSchema,
     ChatApiResponseSchema,
-    CourseRecommendationRequest,
-    ContentDiscoveryRequest,
-    SimilarContentRequest,
-    VectorReindexRequest,
-    ChatRequest
+    GetUserSessionsResponseSchema,
+    GetSessionMessagesResponseSchema,
+    DeleteSessionResponseSchema,
+    UpdateSessionTitleRequestSchema,
+    UpdateSessionTitleResponseSchema,
+    CreateSessionRequestSchema,
+    CreateSessionResponseSchema,
+    ChatRequest,
+    CreateSessionRequest
 } from '../schemas';
 
 const aiService = new AIService();
 
 export default async function aiRoutes(fastify: FastifyInstance) {
-
-    // Course Recommendation Flow
-    fastify.post('/courseRecommendationFlow', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['AI'],
-            summary: 'Get course recommendations',
-            description: 'Get personalized course recommendations based on user preferences and behavior',
-            security: [{ bearerAuth: [] }],
-            body: CourseRecommendationRequestSchema,
-            response: {
-                200: CourseRecommendationApiResponseSchema,
-                400: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        message: { type: 'string' },
-                        statusCode: { type: 'number' }
-                    }
-                },
-                500: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        message: { type: 'string' },
-                        statusCode: { type: 'number' }
-                    }
-                }
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-        try {
-            const requestData = request.body as CourseRecommendationRequest;
-            const result = await aiService.courseRecommendationFlow(requestData);
-
-            return {
-                success: true,
-                data: result,
-                message: 'Course recommendations retrieved successfully'
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            reply.status(500);
-            return {
-                success: false,
-                data: null,
-                message: errorMessage
-            };
-        }
-    });
-
-    // Content Discovery Flow
-    fastify.post('/contentDiscoveryFlow', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['AI'],
-            summary: 'Discover course content',
-            description: 'Discover relevant course content based on search query using AI-powered semantic search',
-            security: [{ bearerAuth: [] }],
-            body: ContentDiscoveryRequestSchema,
-            response: {
-                200: ContentDiscoveryApiResponseSchema,
-                400: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        message: { type: 'string' },
-                        statusCode: { type: 'number' }
-                    }
-                },
-                500: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        message: { type: 'string' },
-                        statusCode: { type: 'number' }
-                    }
-                }
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-        try {
-            const requestData = request.body as ContentDiscoveryRequest;
-            const result = await aiService.contentDiscoveryFlow(requestData);
-
-            return {
-                success: true,
-                data: result,
-                message: 'Content discovery completed successfully'
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            reply.status(500);
-            return {
-                success: false,
-                data: null,
-                message: errorMessage
-            };
-        }
-    });
-
-    // Similar Content Flow
-    fastify.post('/similarContentFlow', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['AI'],
-            summary: 'Find similar content',
-            description: 'Find content similar to a given content item using vector similarity',
-            security: [{ bearerAuth: [] }],
-            body: SimilarContentRequestSchema,
-            response: {
-                200: SimilarContentApiResponseSchema,
-                400: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        message: { type: 'string' },
-                        statusCode: { type: 'number' }
-                    }
-                },
-                500: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        message: { type: 'string' },
-                        statusCode: { type: 'number' }
-                    }
-                }
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-        try {
-            const requestData = request.body as SimilarContentRequest;
-            const result = await aiService.similarContentFlow(requestData);
-
-            return {
-                success: true,
-                data: result,
-                message: 'Similar content retrieved successfully'
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            reply.status(500);
-            return {
-                success: false,
-                data: null,
-                message: errorMessage
-            };
-        }
-    });
-
-    // Vector Reindex Flow
-    fastify.post('/vectorReindexFlow', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['AI'],
-            summary: 'Reindex vector embeddings',
-            description: 'Reindex vector embeddings for courses or content to improve search accuracy',
-            security: [{ bearerAuth: [] }],
-            body: VectorReindexRequestSchema,
-            response: {
-                200: VectorReindexApiResponseSchema,
-                400: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        message: { type: 'string' },
-                        statusCode: { type: 'number' }
-                    }
-                },
-                500: {
-                    type: 'object',
-                    properties: {
-                        success: { type: 'boolean' },
-                        message: { type: 'string' },
-                        statusCode: { type: 'number' }
-                    }
-                }
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
-        try {
-            const requestData = request.body as VectorReindexRequest;
-            const result = await aiService.vectorReindexFlow(requestData);
-
-            return {
-                success: true,
-                data: result,
-                message: 'Vector reindexing completed successfully'
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            reply.status(500);
-            return {
-                success: false,
-                data: null,
-                message: errorMessage
-            };
-        }
-    });
 
     // Chat Flow
     fastify.post('/chatFlow', {
@@ -269,6 +65,245 @@ export default async function aiRoutes(fastify: FastifyInstance) {
             return {
                 success: false,
                 data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Session Management Endpoints
+
+    // Get User Sessions
+    fastify.get('/sessions', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['AI Sessions'],
+            summary: 'Get user chat sessions',
+            description: 'Get all chat sessions for the authenticated user',
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: GetUserSessionsResponseSchema,
+                500: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' },
+                        statusCode: { type: 'number' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const userId = request.user!.userID;
+            const sessions = await aiService.getUserSessions(userId);
+
+            return {
+                success: true,
+                data: sessions,
+                message: 'User sessions retrieved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500);
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
+    });
+
+    // Get Session Messages
+    fastify.get('/sessions/:sessionId/messages', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['AI Sessions'],
+            summary: 'Get session messages',
+            description: 'Get messages from a specific chat session',
+            security: [{ bearerAuth: [] }],
+            params: {
+                type: 'object',
+                properties: {
+                    sessionId: { type: 'string' }
+                },
+                required: ['sessionId']
+            },
+            querystring: {
+                type: 'object',
+                properties: {
+                    limit: { type: 'number' }
+                }
+            },
+            response: {
+                200: GetSessionMessagesResponseSchema,
+                500: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' },
+                        statusCode: { type: 'number' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const { sessionId } = request.params as { sessionId: string };
+            const { limit } = request.query as { limit?: number };
+            
+            const messages = await aiService.getSessionMessages(sessionId, limit);
+
+            return {
+                success: true,
+                data: messages,
+                message: 'Session messages retrieved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500);
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
+    });
+
+    // Create New Session
+    fastify.post('/sessions', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['AI Sessions'],
+            summary: 'Create new chat session',
+            description: 'Create a new chat session for the authenticated user',
+            security: [{ bearerAuth: [] }],
+            body: CreateSessionRequestSchema,
+            response: {
+                200: CreateSessionResponseSchema,
+                500: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' },
+                        statusCode: { type: 'number' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const userId = request.user!.userID;
+            const requestData = { ...(request.body as any), userId } as CreateSessionRequest;
+            
+            const result = await aiService.createNewSession(requestData.userId, requestData.title);
+
+            return {
+                success: true,
+                data: result,
+                message: 'New session created successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500);
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Update Session Title
+    fastify.put('/sessions/:sessionId/title', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['AI Sessions'],
+            summary: 'Update session title',
+            description: 'Update the title of a specific chat session',
+            security: [{ bearerAuth: [] }],
+            params: {
+                type: 'object',
+                properties: {
+                    sessionId: { type: 'string' }
+                },
+                required: ['sessionId']
+            },
+            body: UpdateSessionTitleRequestSchema,
+            response: {
+                200: UpdateSessionTitleResponseSchema,
+                500: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' },
+                        statusCode: { type: 'number' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const { sessionId } = request.params as { sessionId: string };
+            const { title } = request.body as { title: string };
+            
+            await aiService.updateSessionTitle(sessionId, title);
+
+            return {
+                success: true,
+                message: 'Session title updated successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500);
+            return {
+                success: false,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Delete Session
+    fastify.delete('/sessions/:sessionId', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['AI Sessions'],
+            summary: 'Delete chat session',
+            description: 'Delete a specific chat session',
+            security: [{ bearerAuth: [] }],
+            params: {
+                type: 'object',
+                properties: {
+                    sessionId: { type: 'string' }
+                },
+                required: ['sessionId']
+            },
+            response: {
+                200: DeleteSessionResponseSchema,
+                500: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' },
+                        statusCode: { type: 'number' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const { sessionId } = request.params as { sessionId: string };
+            
+            await aiService.deleteSession(sessionId);
+
+            return {
+                success: true,
+                message: 'Session deleted successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500);
+            return {
+                success: false,
                 message: errorMessage
             };
         }

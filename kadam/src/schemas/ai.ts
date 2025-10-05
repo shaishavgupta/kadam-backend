@@ -106,7 +106,10 @@ export const VectorReindexApiResponseSchema = Type.Object({
 // Chat Request Schema
 export const ChatRequestSchema = Type.Object({
     message: Type.String({ description: 'User message' }),
-    type: Type.Optional(Type.String({ description: 'Message type' }))
+    type: Type.Optional(Type.String({ description: 'Message type' })),
+    userId: Type.String({ description: 'User ID for profile tracking' }),
+    sessionId: Type.Optional(Type.String({ description: 'Session ID for conversation continuity' })),
+    newSession: Type.Optional(Type.Boolean({ default: false, description: 'Whether to create a new session' }))
 });
 
 export const ChatApiResponseSchema = Type.Object({
@@ -137,7 +140,8 @@ export const ChatApiResponseSchema = Type.Object({
                 name: Type.String(),
                 reason: Type.String()
             })))
-        })
+        }),
+        sessionId: Type.Optional(Type.String({ description: 'Session ID for conversation continuity' }))
     }),
     message: Type.String()
 });
@@ -167,4 +171,93 @@ export interface ChatRequest {
     message: string;
     type?: string;
     userId: string;
+    sessionId?: string;
+    newSession?: boolean;
+}
+
+// Session Management Schemas
+export const GetUserSessionsRequestSchema = Type.Object({
+    userId: Type.String({ description: 'User ID to get sessions for' })
+});
+
+export const GetUserSessionsResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Array(Type.Object({
+        session_id: Type.String(),
+        title: Type.Union([Type.String(), Type.Null()]),
+        created_at: Type.String(),
+        updated_at: Type.String()
+    })),
+    message: Type.String()
+});
+
+export const GetSessionMessagesRequestSchema = Type.Object({
+    sessionId: Type.String({ description: 'Session ID to get messages for' }),
+    limit: Type.Optional(Type.Number({ description: 'Number of recent messages to return' }))
+});
+
+export const GetSessionMessagesResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Array(Type.Object({
+        role: Type.String(),
+        content: Type.String(),
+        timestamp: Type.String()
+    })),
+    message: Type.String()
+});
+
+export const DeleteSessionRequestSchema = Type.Object({
+    sessionId: Type.String({ description: 'Session ID to delete' })
+});
+
+export const DeleteSessionResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    message: Type.String()
+});
+
+export const UpdateSessionTitleRequestSchema = Type.Object({
+    sessionId: Type.String({ description: 'Session ID to update' }),
+    title: Type.String({ description: 'New title for the session' })
+});
+
+export const UpdateSessionTitleResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    message: Type.String()
+});
+
+export const CreateSessionRequestSchema = Type.Object({
+    userId: Type.String({ description: 'User ID to create session for' }),
+    title: Type.Optional(Type.String({ description: 'Title for the new session' }))
+});
+
+export const CreateSessionResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        sessionId: Type.String()
+    }),
+    message: Type.String()
+});
+
+// TypeScript interfaces for session management
+export interface GetUserSessionsRequest {
+    userId: string;
+}
+
+export interface GetSessionMessagesRequest {
+    sessionId: string;
+    limit?: number;
+}
+
+export interface DeleteSessionRequest {
+    sessionId: string;
+}
+
+export interface UpdateSessionTitleRequest {
+    sessionId: string;
+    title: string;
+}
+
+export interface CreateSessionRequest {
+    userId: string;
+    title?: string;
 }
