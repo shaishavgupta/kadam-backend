@@ -290,8 +290,8 @@ export class CoursesRepository {
       }
 
       const courseResult = await db.query(
-        `INSERT INTO courses (name, description, price, next_course_ids, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
+        `INSERT INTO courses (name, description, price, next_course_ids, is_active, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, true, NOW(), NOW()) RETURNING *`,
         [courseData.name, courseData.description, courseData.price, courseData.next_course_ids || null]
       );
 
