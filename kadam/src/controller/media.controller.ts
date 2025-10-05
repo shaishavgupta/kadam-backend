@@ -254,7 +254,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 }
 
                 // Check if content belongs to the specified module
-                if (content.module_id !== moduleId) {
+                if (content.module_id != moduleId) {
                     reply.status(400).send({
                         success: false,
                         message: 'Content does not belong to the specified module'
@@ -273,7 +273,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 }
 
                 // Check if module belongs to the specified course
-                if (content.course_id !== courseId) {
+                if (content.course_id != courseId) {
                     reply.status(400).send({
                         success: false,
                         message: 'Module does not belong to the specified course'

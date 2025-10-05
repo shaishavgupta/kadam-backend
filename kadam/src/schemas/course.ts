@@ -182,6 +182,7 @@ export const PaginatedCoursesResponseSchema = Type.Object({
 export const ContentWithModuleSchema = Type.Intersect([
     ContentSchema,
     Type.Object({
+        course_id: Type.Number(),
         module_title: Type.Optional(Type.String()),
         module_description: Type.Optional(Type.String())
     })

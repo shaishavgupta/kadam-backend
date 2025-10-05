@@ -1134,7 +1134,7 @@ export class CoursesRepository {
 
       // Check uniqueness by courseId, moduleId, name, and createdBy
       const existingContent = await db.query(
-        `SELECT c.*, m.name as module_title, m.description as module_description FROM contents c
+        `SELECT c.*, m.course_id, m.name as module_title, m.description as module_description FROM contents c
          JOIN modules m ON c.module_id = m.id
          JOIN courses co ON m.course_id = co.id
          JOIN course_creators cc ON co.id = cc.course_id
@@ -1143,7 +1143,11 @@ export class CoursesRepository {
       );
 
       if (existingContent.rows.length > 0) {
-        return existingContent.rows[0] as ContentWithModule;
+        const content = existingContent.rows[0];
+        return {
+          ...content,
+          course_id: content.course_id
+        } as ContentWithModule;
       }
 
       const result = await db.query(
@@ -1174,6 +1178,7 @@ export class CoursesRepository {
       const content = result.rows[0];
       return {
         ...content,
+        course_id: courseId,
         module_title: null,
         module_description: null
       } as ContentWithModule;
@@ -1311,9 +1316,18 @@ export class CoursesRepository {
         return null;
       }
 
+      // Get course_id from module
+      const moduleResult = await db.query(
+        `SELECT course_id FROM modules WHERE id = (SELECT module_id FROM contents WHERE id = $1)`,
+        [contentId]
+      );
+
+      const courseId = moduleResult.rows[0]?.course_id;
+
       const content = result.rows[0];
       return {
         ...content,
+        course_id: courseId,
         module_title: null,
         module_description: null
       } as ContentWithModule;
@@ -1350,10 +1364,31 @@ export class CoursesRepository {
     }
   }
 
-  async getContentById(contentId: number): Promise<{ id: number; course_id: number; module_id: number; name: string; description: string } | null> {
+  async getContentById(contentId: number): Promise<ContentWithModule | null> {
     try {
       const result = await db.query(
-        `SELECT c.id, c.module_id, m.course_id, c.name, c.description
+        `SELECT
+          c.id,
+          c.name,
+          c.description,
+          c.module_id,
+          c.content_type as type,
+          c.position,
+          c.is_paid,
+          c.is_active,
+          c.url,
+          c.abs_url,
+          c.duration,
+          c.thumbnail_url,
+          c.category_id,
+          c.next_content_id,
+          c.approved_at,
+          c.approved_by,
+          c.created_at,
+          c.updated_at,
+          m.course_id,
+          m.name as module_title,
+          m.description as module_description
          FROM contents c
          JOIN modules m ON c.module_id = m.id
          WHERE c.id = $1 AND c.is_active = true AND m.is_active = true`,
@@ -1364,7 +1399,7 @@ export class CoursesRepository {
         return null;
       }
 
-      return result.rows[0];
+      return result.rows[0] as ContentWithModule;
     } catch (error) {
       console.error("Error getting content by ID:", error);
       return null;

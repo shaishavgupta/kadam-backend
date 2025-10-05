@@ -568,7 +568,7 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
         }
 
         // Verify content belongs to the specified module and course
-        if (content.module_id !== moduleId || content.course_id !== courseId) {
+        if (content.module_id != moduleId || content.course_id != courseId) {
             console.log(`⚠️ Content ${contentId} does not belong to module ${moduleId} or course ${courseId}`);
             return {
                 success: false,
@@ -579,23 +579,8 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
             };
         }
 
-        // Get all contents for the course to find the specific content with full details
-        const contents = await coursesService.getContentsByCourseId(courseId);
-        const targetContent = contents.find(c => c.id === contentId);
-
-        if (!targetContent) {
-            console.log(`⚠️ Content ${contentId} not found in course contents`);
-            return {
-                success: false,
-                courseId,
-                contentId,
-                videosProcessed: 0,
-                message: 'Content not found in course'
-            };
-        }
-
         // Check if it's a video content
-        if (targetContent.type !== ContentType.VIDEO || !targetContent.is_active) {
+        if (content.type !== ContentType.VIDEO || !content.is_active) {
             console.log(`⚠️ Content ${contentId} is not an active video`);
             return {
                 success: false,
@@ -606,21 +591,21 @@ const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobD
             };
         }
 
-        console.log(`📹 Processing video content ${contentId}: ${targetContent.name}`);
+        console.log(`📹 Processing video content ${contentId}: ${content.name}`);
 
         // Create video processing job for the single content
         const videoJobData: VideoProcessingJobData = {
             courseId,
-            videoId: targetContent.id,
-            videoUrl: targetContent.url!,
-            moduleId: targetContent.module_id!,
+            videoId: content.id,
+            videoUrl: content.url!,
+            moduleId: content.module_id,
             processingOptions,
             metadata: {
-                originalFileName: basename(targetContent.url!),
+                originalFileName: basename(content.url!),
                 fileSize: 0, // Will be populated by the worker
-                duration: targetContent.duration || 0,
+                duration: content.duration || 0,
                 uploadedBy: 'system',
-                uploadedAt: targetContent.created_at
+                uploadedAt: content.created_at
             }
         };
 

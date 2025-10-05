@@ -372,7 +372,7 @@ export class CoursesService {
         }
     }
 
-    async getContentById(contentId: number): Promise<{ id: number; course_id: number; module_id: number; name: string } | null> {
+    async getContentById(contentId: number): Promise<ContentWithModule | null> {
         try {
             return await this.repository.getContentById(contentId);
         } catch (error) {
