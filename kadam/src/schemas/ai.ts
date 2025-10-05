@@ -259,3 +259,116 @@ export interface CreateSessionRequest {
     userId: string;
     title?: string;
 }
+
+// AI Repository Schemas (moved from repository/ai/schemas/)
+// Note: These schemas use Zod format for Genkit compatibility
+
+import { z } from 'genkit';
+
+// Persona Detection Schema
+export const PersonaDetectionSchema = z.object({
+    persona: z.enum(['student', 'jobbie', 'dylan', 'content_creator', 'unknown']).describe('Detected user persona'),
+    dialect: z.enum(['hinglish', 'assamese', 'telugu', 'tamil', 'bengali', 'punjabi', 'gujarati', 'unknown']).describe('Detected user dialect')
+});
+
+// Course Search Schemas
+export const CourseSearchInputSchema = z.object({
+    query: z.string().describe('Search query for courses'),
+    categoryId: z.bigint().optional().describe('Filter by category ID'),
+    limit: z.number().default(10).describe('Maximum number of results to return')
+});
+
+export const CourseSearchResultSchema = z.object({
+    courses: z.array(z.object({
+        id: z.bigint(),
+        name: z.string(),
+        description: z.string(),
+        price: z.number(),
+        thumbnail_url: z.string().nullable(),
+        priority: z.number(),
+        rank: z.number(),
+        is_paid: z.boolean(),
+        is_active: z.boolean().nullable()
+    })),
+    total: z.number()
+});
+
+// User Profile Schema
+export const UserProfileSchema = z.object({
+    // Basic user information from users table
+    name: z.string().optional().describe("User's full name"),
+
+    gender: z.enum(['male', 'female', 'others', 'unknown']).optional().describe("User's gender"),
+
+    dob: z.string().optional().describe("User's date of birth"),
+
+    bio: z.string().optional().describe("User's bio or personal description"),
+
+    // AI learning profile information
+    persona: z.enum(['student', 'jobbie', 'dylan', 'content_creator', 'unknown']).optional().describe('User persona type'),
+
+    tier: z.enum(['tier1', 'tier2', 'tier3', 'unknown']).optional().describe('User tier classification'),
+
+    dialect: z.enum(['hinglish', 'assamese', 'telugu', 'tamil', 'bengali', 'punjabi', 'gujarati', 'unknown']).optional().describe('Preferred dialect or local language'),
+
+    currentRole: z.string().optional().describe('Current job role, education status, or profession'),
+
+    experienceLevel: z.enum(['beginner', 'intermediate', 'advanced', 'unknown']).optional().describe('Overall learning experience level'),
+
+    learningGoals: z.array(z.string()).optional().describe('Primary learning goals (e.g., get a job, start freelancing)'),
+
+    interests: z.array(z.string()).optional().describe('Topics or areas of interest'),
+
+    currentSkills: z.array(z.string()).optional().describe('Skills already known by the user'),
+
+    challenges: z.array(z.string()).optional().describe('Current learning or career challenges'),
+
+    timeCommitment: z.enum(['<1hr/day', '1-2hr/day', 'weekends', 'flexible', 'unknown']).optional().describe('Time available for learning'),
+
+    preferredLearningStyle: z.enum(['video', 'text', 'practice', 'mentor_guided', 'unknown']).optional().describe('Preferred learning format')
+});
+
+// User Perspective Metadata Schema
+export const UserPerspectiveMetadataSchema = z.object({
+    metadata: z.string()
+});
+
+// Chat Response Schema
+export const ChatResponseSchema = z.object({
+    messages: z.array(z.string()).describe('Array of AI response messages to display with typing animation'),
+    type: z.string().optional().describe('Response type'),
+    userProfile: z.object({
+        currentRole: z.string().optional().describe('User\'s current job role or profession'),
+        experienceLevel: z.enum(['beginner', 'intermediate', 'advanced', 'unknown']).optional().describe('Experience level'),
+        learningGoals: z.array(z.string()).optional().describe('What they want to learn'),
+        interests: z.array(z.string()).optional().describe('Areas of interest'),
+        timeCommitment: z.string().optional().describe('How much time they can commit to learning'),
+        preferredLearningStyle: z.string().optional().describe('How they prefer to learn'),
+        currentSkills: z.array(z.string()).optional().describe('Skills they already have'),
+        challenges: z.array(z.string()).optional().describe('Current challenges they face'),
+        persona: z.enum(['student', 'jobbie', 'dylan', 'content_creator', 'unknown']).optional().describe('User persona type'),
+        tier: z.enum(['tier1', 'tier2', 'tier3', 'unknown']).optional().describe('User tier classification')
+    }).optional().describe('Updated user profile'),
+    nextQuestions: z.array(z.object({
+        text: z.string().describe('What the user wants to say next - their intention/desire (e.g., "Main apna rasta khud banana chahta hun")'),
+        metadata: z.string().describe('User\'s message in their dialect and persona - what they would actually type (e.g., "Main HTML seekhna chahta hun, please guide karo")')
+    })).optional().describe('User intentions and their actual messages in their dialect'),
+    learningPath: z.object({
+        suggested: z.boolean().describe('Whether to suggest a learning path'),
+        courses: z.array(z.object({
+            id: z.string(),
+            name: z.string(),
+            reason: z.string()
+        })).optional().describe('Suggested courses')
+    }).describe('Learning path suggestions'),
+    sessionId: z.string().optional().describe('Session ID for conversation continuity')
+});
+
+// Response interface for generation functions
+export interface ResponseWithCTAs {
+    messages: string[];
+    nextQuestions: Array<{
+        text: string;
+        metadata: string;
+    }>;
+}

@@ -3,7 +3,7 @@ import { xAI } from '@genkit-ai/compat-oai/xai';
 import { sessionStore, chatDatabase } from '../../infra/session-store';
 
 // Import all modules
-import * as schemas from './schemas';
+import * as schemas from '../../schemas/ai';
 import { PersonaDetector } from './persona-detector';
 import { PromptGenerator } from './prompt-generator';
 import { ConversationFlowManager, ConversationStage } from './conversation-flow';
@@ -41,16 +41,16 @@ export const chatFlow = ai.defineFlow(
   async (input: any) => {
     try {
       const userId = input.userId;
-      
+
       // Ensure userId is provided
       if (!userId) {
         throw new Error('User ID is required for chat flow');
       }
-      
+
       // Handle session management
       const { sessionId, sessionData } = await sessionManager.handleSession(
-        userId, 
-        input.sessionId, 
+        userId,
+        input.sessionId,
         input.newSession
       );
 
@@ -72,12 +72,12 @@ export const chatFlow = ai.defineFlow(
         - Challenges they're facing
 
         Return a JSON object with any information you can extract. If no information is found for a field, omit it.
-        
-        IMPORTANT: For enum fields (gender, experienceLevel, timeCommitment, preferredLearningStyle, persona, dialect, tier), 
+
+        IMPORTANT: For enum fields (gender, experienceLevel, timeCommitment, preferredLearningStyle, persona, dialect, tier),
         if you cannot determine the value, return "unknown" instead of omitting the field.
 
         Current profile: ${JSON.stringify(currentProfile)}
-        
+
         User's basic information:
         - Name: ${currentProfile.name || 'unknown'}
         - Gender: ${currentProfile.gender || 'unknown'}
@@ -99,7 +99,7 @@ export const chatFlow = ai.defineFlow(
           console.log('LLM detection failed, using unknown fallback');
           return { persona: 'unknown', dialect: 'unknown' };
         });
-      
+
       const detectedTier = 'unknown'; // Use unknown instead of default tier2
 
       // Update profile with detected persona, dialect, and tier
@@ -125,11 +125,11 @@ export const chatFlow = ai.defineFlow(
 
       // Generate response based on conversation stage
       const responseResult = await generateStageResponse(
-        conversationStage, 
-        input.message, 
-        updatedProfile, 
-        systemPrompt, 
-        detectedPersona, 
+        conversationStage,
+        input.message,
+        updatedProfile,
+        systemPrompt,
+        detectedPersona,
         detectedDialect
       );
 
@@ -279,4 +279,4 @@ export {
 };
 
 // Export schemas
-export * from './schemas';
+export * from '../../schemas/ai';

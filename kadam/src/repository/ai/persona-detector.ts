@@ -1,5 +1,5 @@
 import { z } from 'genkit';
-import { PersonaDetectionSchema } from './schemas';
+import { PersonaDetectionSchema } from '../../schemas/ai';
 
 // Cache for persona and dialect detection
 const detectionCache = new Map<string, { persona: string; dialect: string; timestamp: number }>();
@@ -11,14 +11,14 @@ export interface PersonaDetectionResult {
 }
 
 export class PersonaDetector {
-  constructor(private ai: any) {}
+  constructor(private ai: any) { }
 
   /**
    * Detect user persona and dialect based on their profile and message
    */
   async detectPersonaAndDialect(
-    userProfile: any, 
-    message: string, 
+    userProfile: any,
+    message: string,
     userId: string
   ): Promise<PersonaDetectionResult> {
     // Check cache first

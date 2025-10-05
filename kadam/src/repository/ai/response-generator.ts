@@ -1,5 +1,5 @@
 import { z } from 'genkit';
-import { ResponseWithCTAs, UserPerspectiveMetadataSchema } from './schemas';
+import { ResponseWithCTAs, UserPerspectiveMetadataSchema } from '../../schemas/ai';
 import { ConversationStage } from './conversation-flow';
 
 export interface UserProfile {
@@ -8,7 +8,7 @@ export interface UserProfile {
   gender?: 'male' | 'female' | 'others' | 'unknown';
   dob?: string;
   bio?: string;
-  
+
   // AI learning profile information
   currentRole?: string;
   experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'unknown';
@@ -24,15 +24,15 @@ export interface UserProfile {
 }
 
 export class ResponseGenerator {
-  constructor(private ai: any) {}
+  constructor(private ai: any) { }
 
   /**
    * Generate user-perspective metadata based on CTA text and user context
    */
   async generateUserPerspectiveMetadata(
-    ctaText: string, 
-    userMessage: string, 
-    persona: string, 
+    ctaText: string,
+    userMessage: string,
+    persona: string,
     dialect: string
   ): Promise<string> {
     const { output } = await this.ai.generate({
@@ -48,8 +48,8 @@ export class ResponseGenerator {
    * Generate greeting response - more casual and relationship-focused
    */
   async generateGreetingResponse(
-    message: string, 
-    profile: UserProfile, 
+    message: string,
+    profile: UserProfile,
     systemPrompt: string
   ): Promise<ResponseWithCTAs> {
     const { output } = await this.ai.generate({
@@ -73,8 +73,8 @@ export class ResponseGenerator {
    * Generate role discovery response - more gradual and conversational
    */
   async generateRoleDiscoveryResponse(
-    message: string, 
-    profile: UserProfile, 
+    message: string,
+    profile: UserProfile,
     systemPrompt: string
   ): Promise<ResponseWithCTAs> {
     const { output } = await this.ai.generate({
@@ -98,8 +98,8 @@ export class ResponseGenerator {
    * Generate goals discovery response - more gradual approach
    */
   async generateGoalsDiscoveryResponse(
-    message: string, 
-    profile: UserProfile, 
+    message: string,
+    profile: UserProfile,
     systemPrompt: string
   ): Promise<ResponseWithCTAs> {
     const { output } = await this.ai.generate({
@@ -123,8 +123,8 @@ export class ResponseGenerator {
    * Generate recommendation response
    */
   async generateRecommendationResponse(
-    message: string, 
-    profile: UserProfile, 
+    message: string,
+    profile: UserProfile,
     systemPrompt: string
   ): Promise<ResponseWithCTAs> {
     const { output } = await this.ai.generate({
@@ -148,8 +148,8 @@ export class ResponseGenerator {
    * Generate ongoing support response
    */
   async generateOngoingSupportResponse(
-    message: string, 
-    profile: UserProfile, 
+    message: string,
+    profile: UserProfile,
     systemPrompt: string
   ): Promise<ResponseWithCTAs> {
     const { output } = await this.ai.generate({
@@ -173,8 +173,8 @@ export class ResponseGenerator {
    * Generate general response
    */
   async generateGeneralResponse(
-    message: string, 
-    profile: UserProfile, 
+    message: string,
+    profile: UserProfile,
     systemPrompt: string
   ): Promise<ResponseWithCTAs> {
     const { output } = await this.ai.generate({

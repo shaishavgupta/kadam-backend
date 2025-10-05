@@ -870,6 +870,91 @@ async function handleCourseCompletion(userId: number, courseId: number) {
 }
 ```
 
+### AI Repository Architecture
+
+The AI repository has been refactored from a monolithic structure into a modular, maintainable architecture:
+
+#### AI Repository Structure
+```
+src/repository/ai/
+├── index.ts                    # Main orchestrator file
+├── persona-detector.ts         # User persona and dialect detection
+├── prompt-generator.ts         # System prompts and persona-specific prompts
+├── conversation-flow.ts        # Conversation stage management
+├── response-generator.ts       # Response generation for different types
+└── session-manager.ts          # Session handling and user profile management
+```
+
+#### AI Module Descriptions
+
+**1. Schemas**
+- **Purpose**: AI schemas are centralized in the main `schemas/ai.ts` file
+- **Import**: All AI schemas are imported directly from `../../schemas/ai`
+- **Note**: Schemas use Zod format for Genkit compatibility
+
+**2. Persona Detector (`persona-detector.ts`)**
+- **Purpose**: Handles user persona and dialect detection using LLM
+- **Key Features**:
+  - Caching mechanism for detection results
+  - Fallback handling for detection failures
+  - Cache management utilities
+
+**3. Prompt Generator (`prompt-generator.ts`)**
+- **Purpose**: Generates system prompts based on persona and dialect
+- **Key Features**:
+  - Dialect-specific instructions
+  - Persona-specific prompts (student, jobbie, dylan, content_creator)
+  - Configurable prompt building
+
+**4. Conversation Flow (`conversation-flow.ts`)**
+- **Purpose**: Manages conversation stages and flow logic
+- **Key Features**:
+  - Stage determination logic
+  - Profile completion checking
+  - Missing field identification
+
+**5. Response Generator (`response-generator.ts`)**
+- **Purpose**: Generates responses for different conversation stages
+- **Key Features**:
+  - Stage-specific response generation
+  - User perspective metadata generation
+  - Fallback responses for each stage
+
+**6. Session Manager (`session-manager.ts`)**
+- **Purpose**: Handles session management and user profile storage
+- **Key Features**:
+  - Session creation and loading
+  - User profile management
+  - Message history management
+  - Session statistics and utilities
+
+**7. Main Index (`index.ts`)**
+- **Purpose**: Orchestrates all modules and provides the main chat flow
+- **Key Features**:
+  - Initializes all managers
+  - Defines the main chat flow
+  - Handles error responses
+  - Exports all necessary functions
+
+#### AI Repository Benefits
+
+1. **Maintainability**: Each module has a single responsibility
+2. **Readability**: Smaller, focused files are easier to understand
+3. **Testability**: Individual modules can be tested in isolation
+4. **Reusability**: Modules can be imported and used independently
+5. **Scalability**: Easy to add new features or modify existing ones
+6. **Code Organization**: Related functionality is grouped together
+
+#### AI Repository Usage
+
+The refactored code maintains the same public API:
+
+```typescript
+import { chatFlow, flows, userProfileManager, sessionManagerExports } from './repository/ai.repository';
+```
+
+All existing functionality remains unchanged, but the code is now much more organized and maintainable.
+
 ### Authentication & Authorization
 
 - **JWT Tokens**: Access and refresh token system
