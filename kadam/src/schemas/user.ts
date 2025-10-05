@@ -41,7 +41,8 @@ export const UserSchema = Type.Object({
     bio: Type.Optional(Type.String()),
     gender: Type.Optional(GenderSchema),
     onboarding_completed: Type.Boolean(),
-    whatsapp_allowed: Type.Boolean()
+    whatsapp_allowed: Type.Boolean(),
+    ai_preferences: Type.Optional(Type.Record(Type.String(), Type.Any()))
 });
 
 export const CreateUserRequestSchema = Type.Object({

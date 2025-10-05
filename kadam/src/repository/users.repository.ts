@@ -27,7 +27,8 @@ export class UserRepository {
             bio: row.bio || undefined,
             gender: row.gender && Object.values(Gender).includes(row.gender) ? row.gender : undefined,
             onboarding_completed: row.onboarding_completed,
-            whatsapp_allowed: row.whatsapp_allowed
+            whatsapp_allowed: row.whatsapp_allowed,
+            ai_preferences: row.ai_preferences || undefined
         };
     }
 
@@ -229,5 +230,60 @@ export class UserRepository {
             limit,
             totalPages: Math.ceil(total / limit)
         };
+    }
+
+    // User Preferences Management Methods
+    
+    async getUserPreferences(userId: number): Promise<Record<string, any> | null> {
+        const result = await db.query(
+            'SELECT ai_preferences FROM users WHERE id = $1',
+            [userId]
+        );
+        
+        if (result.rows.length === 0) {
+            return null;
+        }
+        
+        return result.rows[0].ai_preferences || {};
+    }
+
+    async updateUserPreferences(userId: number, preferences: Record<string, any>): Promise<void> {
+        const result = await db.query(
+            `UPDATE users 
+             SET ai_preferences = $1, updated_at = NOW() 
+             WHERE id = $2`,
+            [JSON.stringify(preferences), userId]
+        );
+        
+        if (result.rowCount === 0) {
+            throw new Error("User not found");
+        }
+    }
+
+    async mergeUserPreferences(userId: number, preferences: Record<string, any>): Promise<void> {
+        const result = await db.query(
+            `UPDATE users 
+             SET ai_preferences = COALESCE(ai_preferences, '{}'::jsonb) || $1::jsonb, 
+                 updated_at = NOW() 
+             WHERE id = $2`,
+            [JSON.stringify(preferences), userId]
+        );
+        
+        if (result.rowCount === 0) {
+            throw new Error("User not found");
+        }
+    }
+
+    async clearUserPreferences(userId: number): Promise<void> {
+        const result = await db.query(
+            `UPDATE users 
+             SET ai_preferences = '{}'::jsonb, updated_at = NOW() 
+             WHERE id = $1`,
+            [userId]
+        );
+        
+        if (result.rowCount === 0) {
+            throw new Error("User not found");
+        }
     }
 }
