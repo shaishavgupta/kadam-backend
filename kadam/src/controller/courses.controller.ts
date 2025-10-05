@@ -1228,6 +1228,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 approved_by: 0,
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
+                course_id: 0,
                 module_title: '',
                 module_description: ''
             },
