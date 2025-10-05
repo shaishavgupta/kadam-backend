@@ -118,15 +118,15 @@ export const ChatApiResponseSchema = Type.Object({
         type: Type.Optional(Type.String()),
         userProfile: Type.Optional(Type.Object({
             currentRole: Type.Optional(Type.String()),
-            experienceLevel: Type.Optional(Type.Union([Type.Literal('beginner'), Type.Literal('intermediate'), Type.Literal('advanced')])),
+            experienceLevel: Type.Optional(Type.Union([Type.Literal('beginner'), Type.Literal('intermediate'), Type.Literal('advanced'), Type.Literal('unknown')])),
             learningGoals: Type.Optional(Type.Array(Type.String())),
             interests: Type.Optional(Type.Array(Type.String())),
             timeCommitment: Type.Optional(Type.String()),
             preferredLearningStyle: Type.Optional(Type.String()),
             currentSkills: Type.Optional(Type.Array(Type.String())),
             challenges: Type.Optional(Type.Array(Type.String())),
-            persona: Type.Optional(Type.Union([Type.Literal('student'), Type.Literal('jobbie'), Type.Literal('dylan'), Type.Literal('content_creator')])),
-            tier: Type.Optional(Type.Union([Type.Literal('tier1'), Type.Literal('tier2'), Type.Literal('tier3')]))
+            persona: Type.Optional(Type.Union([Type.Literal('student'), Type.Literal('jobbie'), Type.Literal('dylan'), Type.Literal('content_creator'), Type.Literal('unknown')])),
+            tier: Type.Optional(Type.Union([Type.Literal('tier1'), Type.Literal('tier2'), Type.Literal('tier3'), Type.Literal('unknown')]))
         })),
         nextQuestions: Type.Optional(Type.Array(Type.Object({
             text: Type.String(),
