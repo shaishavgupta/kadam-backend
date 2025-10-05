@@ -21,9 +21,14 @@ RUN npm run build
 # --- Runtime Stage ---
 FROM node:20-slim
 
-# Install ffmpeg (minimal)
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
-  && rm -rf /var/lib/apt/lists/*
+# Install ffmpeg and ensure ffprobe is available
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ffmpeg \
+  && rm -rf /var/lib/apt/lists/* \
+  && ffmpeg -version \
+  && ffprobe -version \
+  && which ffmpeg \
+  && which ffprobe
 WORKDIR /app
 
 # Copy only built files + dependencies
