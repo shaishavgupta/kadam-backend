@@ -13,6 +13,7 @@
     "genkit:dev": "genkit start -- npx tsx --watch src/index.ts",
     "genkit:express": "genkit start -- npx tsx --watch src/genkit-express.ts",
     "bullmq": "tsx src/bullmq-init.ts",
+    "bullmq:start": "node dist/bullmq-init.js",
     "test": "echo \"No tests specified\"",
     "docker:start": "./docker-scripts.sh start",
     "docker:dev": "./docker-scripts.sh dev",
