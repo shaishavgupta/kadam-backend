@@ -8,7 +8,7 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config, awsConfig } from '../../config';
-import { FileType, S3Operation, S3Prefix } from '../../shared/enums';
+import { FileType, S3Operation } from '../../shared/enums';
 
 // S3 Client Configuration
 const s3Client = new S3Client({
@@ -29,27 +29,27 @@ export const S3_CONFIG = {
 // Enforces: raw-videos/{courseId}/Thumbnail.webp | {moduleId}/Thumbnail.webp | {contentId}/Video.mp4 | {contentId}/Thumbnail.webp
 
 export function generateCourseThumbnailKey(courseId: number): string {
-    return `${S3Prefix.RAW_VIDEOS}/${courseId}/Thumbnail.webp`;
+    return `${courseId}/Thumbnail.webp`;
 }
 
 export function generateModuleThumbnailKey(courseId: number, moduleId: number): string {
-    return `${S3Prefix.RAW_VIDEOS}/${courseId}/${moduleId}/Thumbnail.webp`;
+    return `${courseId}/${moduleId}/Thumbnail.webp`;
 }
 
 export function generateContentVideoKey(courseId: number, moduleId: number, contentId: number): string {
-    return `${S3Prefix.RAW_VIDEOS}/${courseId}/${moduleId}/${contentId}/Video.mp4`;
+    return `${courseId}/${moduleId}/${contentId}/Video.mp4`;
 }
 
 export function generateContentThumbnailKey(courseId: number, moduleId: number, contentId: number): string {
-    return `${S3Prefix.RAW_VIDEOS}/${courseId}/${moduleId}/${contentId}/Thumbnail.webp`;
+    return `${courseId}/${moduleId}/${contentId}/Thumbnail.webp`;
 }
 
 export function generateProcessedVideoKey(courseId: number, moduleId: number, contentId: number, resolution: string, fileName: string): string {
-    return `${S3Prefix.PROCESSED_VIDEOS}/${courseId}/${moduleId}/${contentId}/${resolution}/${fileName}`;
+    return `${courseId}/${moduleId}/${contentId}/${resolution}/${fileName}`;
 }
 
 export function generateMasterPlaylistKey(courseId: number, moduleId: number, contentId: number): string {
-    return `${S3Prefix.PROCESSED_VIDEOS}/${courseId}/${moduleId}/${contentId}/master.m3u8`;
+    return `${awsConfig.s3.prefixes.processedVideos}/${courseId}/${moduleId}/${contentId}/master.m3u8`;
 }
 
 // File Upload Types
