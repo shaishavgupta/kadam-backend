@@ -455,7 +455,7 @@ export class CoursesRepository {
   async getCourseById(id: number): Promise<Course | null> {
     try {
       const result = await db.query(
-        `SELECT * FROM courses WHERE id = $1`,
+        `SELECT * FROM courses WHERE id = $1 AND is_active = true`,
         [id]
       );
       if (result.rows.length > 0) {
@@ -1356,7 +1356,7 @@ export class CoursesRepository {
         `SELECT c.id, c.module_id, m.course_id, c.name, c.description
          FROM contents c
          JOIN modules m ON c.module_id = m.id
-         WHERE c.id = $1 AND c.is_active = true`,
+         WHERE c.id = $1 AND c.is_active = true AND m.is_active = true`,
         [contentId]
       );
 

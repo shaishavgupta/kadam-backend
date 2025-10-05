@@ -545,80 +545,110 @@ class FFmpegVideoProcessor {
 // Initialize FFmpeg video processor
 const videoProcessor = new FFmpegVideoProcessor();
 
-// Course Video Processing Worker Processor - Creates individual video jobs
+// Course Video Processing Worker Processor - Processes single content
 const courseVideoProcessingProcessor = async (job: Job<CourseVideoProcessingJobData>) => {
-    const { courseId, processingOptions } = job.data;
+    const { courseId, moduleId, contentId, processingOptions } = job.data;
 
-    console.log(`🎬 Processing all videos for course ${courseId}`);
+    console.log(`🎬 Processing single content ${contentId} for course ${courseId}`);
 
     try {
-        // Fetch all video content for the course
         const coursesService = new CoursesService();
-        const contents = await coursesService.getContentsByCourseId(courseId);
 
-        // Filter only video content
-        const videoContents = contents.filter(content =>
-            content.type === ContentType.VIDEO &&
-            content.is_active
-        );
-
-        if (videoContents.length === 0) {
-            console.log(`⚠️ No active video content found for course ${courseId}`);
+        // Get the specific content to process
+        const content = await coursesService.getContentById(contentId);
+        if (!content) {
+            console.log(`⚠️ Content ${contentId} not found`);
             return {
-                success: true,
+                success: false,
                 courseId,
+                contentId,
                 videosProcessed: 0,
-                message: 'No active video content found'
+                message: 'Content not found'
             };
         }
 
-        console.log(`📹 Found ${videoContents.length} videos to process for course ${courseId}`);
-
-        // Create individual video processing jobs in parallel
-        const videoJobPromises = videoContents.map(async (videoContent) => {
-            const videoJobData: VideoProcessingJobData = {
+        // Verify content belongs to the specified module and course
+        if (content.module_id !== moduleId || content.course_id !== courseId) {
+            console.log(`⚠️ Content ${contentId} does not belong to module ${moduleId} or course ${courseId}`);
+            return {
+                success: false,
                 courseId,
-                videoId: videoContent.id,
-                videoUrl: videoContent.url!,
-                moduleId: videoContent.module_id!,
-                processingOptions,
-                metadata: {
-                    originalFileName: basename(videoContent.url!),
-                    fileSize: 0, // Will be populated by the worker
-                    duration: videoContent.duration || 0,
-                    uploadedBy: 'system',
-                    uploadedAt: videoContent.created_at
-                }
+                contentId,
+                videosProcessed: 0,
+                message: 'Content does not belong to specified module/course'
             };
+        }
 
-            // Add individual video processing job
-            return await bullMQManager.addJob(
-                QUEUE_NAMES.VIDEO_PROCESSING,
-                JOB_TYPES.VIDEO_PROCESSING.PROCESS_VIDEO,
-                videoJobData,
-                {
-                    priority: 1,
-                    attempts: 3,
-                    removeOnComplete: 10,
-                    removeOnFail: 5
-                }
-            );
-        });
+        // Get all contents for the course to find the specific content with full details
+        const contents = await coursesService.getContentsByCourseId(courseId);
+        const targetContent = contents.find(c => c.id === contentId);
 
-        // Wait for all video jobs to be created
-        const videoJobs = await Promise.all(videoJobPromises);
+        if (!targetContent) {
+            console.log(`⚠️ Content ${contentId} not found in course contents`);
+            return {
+                success: false,
+                courseId,
+                contentId,
+                videosProcessed: 0,
+                message: 'Content not found in course'
+            };
+        }
 
-        console.log(`✅ Created ${videoJobs.length} individual video processing jobs for course ${courseId}`);
+        // Check if it's a video content
+        if (targetContent.type !== ContentType.VIDEO || !targetContent.is_active) {
+            console.log(`⚠️ Content ${contentId} is not an active video`);
+            return {
+                success: false,
+                courseId,
+                contentId,
+                videosProcessed: 0,
+                message: 'Content is not an active video'
+            };
+        }
+
+        console.log(`📹 Processing video content ${contentId}: ${targetContent.name}`);
+
+        // Create video processing job for the single content
+        const videoJobData: VideoProcessingJobData = {
+            courseId,
+            videoId: targetContent.id,
+            videoUrl: targetContent.url!,
+            moduleId: targetContent.module_id!,
+            processingOptions,
+            metadata: {
+                originalFileName: basename(targetContent.url!),
+                fileSize: 0, // Will be populated by the worker
+                duration: targetContent.duration || 0,
+                uploadedBy: 'system',
+                uploadedAt: targetContent.created_at
+            }
+        };
+
+        // Add individual video processing job
+        const videoJob = await bullMQManager.addJob(
+            QUEUE_NAMES.VIDEO_PROCESSING,
+            JOB_TYPES.VIDEO_PROCESSING.PROCESS_VIDEO,
+            videoJobData,
+            {
+                priority: 1,
+                attempts: 3,
+                removeOnComplete: 10,
+                removeOnFail: 5
+            }
+        );
+
+        console.log(`✅ Created video processing job ${videoJob.id} for content ${contentId}`);
 
         return {
             success: true,
             courseId,
-            videosProcessed: videoJobs.length,
-            jobIds: videoJobs.map(job => job.id)
+            contentId,
+            videosProcessed: 1,
+            jobId: videoJob.id
         };
 
     } catch (error) {
-        console.error(`❌ Error processing course videos for course ${courseId}:`, error);
+        console.error(`❌ Error processing content ${contentId} for course ${courseId}:`, error);
         throw error;
     }
 };

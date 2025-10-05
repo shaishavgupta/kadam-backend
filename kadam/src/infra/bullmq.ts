@@ -99,6 +99,8 @@ export interface VideoProcessingJobData {
 
 export interface CourseVideoProcessingJobData {
     courseId: number;
+    moduleId: number;
+    contentId: number;
     processingOptions?: {
         resolutions?: string[];
         format?: string;

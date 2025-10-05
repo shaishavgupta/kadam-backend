@@ -88,6 +88,8 @@ export const VideoProcessingResponseSchema = Type.Object({
 // Renamed schemas for upload endpoint
 export const VideoUploadRequestSchema = Type.Object({
     courseId: Type.Number({ minimum: 1 }),
+    moduleId: Type.Number({ minimum: 1 }),
+    contentId: Type.Number({ minimum: 1 }),
     processingOptions: Type.Optional(Type.Object({
         resolutions: Type.Optional(Type.Array(Type.Union([
             Type.Literal('144p'),

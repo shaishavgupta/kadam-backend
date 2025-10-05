@@ -211,7 +211,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
             }
         }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<VideoUploadResponse> => {
             try {
-                const { courseId, processingOptions } = request.body as VideoUploadRequest;
+                const { courseId, moduleId, contentId, processingOptions } = request.body as VideoUploadRequest;
 
                 // Validate course exists
                 const course = await coursesService.getCourseById(courseId);
@@ -233,6 +233,64 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                     };
                 }
 
+                // Validate content belongs to given module and module belongs to given course
+                const content = await coursesService.getContentById(contentId);
+                if (!content) {
+                    reply.status(400).send({
+                        success: false,
+                        message: 'Content not found'
+                    });
+                    return {
+                        success: false,
+                        data: {
+                            videoJobId: '',
+                            vectorJobId: '',
+                            contentVectorJobId: '',
+                            status: 'failed',
+                            message: 'Content not found'
+                        },
+                        message: 'Content not found'
+                    };
+                }
+
+                // Check if content belongs to the specified module
+                if (content.module_id !== moduleId) {
+                    reply.status(400).send({
+                        success: false,
+                        message: 'Content does not belong to the specified module'
+                    });
+                    return {
+                        success: false,
+                        data: {
+                            videoJobId: '',
+                            vectorJobId: '',
+                            contentVectorJobId: '',
+                            status: 'failed',
+                            message: 'Content does not belong to the specified module'
+                        },
+                        message: 'Content does not belong to the specified module'
+                    };
+                }
+
+                // Check if module belongs to the specified course
+                if (content.course_id !== courseId) {
+                    reply.status(400).send({
+                        success: false,
+                        message: 'Module does not belong to the specified course'
+                    });
+                    return {
+                        success: false,
+                        data: {
+                            videoJobId: '',
+                            vectorJobId: '',
+                            contentVectorJobId: '',
+                            status: 'failed',
+                            message: 'Module does not belong to the specified course'
+                        },
+                        message: 'Module does not belong to the specified course'
+                    };
+                }
+
                 // Default processing options if not provided
                 const defaultResolutions = ['144p', '240p', '360p', '480p', '720p'];
                 const finalProcessingOptions = {
@@ -243,6 +301,8 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 // Prepare job data for course video processing
                 const jobData: CourseVideoProcessingJobData = {
                     courseId,
+                    moduleId,
+                    contentId,
                     processingOptions: finalProcessingOptions
                 };
 
