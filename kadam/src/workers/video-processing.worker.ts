@@ -351,9 +351,9 @@ class FFmpegVideoProcessor {
         // Video codec
         parts.push('-c:v', format.codec);
 
-        // Resolution
+        // Resolution with aspect ratio preservation
         const { width, height } = this.parseResolution(format.resolution);
-        parts.push('-s', `${width}x${height}`);
+        parts.push('-vf', `"scale=${width}:-2"`); // Auto-adjust height to maintain aspect ratio
 
         // Video bitrate
         if (format.bitrate) {
@@ -442,7 +442,7 @@ class FFmpegVideoProcessor {
             '-c:v', 'libx264',
             '-preset', 'medium',
             '-crf', '23',
-            '-s', `${width}x${height}`,
+            '-vf', `"scale=${width}:-2"`, // Auto-adjust height to maintain aspect ratio
             '-b:v', bitrate,
             '-maxrate', bitrate,
             '-bufsize', `${parseInt(bitrate.replace('k', '')) * 2}k`,
