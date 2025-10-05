@@ -49,7 +49,7 @@ export function generateProcessedVideoKey(courseId: number, moduleId: number, co
 }
 
 export function generateMasterPlaylistKey(courseId: number, moduleId: number, contentId: number): string {
-    return `${awsConfig.s3.prefixes.processedVideos}/${courseId}/${moduleId}/${contentId}/master.m3u8`;
+    return `${courseId}/${moduleId}/${contentId}/master.m3u8`;
 }
 
 // File Upload Types
