@@ -431,42 +431,59 @@ class FFmpegVideoProcessor {
         segmentPattern: string,
         resolution: string,
         bitrate: string,
-        segmentDuration: number
+        segmentDuration: number,
+        fps: number = 30 // default to 30fps if not provided
     ): string {
         const { height } = this.parseResolution(resolution);
+
+        // Calculate bufsize as twice the bitrate
+        const numericBitrate = parseInt(bitrate.replace('k', ''));
+        const bufsize = `${numericBitrate * 2}k`;
 
         const parts = [
             this.ffmpegPath,
             '-i', `"${inputPath}"`,
+
             // Video settings
             '-c:v', 'libx264',
             '-preset', 'medium',
             '-crf', '23',
-            '-vf', `"scale=-2:${height}"`, // Height-based scaling for portrait videos (9:16)
+
+            // Scale preserving aspect ratio, width divisible by 2
+            '-vf', `"scale=trunc(oh*a/2)*2:${height}"`,
+            '-pix_fmt', 'yuv420p',
+
+            // Bitrate settings
             '-b:v', bitrate,
             '-maxrate', bitrate,
-            '-bufsize', `${parseInt(bitrate.replace('k', '')) * 2}k`,
+            '-bufsize', bufsize,
+
             // Audio settings
             '-c:a', 'aac',
             '-b:a', '128k',
             '-ar', '44100',
+
             // HLS settings
             '-f', 'hls',
             '-hls_time', segmentDuration.toString(),
             '-hls_list_size', '0',
             '-hls_segment_filename', `"${segmentPattern}"`,
-            // Force keyframe intervals for better streaming
-            '-g', (segmentDuration * 30).toString(), // Assuming 30fps
-            '-keyint_min', (segmentDuration * 30).toString(),
+
+            // Keyframe interval matching segment duration
+            '-g', (segmentDuration * fps).toString(),
+            '-keyint_min', (segmentDuration * fps).toString(),
             '-sc_threshold', '0',
+
             // Output playlist
             `"${playlistPath}"`,
-            // Overwrite files
+
+            // Overwrite existing files
             '-y'
         ];
 
         return parts.join(' ');
     }
+
 
     private getBitrateForResolution(resolution: string): string {
         const bitrateMap: { [key: string]: string } = {
