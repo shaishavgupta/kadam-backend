@@ -12,8 +12,13 @@ import {
 
 export class AIService {
 
-    async chatFlow(request: ChatRequest) {
+    async chatFlow(request: ChatRequest & { userId: string }) {
         try {
+            // Ensure userId is provided
+            if (!request.userId) {
+                throw new Error('User ID is required for chat flow');
+            }
+            
             const result = await chatFlow({
                 message: request.message,
                 type: request.type,

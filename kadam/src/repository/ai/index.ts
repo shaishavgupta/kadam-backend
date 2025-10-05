@@ -31,7 +31,7 @@ export const chatFlow = ai.defineFlow(
     name: 'chatFlow',
     inputSchema: z.object({
       message: z.string().describe('User message'),
-      userId: z.string().describe('User ID for profile tracking'),
+      userId: z.string().describe('User ID for profile tracking (extracted from JWT)'),
       sessionId: z.string().optional().describe('Session ID for conversation continuity'),
       newSession: z.boolean().default(false).describe('Whether to create a new session'),
       type: z.string().optional().describe('Message type'),
@@ -41,6 +41,11 @@ export const chatFlow = ai.defineFlow(
   async (input: any) => {
     try {
       const userId = input.userId;
+      
+      // Ensure userId is provided
+      if (!userId) {
+        throw new Error('User ID is required for chat flow');
+      }
       
       // Handle session management
       const { sessionId, sessionData } = await sessionManager.handleSession(

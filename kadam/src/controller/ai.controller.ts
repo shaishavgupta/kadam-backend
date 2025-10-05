@@ -50,8 +50,24 @@ export default async function aiRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
         try {
-            const userId = request.user!.userID;
-            const requestData = { ...(request.body as any), userId } as ChatRequest;
+            // Ensure user is authenticated (this should be handled by authMiddleware, but adding extra safety)
+            if (!request.user?.userID) {
+                reply.status(401);
+                return {
+                    success: false,
+                    data: null,
+                    message: 'Authentication required'
+                };
+            }
+            
+            const jwtUserId = request.user.userID;
+            
+            // Use JWT userId as the primary source
+            const requestData = { 
+                ...(request.body as any), 
+                userId: jwtUserId 
+            } as ChatRequest & { userId: string };
+            
             const result = await aiService.chatFlow(requestData);
 
             return {

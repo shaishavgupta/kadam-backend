@@ -107,7 +107,6 @@ export const VectorReindexApiResponseSchema = Type.Object({
 export const ChatRequestSchema = Type.Object({
     message: Type.String({ description: 'User message' }),
     type: Type.Optional(Type.String({ description: 'Message type' })),
-    userId: Type.String({ description: 'User ID for profile tracking' }),
     sessionId: Type.Optional(Type.String({ description: 'Session ID for conversation continuity' })),
     newSession: Type.Optional(Type.Boolean({ default: false, description: 'Whether to create a new session' }))
 });
@@ -170,7 +169,6 @@ export interface VectorReindexRequest {
 export interface ChatRequest {
     message: string;
     type?: string;
-    userId: string;
     sessionId?: string;
     newSession?: boolean;
 }
