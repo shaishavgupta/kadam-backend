@@ -1,4 +1,5 @@
 import { Type } from '@sinclair/typebox';
+import { z } from 'genkit';
 
 // Course Recommendation Request Schema
 export const CourseRecommendationRequestSchema = Type.Object({
@@ -273,11 +274,6 @@ export interface CreateSessionRequest {
     userId: string;
     title?: string;
 }
-
-// AI Repository Schemas (moved from repository/ai/schemas/)
-// Note: These schemas use Zod format for Genkit compatibility
-
-import { z } from 'genkit';
 
 // Persona Detection Schema
 export const PersonaDetectionSchema = z.object({
