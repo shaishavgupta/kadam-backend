@@ -137,6 +137,8 @@ export const ChatApiResponseSchema = Type.Object({
             courses: Type.Optional(Type.Array(Type.Object({
                 id: Type.String(),
                 name: Type.String(),
+                description: Type.String(),
+                thumbnail_url: Type.Union([Type.String(), Type.Null()]),
                 reason: Type.String()
             })))
         }),
@@ -357,7 +359,8 @@ export const ChatResponseSchema = z.object({
         id: z.number(),
         name: z.string(),
         description: z.string(),
-        thumbnail_url: z.string().optional()
+        thumbnail_url: z.string().optional(),
+        reason: z.string()
     })).optional().describe('Recommended courses based on user query'),
     learningPlan: z.array(z.string()).optional().describe('Step-by-step learning plan when no courses match'),
     learningPath: z.object({
@@ -366,7 +369,8 @@ export const ChatResponseSchema = z.object({
             id: z.number(),
             name: z.string(),
             description: z.string(),
-            thumbnail_url: z.string().optional()
+            thumbnail_url: z.string().optional(),
+            reason: z.string()
         })).optional().describe('Suggested courses')
     }).describe('Learning path suggestions'),
     sessionId: z.string().optional().describe('Session ID for conversation continuity')

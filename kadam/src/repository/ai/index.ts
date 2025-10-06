@@ -1,7 +1,6 @@
 import { genkit, z } from 'genkit';
 import { xAI } from '@genkit-ai/compat-oai/xai';
 import { sessionStore, chatDatabase } from '../../infra/session-store';
-import { CoursesRepository } from '../courses.repository';
 import { db } from '../../infra/db';
 
 // Import all modules
@@ -18,7 +17,6 @@ export const ai = genkit({
 
 // Initialize managers
 const sessionManager = new SessionManager();
-const coursesRepository = new CoursesRepository();
 
 // Course cache interface
 interface CourseCache {
@@ -36,7 +34,7 @@ interface CourseCache {
 let courseCache: CourseCache = {
   courses: [],
   lastUpdated: 0,
-  ttl: 5 * 60 * 1000 // 5 minutes cache
+  ttl: 60 * 60 * 1000 // 1 hour cache
 };
 
 // Function to get active courses with caching
@@ -157,20 +155,6 @@ When no courses match the user's goals:
 - Make questions relevant to their current learning stage
 - Use natural, conversational language
 
-## Context Information
-
-### User Profile
-- **Name**: ${currentProfile.name || 'unknown'}
-
-### Available Courses
-${availableCourses.map(course => `- **${course.name}**: ${course.description}`).join('\n')}
-
-### Conversation History
-${conversationHistory.map((msg: any) => `**${msg.role}**: ${msg.content}`).join('\n')}
-
-### Current Message
-**User**: "${input.message}"
-
 ## Response Requirements
 
 Generate a response that:
@@ -179,7 +163,7 @@ Generate a response that:
 2. **Evaluates** if their query matches available courses
 3. **Recommends** matching courses if found
 4. **Provides** custom learning plan if no courses match
-5. **Inquires** about role/goals if not known from history
+5. **Inquires** about goals if not known from history
 6. **Includes** 3 helpful next questions
 
 ## Output Format
@@ -187,8 +171,22 @@ Generate a response that:
 Return as JSON with the following structure:
 - **messages**: Array of response messages (strings)
 - **nextQuestions**: Array of objects with text and metadata fields
-- **recommendedCourses**: Array of matching courses (if any) with id, name, description, thumbnail_url
-- **learningPlan**: Array of 5-10 step learning plan strings (if no courses match)`,
+- **recommendedCourses**: Array of matching courses (if any) with id, name, description, thumbnail_url, reason
+- **learningPlan**: Array of 5-10 step learning plan strings (if no courses match)
+
+## Context Information
+
+### User Profile
+- **Name**: ${currentProfile.name || 'unknown'}
+
+### Available Courses
+${availableCourses.map(course => `- **${course.name}**: ${course.description}`).join('\n')}
+
+### Current Message
+**User**: "${input.message}"
+
+### Conversation History
+${conversationHistory.map((msg: any) => `**${msg.role}**: ${msg.content}`).join('\n')}`,
         output: {
           schema: z.object({
             messages: z.array(z.string()),
@@ -200,7 +198,8 @@ Return as JSON with the following structure:
               id: z.number(),
               name: z.string(),
               description: z.string(),
-              thumbnail_url: z.string().optional()
+              thumbnail_url: z.string().optional(),
+              reason: z.string()
             })).optional(),
             learningPlan: z.array(z.string()).optional()
           })
@@ -208,7 +207,7 @@ Return as JSON with the following structure:
         config: { temperature: 0.8 }
       });
 
-      const response = responseResult.output?.messages || ["Sorry bhai, maine response generate nahi kar paya 😅"];
+      const response = responseResult.output?.messages || ["Sorry, maine response generate nahi kar paya 😅"];
       const nextQuestions = responseResult.output?.nextQuestions || [
         { text: "Main apna current role share karna chahta/chahti hun", metadata: "Main apna current role share karna chahta/chahti hun" },
         { text: "Main apne learning goals define karna chahta/chahti hun", metadata: "Main apne learning goals define karna chahta/chahti hun" },

@@ -234,8 +234,7 @@ export class ChatDatabase {
       name: user.name,
       gender: user.gender,
       dob: user.dob,
-      bio: user.bio,
-      ...(user.ai_preferences || {})
+      bio: user.bio
     };
     
     await this.redis.set(cacheKey, profile, 300);
