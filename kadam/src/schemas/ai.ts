@@ -353,12 +353,20 @@ export const ChatResponseSchema = z.object({
         text: z.string().describe('What the user wants to say next - their intention/desire (e.g., "Main apna rasta khud banana chahta hun")'),
         metadata: z.string().describe('User\'s message in their dialect and persona - what they would actually type (e.g., "Main HTML seekhna chahta hun, please guide karo")')
     })).optional().describe('User intentions and their actual messages in their dialect'),
+    recommendedCourses: z.array(z.object({
+        id: z.number(),
+        name: z.string(),
+        description: z.string(),
+        thumbnail_url: z.string().optional()
+    })).optional().describe('Recommended courses based on user query'),
+    learningPlan: z.array(z.string()).optional().describe('Step-by-step learning plan when no courses match'),
     learningPath: z.object({
         suggested: z.boolean().describe('Whether to suggest a learning path'),
         courses: z.array(z.object({
-            id: z.string(),
+            id: z.number(),
             name: z.string(),
-            reason: z.string()
+            description: z.string(),
+            thumbnail_url: z.string().optional()
         })).optional().describe('Suggested courses')
     }).describe('Learning path suggestions'),
     sessionId: z.string().optional().describe('Session ID for conversation continuity')
