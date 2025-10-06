@@ -111,38 +111,50 @@ export const ChatRequestSchema = Type.Object({
     newSession: Type.Optional(Type.Boolean({ default: false, description: 'Whether to create a new session' }))
 });
 
+// Chat Response Schema (moved up to avoid temporal dead zone)
+
+export const ChatResponseSchema = z.object({
+    messages: z.array(z.string()).describe('Array of AI response messages to display with typing animation'),
+    type: z.string().optional().describe('Response type'),
+    nextQuestions: z.array(z.object({
+        text: z.string().describe('What the user wants to say next - their intention/desire (e.g., "Main apna rasta khud banana chahta hun")'),
+        metadata: z.string().describe('User\'s message in their dialect and persona - what they would actually type (e.g., "Main HTML seekhna chahta hun, please guide karo")')
+    })).optional().describe('User intentions and their actual messages in their dialect'),
+    learningPath: z.object({
+        path_title: z.string().describe('Title of the learning path'),
+        suggested: z.boolean().describe('Whether to suggest a learning path'),
+        courses: z.array(z.object({
+            id: z.number(),
+            name: z.string(),
+            description: z.string(),
+            thumbnail_url: z.string().optional(),
+            reason: z.string()
+        })).optional().describe('Suggested courses')
+    }).describe('Learning path suggestions'),
+    sessionId: z.string().optional().describe('Session ID for conversation continuity')
+});
+
 export const ChatApiResponseSchema = Type.Object({
     success: Type.Boolean(),
     data: Type.Object({
         messages: Type.Array(Type.String()),
         type: Type.Optional(Type.String()),
-        userProfile: Type.Optional(Type.Object({
-            currentRole: Type.Optional(Type.String()),
-            experienceLevel: Type.Optional(Type.Union([Type.Literal('beginner'), Type.Literal('intermediate'), Type.Literal('advanced'), Type.Literal('unknown')])),
-            learningGoals: Type.Optional(Type.Array(Type.String())),
-            interests: Type.Optional(Type.Array(Type.String())),
-            timeCommitment: Type.Optional(Type.String()),
-            preferredLearningStyle: Type.Optional(Type.String()),
-            currentSkills: Type.Optional(Type.Array(Type.String())),
-            challenges: Type.Optional(Type.Array(Type.String())),
-            persona: Type.Optional(Type.Union([Type.Literal('student'), Type.Literal('jobbie'), Type.Literal('dylan'), Type.Literal('content_creator'), Type.Literal('unknown')])),
-            tier: Type.Optional(Type.Union([Type.Literal('tier1'), Type.Literal('tier2'), Type.Literal('tier3'), Type.Literal('unknown')]))
-        })),
         nextQuestions: Type.Optional(Type.Array(Type.Object({
             text: Type.String(),
             metadata: Type.String()
         }))),
         learningPath: Type.Object({
+            path_title: Type.String(),
             suggested: Type.Boolean(),
             courses: Type.Optional(Type.Array(Type.Object({
-                id: Type.String(),
+                id: Type.Number(),
                 name: Type.String(),
                 description: Type.String(),
-                thumbnail_url: Type.Union([Type.String(), Type.Null()]),
+                thumbnail_url: Type.Optional(Type.String()),
                 reason: Type.String()
             })))
         }),
-        sessionId: Type.Optional(Type.String({ description: 'Session ID for conversation continuity' }))
+        sessionId: Type.Optional(Type.String())
     }),
     message: Type.String()
 });
@@ -335,46 +347,6 @@ export const UserPerspectiveMetadataSchema = z.object({
     metadata: z.string()
 });
 
-// Chat Response Schema
-export const ChatResponseSchema = z.object({
-    messages: z.array(z.string()).describe('Array of AI response messages to display with typing animation'),
-    type: z.string().optional().describe('Response type'),
-    userProfile: z.object({
-        currentRole: z.string().optional().describe('User\'s current job role or profession'),
-        experienceLevel: z.enum(['beginner', 'intermediate', 'advanced', 'unknown']).optional().describe('Experience level'),
-        learningGoals: z.array(z.string()).optional().describe('What they want to learn'),
-        interests: z.array(z.string()).optional().describe('Areas of interest'),
-        timeCommitment: z.string().optional().describe('How much time they can commit to learning'),
-        preferredLearningStyle: z.string().optional().describe('How they prefer to learn'),
-        currentSkills: z.array(z.string()).optional().describe('Skills they already have'),
-        challenges: z.array(z.string()).optional().describe('Current challenges they face'),
-        persona: z.enum(['student', 'jobbie', 'dylan', 'content_creator', 'unknown']).optional().describe('User persona type'),
-        tier: z.enum(['tier1', 'tier2', 'tier3', 'unknown']).optional().describe('User tier classification')
-    }).optional().describe('Updated user profile'),
-    nextQuestions: z.array(z.object({
-        text: z.string().describe('What the user wants to say next - their intention/desire (e.g., "Main apna rasta khud banana chahta hun")'),
-        metadata: z.string().describe('User\'s message in their dialect and persona - what they would actually type (e.g., "Main HTML seekhna chahta hun, please guide karo")')
-    })).optional().describe('User intentions and their actual messages in their dialect'),
-    recommendedCourses: z.array(z.object({
-        id: z.number(),
-        name: z.string(),
-        description: z.string(),
-        thumbnail_url: z.string().optional(),
-        reason: z.string()
-    })).optional().describe('Recommended courses based on user query'),
-    learningPlan: z.array(z.string()).optional().describe('Step-by-step learning plan when no courses match'),
-    learningPath: z.object({
-        suggested: z.boolean().describe('Whether to suggest a learning path'),
-        courses: z.array(z.object({
-            id: z.number(),
-            name: z.string(),
-            description: z.string(),
-            thumbnail_url: z.string().optional(),
-            reason: z.string()
-        })).optional().describe('Suggested courses')
-    }).describe('Learning path suggestions'),
-    sessionId: z.string().optional().describe('Session ID for conversation continuity')
-});
 
 // Response interface for generation functions
 export interface ResponseWithCTAs {

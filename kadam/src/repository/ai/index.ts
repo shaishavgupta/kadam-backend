@@ -166,14 +166,6 @@ Generate a response that:
 5. **Inquires** about goals if not known from history
 6. **Includes** 3 helpful next questions
 
-## Output Format
-
-Return as JSON with the following structure:
-- **messages**: Array of response messages (strings)
-- **nextQuestions**: Array of objects with text and metadata fields
-- **recommendedCourses**: Array of matching courses (if any) with id, name, description, thumbnail_url, reason
-- **learningPlan**: Array of 5-10 step learning plan strings (if no courses match)
-
 ## Context Information
 
 ### User Profile
@@ -226,11 +218,9 @@ ${conversationHistory.map((msg: any) => `**${msg.role}**: ${msg.content}`).join(
       return {
         messages: response,
         type: input.type || 'text',
-        userProfile: currentProfile,
         nextQuestions,
-        recommendedCourses,
-        learningPlan,
         learningPath: {
+          path_title: recommendedCourses.length > 0 ? 'Recommended Courses' : 'Custom Learning Path',
           suggested: recommendedCourses.length > 0,
           courses: recommendedCourses
         },
@@ -249,15 +239,13 @@ function getErrorResponse(input: any) {
   return {
     messages: ["Sorry, maine error face kiya hai 😅 Thode der me wapas try kar? 🎯"],
     type: 'text',
-    userProfile: {},
     nextQuestions: [
       { text: "Main apna current role share karna chahta/chahti hun", metadata: "Main apna current role share karna chahta/chahti hun" },
       { text: "Main apne learning goals define karna chahta/chahti hun", metadata: "Main apne learning goals define karna chahta/chahti hun" },
       { text: "Main samajhna chahta/chahti hun ki aap kaise help kar sakte hain", metadata: "Main samajhna chahta/chahti hun ki aap kaise help kar sakte hain" }
     ],
-    recommendedCourses: [],
-    learningPlan: [],
     learningPath: {
+      path_title: 'Learning Support',
       suggested: false,
       courses: []
     },
