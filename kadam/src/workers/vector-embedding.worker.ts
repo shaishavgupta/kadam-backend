@@ -44,7 +44,7 @@ export class VectorEmbeddingWorker {
      */
     private async processCourseNameEmbedding(courseId: number): Promise<void> {
         try {
-            const course = await this.coursesService.getCourseById(courseId);
+            const course = await this.coursesService.getCourseById(courseId, 'en'); // Default to English for vector processing
             if (!course) {
                 throw new Error(`Course ${courseId} not found`);
             }

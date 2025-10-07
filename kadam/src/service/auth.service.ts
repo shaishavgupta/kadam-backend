@@ -5,7 +5,7 @@ import {
     SendOtpResponse,
     VerifyOtpRequest,
 } from '../schemas/auth';
-import { UserType as UserTypeEnum } from "../shared/enums";
+import { Language, UserType as UserTypeEnum } from "../shared/enums";
 import { authConfig, authyoConfig } from '../config';
 import { config } from '../config';
 import { ApiClient, ExternalApiResponse } from '../shared/api';
@@ -216,16 +216,16 @@ export class AuthService {
     /**
      * Generate JWT tokens
      */
-    async generateTokens(userId: number, userType: UserTypeEnum): Promise<{ accessToken: string; refreshToken: string }> {
+    async generateTokens(userId: number, userType: UserTypeEnum, language: Language): Promise<{ accessToken: string; refreshToken: string }> {
         // TODO: Implement actual JWT token generation
         // For now, return placeholder tokens
         const token = jwt.sign(
-            { sub: userId, userType: userType },
+            { sub: userId, userType: userType, language: language },
             authConfig.JWT_SECRET,
             { expiresIn: '24h' }
         );
         const refreshToken = jwt.sign(
-            { sub: userId, userType: userType },
+            { sub: userId, userType: userType, language: language },
             authConfig.JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -270,8 +270,16 @@ export class AuthService {
                 };
             }
 
+            const language = decoded.language;
+            if (!language) {
+                return {
+                    success: false,
+                    message: 'Invalid language for refresh token'
+                };
+            }
+
             // Generate new tokens
-            const newTokens = await this.generateTokens(userId, userType);
+            const newTokens = await this.generateTokens(userId, userType, language);
 
             return {
                 success: true,

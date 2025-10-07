@@ -3,15 +3,21 @@ import { FileType, S3Operation } from "../shared/enums";
 
 export const Banners = Type.Object({
     image_url: Type.String(),
-    redirect_url: Type.String(),
+    type: Type.Union([
+        Type.Literal('course'),
+        Type.Literal('module'),
+        Type.Literal('content')
+    ]),
+    course_id: Type.Number(),
+    module_id: Type.Optional(Type.Number()),
+    content_id: Type.Optional(Type.Number()),
     is_active: Type.Boolean()
 });
 
 export const Categories = Type.Object({
     id: Type.Number(),
     name: Type.String(),
-    image_url: Type.String(),
-    priority: Type.Number()
+    image_url: Type.String()
 });
 
 export const HomePageContentResponseSchema = Type.Object({

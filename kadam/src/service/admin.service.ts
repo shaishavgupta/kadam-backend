@@ -7,7 +7,7 @@ import { PaginatedUsersResponse } from "../schemas/user";
 import { PaginatedCreatorsResponse } from "../schemas/creator";
 import { PaginatedCoursesResponse } from "../schemas/course";
 import { CreateAdminRequest, CreateUserWithAuthRequest } from "../schemas/auth";
-import { PlanType } from "../shared/enums";
+import { Language, PlanType } from "../shared/enums";
 import jwt from 'jsonwebtoken';
 import { authConfig } from '../config';
 import { UserType as UserTypeEnum } from "../shared/enums";
@@ -134,7 +134,7 @@ export class AdminService {
 
             // Generate JWT token for session management
             const jwtToken = jwt.sign(
-                { sub: admin.id, userType: UserTypeEnum.ADMIN },
+                { sub: admin.id, userType: UserTypeEnum.ADMIN, language: Language.ENGLISH },
                 authConfig.JWT_SECRET,
                 { expiresIn: '24h' }
             );

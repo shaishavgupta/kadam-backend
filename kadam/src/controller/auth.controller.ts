@@ -128,23 +128,23 @@ export default async function authRoutes(fastify: FastifyInstance) {
                     newEntity = adminResult.newEntity;
                     entity = adminResult.entity;
                     break;
-                case UserTypeEnum.CREATOR:
-                    const creatorResult = await creatorService.getOrCreateCreator({
-                        email: '', // Will be set later
-                        name: '', // Will be set later
-                        phone: phone,
-                        bio: '',
-                        avatar_url: ''
-                    });
-                    newEntity = creatorResult.newEntity;
-                    entity = creatorResult.entity;
-                    break;
+                // case UserTypeEnum.CREATOR:
+                //     const creatorResult = await creatorService.getOrCreateCreator({
+                //         email: '', // Will be set later
+                //         name: '', // Will be set later
+                //         phone: phone,
+                //         bio: '',
+                //         avatar_url: ''
+                //     });
+                //     newEntity = creatorResult.newEntity;
+                //     entity = creatorResult.entity;
+                //     break;
                 default:
                     throw new Error("Invalid user type");
             }
 
             // Generate tokens
-            const tokens = await authService.generateTokens(entity.id, userType);
+            const tokens = await authService.generateTokens(entity.id, userType, language);
 
             return {
                 accessToken: tokens.accessToken,

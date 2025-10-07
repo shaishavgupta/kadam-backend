@@ -82,7 +82,7 @@ import { PaginationQuery, PaginationQuerySchema } from '../schemas/common';
 import { authMiddleware, AuthenticatedRequest, requireUser, requireAdmin } from '../shared/middleware/auth';
 import { ContentType } from '../shared/enums';
 import { UserService } from '../service/users.service';
-import { UserCourse, UserCourseSchema, SearchCoursesResponseSchema, SearchCoursesResponse } from '../schemas/course';
+import { UserCourse, UserCourseSchema, SearchCoursesResponseSchema, SearchCoursesResponse, ExploreResponseSchema, ExploreResponse } from '../schemas/course';
 import { Type } from '@sinclair/typebox';
 import { AdminService } from '../service/admin.service';
 
@@ -138,8 +138,18 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: UserCourse | null; message: string }> => {
         try {
             const courseId = parseInt((request.params as any).courseId);
+            const language = request.user?.language;
 
-            const data = await coursesService.getApprovedCourseWithHierarchy(courseId);
+            if (!language) {
+                reply.status(400);
+                return {
+                    success: false,
+                    data: null,
+                    message: "Language preference is required"
+                };
+            }
+
+            const data = await coursesService.getApprovedCourseWithHierarchy(courseId, language);
 
             if (!data) {
                 reply.status(404);
@@ -283,8 +293,8 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Course; message: string }> => {
         try {
             const creatorId = parseInt(request.user!.userID);
-            const created = await coursesService.createCourse({ ...(request.body as any), creator_id: creatorId } as CreateCourseRequest);
             const body = request.body as CreateCourseRequest;
+            const created = await coursesService.createCourse({ ...body, creator_id: creatorId });
             const data: Course = {
                 id: (created as any)?.id ?? (created as any)?.courseId ?? 0,
                 name: body.name,
@@ -295,8 +305,6 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 certificate_id: body.certificate_id,
                 rank: 0,
                 creator_published_at: undefined,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
             };
             return {
                 success: true,
@@ -317,8 +325,6 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                     thumbnail_url: '',
                     certificate_id: 0,
                     rank: 0,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
                 },
                 message: errorMessage
             };
@@ -356,8 +362,6 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 certificate_id: body.certificate_id,
                 rank: (updated as any)?.rank ?? 0,
                 creator_published_at: (updated as any)?.creator_published_at ? serializeDates<{ creator_published_at?: string }>((updated as any)).creator_published_at : undefined,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
             };
             return {
                 success: true,
@@ -378,8 +382,6 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                     thumbnail_url: '',
                     certificate_id: 0,
                     rank: 0,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
                 },
                 message: errorMessage
             };
@@ -405,8 +407,24 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             const categoryId = parseInt((request.params as any).categoryId);
             const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
             const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
+            const language = request.user?.language;
 
-            const raw = await coursesService.getCoursesByCategory(categoryId, page, limit);
+            if (!language) {
+                reply.status(400);
+                return {
+                    success: false,
+                    data: {
+                        courses: [],
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0
+                    },
+                    message: "Language preference is required"
+                };
+            }
+
+            const raw = await coursesService.getCoursesByCategory(categoryId, page, limit, language);
             const data: PaginatedCoursesResponse = {
                 courses: serializeDates<any[]>(raw?.courses ?? []),
                 total: (raw as any)?.total ?? (raw as any)?.pagination?.total ?? 0,
@@ -551,7 +569,24 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<CourseListResponse> => {
         try {
-            const data = await coursesService.getHomePageCourseList();
+            const language = request.user?.language;
+
+            if (!language) {
+                reply.status(400);
+                return {
+                    success: false,
+                    data: {
+                        keep_watching: [],
+                        for_you: [],
+                        top_10: [],
+                        popular: [],
+                        latest: [],
+                    },
+                    message: "Language preference is required"
+                };
+            }
+
+            const data = await coursesService.getHomePageCourseList(language);
             return {
                 success: true,
                 data: data,
@@ -649,7 +684,18 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: Course[]; message: string }> => {
         try {
             const courseId = parseInt((request.params as any).courseId, 10);
-            const raw = await coursesService.getNextCourses(courseId);
+            const language = request.user?.language;
+
+            if (!language) {
+                reply.status(400);
+                return {
+                    success: false,
+                    data: [],
+                    message: "Language preference is required"
+                };
+            }
+
+            const raw = await coursesService.getNextCourses(courseId, language);
             const data = serializeDates<Course[]>(raw);
             return {
                 success: true,
@@ -698,6 +744,60 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             return {
                 success: false,
                 message: errorMessage
+            };
+        }
+    });
+
+    // Explore courses endpoint
+    fastify.get('/explore', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Courses'],
+            summary: 'Explore courses',
+            description: 'Get all courses with first videos of each module for exploration',
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: ExploreResponseSchema,
+                400: ExploreResponseSchema,
+                500: ExploreResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<ExploreResponse> => {
+        try {
+            const language = request.user?.language;
+
+            if (!language) {
+                reply.status(400);
+                return {
+                    success: false,
+                    data: {
+                        courses: [],
+                        total: 0
+                    },
+                    message: "Language preference is required"
+                };
+            }
+
+            const courses = await coursesService.getExploreCourses(language);
+            const serializedCourses = serializeDates<any[]>(courses);
+
+            return {
+                success: true,
+                data: {
+                    courses: serializedCourses,
+                    total: courses.length
+                },
+                message: "Explore courses retrieved successfully"
+            };
+        } catch (error) {
+            reply.status(500);
+            return {
+                success: false,
+                data: {
+                    courses: [],
+                    total: 0
+                },
+                message: error instanceof Error ? error.message : "An unknown error occurred"
             };
         }
     });
@@ -1009,6 +1109,16 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<SearchCoursesResponse> => {
         try {
             const { q: searchString, limit = 5 } = request.query as { q: string; limit?: number };
+            const language = request.user?.language;
+
+            if (!language) {
+                reply.status(400);
+                return {
+                    success: false,
+                    data: { courses: [] },
+                    message: "Language preference is required"
+                };
+            }
 
             if (!searchString || searchString.trim().length === 0) {
                 reply.status(400).send(createErrorResponse("Search query is required", 400));
@@ -1019,7 +1129,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 };
             }
 
-            const courses = await coursesService.fuzzySearchCourses(searchString.trim(), limit);
+            const courses = await coursesService.fuzzySearchCourses(searchString.trim(), limit, language);
             const data = {
                 courses: serializeDates<Course[]>(courses)
             };

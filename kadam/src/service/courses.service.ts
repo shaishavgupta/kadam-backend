@@ -1,5 +1,5 @@
 import { CoursesRepository } from "../repository/courses.repository";
-import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector } from "../schemas/course";
+import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector, ExploreCourse, ExploreResponse } from "../schemas/course";
 import { UserCourse } from "../schemas/course";
 import { ContentType, CourseListData, UserStats, CourseListItem } from "../schemas/course";
 
@@ -11,9 +11,9 @@ export class CoursesService {
     }
 
 
-    async getHomePageCourseList(): Promise<CourseListData> {
+    async getHomePageCourseList(language: string): Promise<CourseListData> {
         try {
-            return await this.repository.getHomePageCourseList();
+            return await this.repository.getHomePageCourseList(language);
         } catch (error) {
             console.error("Error getting course list:", error);
             return {
@@ -62,7 +62,7 @@ export class CoursesService {
         }
     }
 
-    async createCourse(request: CreateCourseRequest): Promise<{ courseId: number }> {
+    async createCourse(request: CreateCourseRequest & { creator_id: number }): Promise<{ courseId: number }> {
         try {
             const course = await this.repository.createCourse(request);
             if (course) {
@@ -84,18 +84,18 @@ export class CoursesService {
         }
     }
 
-    async getCourseById(id: number): Promise<Course | null> {
+    async getCourseById(id: number, language: string): Promise<Course | null> {
         try {
-            return await this.repository.getCourseById(id);
+            return await this.repository.getCourseById(id, language);
         } catch (error) {
             console.error("Error getting course by ID:", error);
             return null;
         }
     }
 
-    async getNextCourses(courseId: number): Promise<Course[]> {
+    async getNextCourses(courseId: number, language: string): Promise<Course[]> {
         try {
-            return await this.repository.getNextCourses(courseId);
+            return await this.repository.getNextCourses(courseId, language);
         } catch (error) {
             console.error("Error getting next courses:", error);
             return [];
@@ -120,9 +120,9 @@ export class CoursesService {
         }
     }
 
-    async getCoursesByCategory(categoryId: number, page: number = 1, limit: number = 10): Promise<PaginatedCoursesResponse> {
+    async getCoursesByCategory(categoryId: number, page: number = 1, limit: number = 10, language: string): Promise<PaginatedCoursesResponse> {
         try {
-            return await this.repository.getCoursesByCategory(categoryId, page, limit);
+            return await this.repository.getCoursesByCategory(categoryId, page, limit, language);
         } catch (error) {
             console.error("Error getting courses by category:", error);
             return {
@@ -224,9 +224,9 @@ export class CoursesService {
     }
 
     // Search methods
-    async fuzzySearchCourses(searchString: string, limit: number = 5): Promise<Course[]> {
+    async fuzzySearchCourses(searchString: string, limit: number = 5, language: string): Promise<Course[]> {
         try {
-            return await this.repository.fuzzySearchCourses(searchString, limit);
+            return await this.repository.fuzzySearchCourses(searchString, limit, language);
         } catch (error) {
             console.error("Error in fuzzy search courses:", error);
             return [];
@@ -242,12 +242,12 @@ export class CoursesService {
         }
     }
 
-    async fuzzySearchCombined(searchString: string, limit: number = 5): Promise<{
+    async fuzzySearchCombined(searchString: string, limit: number = 5, language: string): Promise<{
         courses: Course[];
         contents: ContentWithModule[];
     }> {
         try {
-            return await this.repository.fuzzySearchCombined(searchString, limit);
+            return await this.repository.fuzzySearchCombined(searchString, limit, language);
         } catch (error) {
             console.error("Error in fuzzy search combined:", error);
             return { courses: [], contents: [] };
@@ -401,12 +401,21 @@ export class CoursesService {
         }
     }
 
-    async getApprovedCourseWithHierarchy(courseId: number): Promise<UserCourse | null> {
+    async getApprovedCourseWithHierarchy(courseId: number, language: string): Promise<UserCourse | null> {
         try {
-            return this.repository.getApprovedCourseWithHierarchy(courseId);
+            return this.repository.getApprovedCourseWithHierarchy(courseId, language);
         } catch (error) {
             console.error("Error getting approved course with hierarchy:", error);
             throw error;
+        }
+    }
+
+    async getExploreCourses(language: string): Promise<ExploreCourse[]> {
+        try {
+            return await this.repository.getExploreCourses(language);
+        } catch (error) {
+            console.error("Error getting explore courses:", error);
+            return [];
         }
     }
 }

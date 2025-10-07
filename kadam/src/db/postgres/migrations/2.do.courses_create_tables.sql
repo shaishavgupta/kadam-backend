@@ -16,6 +16,7 @@ CREATE TABLE courses (
   approved_by BIGINT,
   is_paid BOOLEAN NOT NULL DEFAULT true,
   is_active BOOLEAN,
+  language TEXT NOT NULL,
   price decimal DEFAULT 0,
   thumbnail_url TEXT,
   certificate_id BIGINT,

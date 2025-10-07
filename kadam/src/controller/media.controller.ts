@@ -126,7 +126,9 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 const { courseId, moduleId, contentId, fileType, operation, expiresIn = 3600 } = request.body as UnifiedPresignedUrlRequest;
 
                 // Validate course exists
-                const course = await coursesService.getCourseById(courseId);
+                const language = request.user?.language || '';
+
+                const course = await coursesService.getCourseById(courseId, language);
                 if (!course) {
                     reply.status(400);
                     return {
@@ -214,7 +216,8 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 const { courseId, moduleId, contentId, processingOptions } = request.body as VideoUploadRequest;
 
                 // Validate course exists
-                const course = await coursesService.getCourseById(courseId);
+                const language = request.user?.language || 'en'; // Default to English if not specified
+                const course = await coursesService.getCourseById(courseId, language);
                 if (!course) {
                     reply.status(400).send({
                         success: false,

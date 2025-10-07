@@ -104,8 +104,6 @@ export const CourseSchema = Type.Object({
     certificate_id: Type.Optional(Type.Number()),
     rank: Type.Number(),
     creator_published_at: Type.Optional(Type.String({ format: 'date-time' })),
-    created_at: Type.String({ format: 'date-time' }),
-    updated_at: Type.String({ format: 'date-time' }),
     next_course_ids: Type.Optional(Type.Array(Type.Number()))
 });
 
@@ -145,8 +143,8 @@ export const CreateCourseRequestSchema = Type.Object({
     price: Type.Number(),
     thumbnail_url: Type.Optional(Type.String()),
     certificate_id: Type.Optional(Type.Number()),
-    contents: Type.Optional(Type.Array(CreateContentRequestSchema)),
-    next_course_ids: Type.Optional(Type.Array(Type.Number()))
+    next_course_ids: Type.Optional(Type.Array(Type.Number())),
+    language: Type.String()
 });
 
 export const UpdateCourseRequestSchema = Type.Intersect([
@@ -182,7 +180,7 @@ export const PaginatedCoursesResponseSchema = Type.Object({
 export const ContentWithModuleSchema = Type.Intersect([
     ContentSchema,
     Type.Object({
-        course_id: Type.Number(),
+        course_id: Type.Optional(Type.Number()),
         module_title: Type.Optional(Type.String()),
         module_description: Type.Optional(Type.String())
     })
@@ -419,6 +417,7 @@ export const CourseWithModulesSchema = Type.Object({
     creator_published_at: Type.Optional(Type.String({ format: 'date-time' })),
     created_at: Type.String({ format: 'date-time' }),
     updated_at: Type.String({ format: 'date-time' }),
+    language: Type.String(),
     totalModules: Type.Number(),
     totalContent: Type.Number(),
     modules: Type.Array(Type.Object({
@@ -523,6 +522,7 @@ export const UserCourseSchema = Type.Object({
     created_at: Type.String({ format: 'date-time' }),
     updated_at: Type.String({ format: 'date-time' }),
     next_course_ids: Type.Optional(Type.Array(Type.Number())),
+    language: Type.String(),
     totalModules: Type.Number(),
     totalContent: Type.Number(),
     modules: Type.Array(UserModuleSchema)
@@ -553,4 +553,49 @@ export type UserModule = Static<typeof UserModuleSchema>;
 export type UserCourse = Static<typeof UserCourseSchema>;
 export type UserCoursesResponse = Static<typeof UserCoursesResponseSchema>;
 export type SearchCoursesResponse = Static<typeof SearchCoursesResponseSchema>;
+
+// Explore API schemas
+export const ExploreVideoSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    description: Type.String(),
+    type: ContentTypeSchema,
+    position: Type.Number(),
+    url: Type.Optional(Type.String()),
+    abs_url: Type.Optional(Type.String()),
+    duration: Type.Optional(Type.Number()),
+    thumbnail_url: Type.Optional(Type.String()),
+});
+
+export const ExploreModuleSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    description: Type.String(),
+    position: Type.Number(),
+    is_active: Type.Boolean(),
+    thumbnail_url: Type.Optional(Type.String()),
+    first_video: ExploreVideoSchema
+});
+
+export const ExploreCourseSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    description: Type.String(),
+    thumbnail_url: Type.String(),
+    modules: Type.Array(ExploreModuleSchema)
+});
+
+export const ExploreResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Optional(Type.Object({
+        courses: Type.Array(ExploreCourseSchema),
+        total: Type.Number()
+    })),
+    message: Type.String()
+});
+
+export type ExploreVideo = Static<typeof ExploreVideoSchema>;
+export type ExploreModule = Static<typeof ExploreModuleSchema>;
+export type ExploreCourse = Static<typeof ExploreCourseSchema>;
+export type ExploreResponse = Static<typeof ExploreResponseSchema>;
 

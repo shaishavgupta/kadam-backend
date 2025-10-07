@@ -1,10 +1,12 @@
 import jwt from 'jsonwebtoken';
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { authConfig } from '../../config';
+import { Language } from '../enums';
 
 export interface AuthData {
 	userID: string;
 	userType: 'user' | 'creator' | 'admin';
+	language: Language;
 }
 
 export interface AuthenticatedRequest extends FastifyRequest {
@@ -33,7 +35,7 @@ export const authMiddleware = async (request: AuthenticatedRequest, reply: Fasti
 
 		const decoded = jwt.verify(token, authConfig.JWT_SECRET) as any;
 
-		if (!decoded.sub || !decoded.userType) {
+		if (!decoded.sub || !decoded.userType || !decoded.language) {
 			return reply.status(401).send({
 				success: false,
 				message: 'Invalid token payload'
@@ -42,7 +44,8 @@ export const authMiddleware = async (request: AuthenticatedRequest, reply: Fasti
 
 		request.user = {
 			userID: decoded.sub,
-			userType: decoded.userType
+			userType: decoded.userType,
+			language: decoded.language
 		};
 	} catch (error) {
 		if (error instanceof jwt.JsonWebTokenError) {

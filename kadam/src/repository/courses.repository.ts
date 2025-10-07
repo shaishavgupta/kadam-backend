@@ -1,12 +1,12 @@
 import { db } from "../infra/db";
-import { Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector } from "../schemas/course";
+import { Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector, ExploreCourse, CreateCourseRequest } from "../schemas/course";
 import { ContentType } from "../shared/enums";
 import { CourseListItem, CourseListData, UserStats, UpdateCourseRequest } from "../schemas/course";
 import { UserCourse, UserCoursesResponse } from "../schemas/course";
 
 export class CoursesRepository {
 
-  async getHomePageCourseList(): Promise<CourseListData> {
+  async getHomePageCourseList(language: string): Promise<CourseListData> {
     // Base query for course data with ratings
     const baseQuery = `
       SELECT
@@ -42,6 +42,7 @@ export class CoursesRepository {
         AND c.creator_published_at IS NOT NULL
         AND c.approved_at IS NOT NULL
         AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
+        AND (c.language = $1)
     `;
 
     // Get keep_watching courses (from user_enrollments)
@@ -93,11 +94,11 @@ export class CoursesRepository {
 
     try {
       const [keepWatchingResult, forYouResult, top10Result, popularResult, latestResult] = await Promise.all([
-        db.query(keepWatchingQuery),
-        db.query(forYouQuery),
-        db.query(top10Query),
-        db.query(popularQuery),
-        db.query(latestQuery)
+        db.query(keepWatchingQuery, [language]),
+        db.query(forYouQuery, [language]),
+        db.query(top10Query, [language]),
+        db.query(popularQuery, [language]),
+        db.query(latestQuery, [language])
       ]);
 
       return {
@@ -119,7 +120,7 @@ export class CoursesRepository {
     }
   }
 
-  async getAllCourses(page: number, limit: number, rejected: boolean = false, published?: boolean): Promise<PaginatedCoursesResponse> {
+  async getAllCourses(page: number, limit: number, language: string, rejected: boolean = false, published?: boolean): Promise<PaginatedCoursesResponse> {
     const offset = (page - 1) * limit;
 
     let coursesQuery = 'SELECT * FROM courses';
@@ -141,6 +142,8 @@ export class CoursesRepository {
       }
     }
 
+    whereConditions.push('language = $3');
+
     if (whereConditions.length > 0) {
       const whereClause = 'WHERE ' + whereConditions.join(' AND ');
       coursesQuery += ` ${whereClause}`;
@@ -149,8 +152,9 @@ export class CoursesRepository {
 
     coursesQuery += ' ORDER BY created_at DESC LIMIT $1 OFFSET $2';
 
-    const coursesResult = await db.query(coursesQuery, [limit, offset]);
-    const totalResult = await db.query(countQuery);
+    const queryParams = [limit, offset, language];
+    const coursesResult = await db.query(coursesQuery, queryParams);
+    const totalResult = await db.query(countQuery, [language]);
     const total = parseInt(totalResult.rows[0].count, 10);
 
     return {
@@ -262,7 +266,20 @@ export class CoursesRepository {
     }
   }
 
-  async createCourse(courseData: any): Promise<Course | null> {
+  async createCourse(courseData: CreateCourseRequest & {
+    creator_id: number;
+    categories?: number[];
+    modules?: Array<{
+      name: string;
+      description: string;
+      thumbnail_url?: string;
+      contents?: Array<{
+        name: string;
+        content_type: string;
+        content_data: string;
+      }>;
+    }>;
+  }): Promise<Course | null> {
     try {
       await db.query('BEGIN');
 
@@ -429,7 +446,7 @@ export class CoursesRepository {
     }
   }
 
-  async getNextCourses(courseId: number): Promise<Course[]> {
+  async getNextCourses(courseId: number, language: string): Promise<Course[]> {
     try {
       const result = await db.query(
         `SELECT c.* FROM courses c
@@ -442,8 +459,9 @@ export class CoursesRepository {
          AND c.creator_published_at IS NOT NULL
          AND c.approved_at IS NOT NULL
          AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
+         AND (c.language = $2)
          ORDER BY c.rank DESC`,
-        [courseId]
+        [courseId, language]
       );
       return result.rows as Course[];
     } catch (error) {
@@ -452,11 +470,11 @@ export class CoursesRepository {
     }
   }
 
-  async getCourseById(id: number): Promise<Course | null> {
+  async getCourseById(id: number, language: string): Promise<Course | null> {
     try {
       const result = await db.query(
-        `SELECT * FROM courses WHERE id = $1 AND is_active = true`,
-        [id]
+        `SELECT * FROM courses WHERE id = $1 AND is_active = true AND language = $2`,
+        [id, language]
       );
       if (result.rows.length > 0) {
         return result.rows[0] as Course;
@@ -513,7 +531,7 @@ export class CoursesRepository {
     }
   }
 
-  async getCoursesByCategory(categoryId: number, page: number = 1, limit: number = 10): Promise<PaginatedCoursesResponse> {
+  async getCoursesByCategory(categoryId: number, page: number = 1, limit: number = 10, language: string): Promise<PaginatedCoursesResponse> {
     try {
       const offset = (page - 1) * limit;
 
@@ -526,9 +544,10 @@ export class CoursesRepository {
                    AND c.creator_published_at IS NOT NULL
                    AND c.approved_at IS NOT NULL
                    AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
+                   AND (c.language = $4)
                  ORDER BY c.created_at DESC
                  LIMIT $2 OFFSET $3`,
-        [categoryId, limit, offset]
+        [categoryId, limit, offset, language]
       );
 
       // Get total count
@@ -539,8 +558,9 @@ export class CoursesRepository {
                    AND c.is_active = true
                    AND c.creator_published_at IS NOT NULL
                    AND c.approved_at IS NOT NULL
-                   AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))`,
-        [categoryId]
+                   AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
+                   AND (c.language = $2)`,
+        [categoryId, language]
       );
 
       const total = parseInt(totalResult.rows[0].count, 10);
@@ -813,7 +833,7 @@ export class CoursesRepository {
   }
 
   // Search methods
-  async fuzzySearchCourses(searchString: string, limit: number = 5): Promise<Course[]> {
+  async fuzzySearchCourses(searchString: string, limit: number = 5, language: string): Promise<Course[]> {
     try {
       const query = `
         SELECT
@@ -837,6 +857,7 @@ export class CoursesRepository {
           AND c.creator_published_at IS NOT NULL
           AND c.approved_at IS NOT NULL
           AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
+          AND (c.language = $3)
           AND (
             c.name ILIKE $1
             OR c.description ILIKE $1
@@ -846,7 +867,7 @@ export class CoursesRepository {
       `;
 
       const searchPattern = `%${searchString}%`;
-      const result = await db.query(query, [searchPattern, limit]);
+      const result = await db.query(query, [searchPattern, limit, language]);
       return result.rows;
     } catch (error) {
       console.error('Error in fuzzy search courses:', error);
@@ -897,13 +918,13 @@ export class CoursesRepository {
     }
   }
 
-  async fuzzySearchCombined(searchString: string, limit: number = 5): Promise<{
+  async fuzzySearchCombined(searchString: string, limit: number = 5, language: string): Promise<{
     courses: Course[];
     contents: ContentWithModule[];
   }> {
     try {
       const [courses, contents] = await Promise.all([
-        this.fuzzySearchCourses(searchString, limit),
+        this.fuzzySearchCourses(searchString, limit, language),
         this.fuzzySearchContents(searchString, limit)
       ]);
 
@@ -1487,7 +1508,7 @@ export class CoursesRepository {
   }
 
   // Get approved and active course by ID with modules and content for frontend
-  async getApprovedCourseWithHierarchy(courseId: number): Promise<UserCourse | null> {
+  async getApprovedCourseWithHierarchy(courseId: number, language: string): Promise<UserCourse | null> {
     try {
       // Get the specific course
       const courseResult = await db.query(
@@ -1496,8 +1517,9 @@ export class CoursesRepository {
            AND c.is_active = true
            AND c.creator_published_at IS NOT NULL
            AND c.approved_at IS NOT NULL
-           AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))`,
-        [courseId]
+           AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
+           AND (c.language = $2)`,
+        [courseId, language]
       );
 
       if (courseResult.rows.length === 0) {
@@ -1558,6 +1580,127 @@ export class CoursesRepository {
     } catch (error) {
       console.error("Error getting approved course with hierarchy:", error);
       return null;
+    }
+  }
+
+  async getExploreCourses(language: string): Promise<ExploreCourse[]> {
+    try {
+      const query = `
+        SELECT
+        c.id                         AS course_id,
+        c.name                       AS course_name,
+        c.description                AS course_description,
+        c.thumbnail_url              AS course_thumbnail_url,
+        m.id                         AS module_id,
+        m.name                       AS module_name,
+        m.description                AS module_description,
+        m.position                   AS module_position,
+        m.thumbnail_url              AS module_thumbnail_url,
+        cont.id                      AS content_id,
+        cont.name                    AS content_name,
+        cont.description             AS content_description,
+        cont.content_type            AS content_type,
+        cont.position                AS content_position,
+        cont.url                     AS content_url,
+        cont.abs_url                 AS content_abs_url,
+        cont.duration                AS content_duration,
+        cont.thumbnail_url           AS content_thumbnail_url
+      FROM courses c
+
+      JOIN modules m
+        ON m.course_id = c.id
+        AND m.is_active = true
+
+      LEFT JOIN LATERAL (
+        SELECT cont.*
+        FROM contents cont
+        WHERE cont.module_id = m.id
+          AND cont.is_active = true
+          AND cont.approved_at IS NOT NULL
+          AND cont.content_type = 'video'
+        ORDER BY cont.position ASC, cont.id ASC
+        LIMIT 1
+      ) cont ON TRUE
+      WHERE
+        c.is_active = true
+        AND c.creator_published_at IS NOT NULL
+        AND c.approved_at IS NOT NULL
+        AND (
+          c.approved_at > c.creator_published_at
+          OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp)
+        )
+        AND c.language = $1
+      ORDER BY
+        c.created_at DESC,
+        m.position ASC;
+      `;
+
+      const result = await db.query(query, [language]);
+
+      // Group the results by course and module
+      const coursesMap = new Map<number, ExploreCourse>();
+
+      result.rows.forEach((row) => {
+        const courseId = row.course_id;
+
+        if (!coursesMap.has(courseId)) {
+          coursesMap.set(courseId, {
+            id: courseId,
+            name: row.course_name,
+            description: row.course_description,
+            thumbnail_url: row.course_thumbnail_url,
+            modules: []
+          });
+        }
+
+        const course = coursesMap.get(courseId)!;
+
+        // Check if module already exists
+        let module = course.modules.find(m => m.id === row.module_id);
+
+        if (!module) {
+          module = {
+            id: row.module_id,
+            name: row.module_name,
+            description: row.module_description,
+            position: row.module_position,
+            is_active: true, // Default since it's filtered in the query
+            thumbnail_url: row.module_thumbnail_url,
+            first_video: {
+              id: 0,
+              name: '',
+              description: '',
+              type: 'VIDEO' as any,
+              position: 0,
+              url: '',
+              abs_url: '',
+              duration: 0,
+              thumbnail_url: '',
+            }
+          };
+          course.modules.push(module);
+        }
+
+        // Set first_video if content exists (the LATERAL JOIN ensures we get the first video)
+        if (row.content_id) {
+          module.first_video = {
+            id: row.content_id,
+            name: row.content_name,
+            description: row.content_description,
+            type: row.content_type,
+            position: row.content_position,
+            url: row.content_url,
+            abs_url: row.content_abs_url,
+            duration: row.content_duration,
+            thumbnail_url: row.content_thumbnail_url,
+          };
+        }
+      });
+
+      return Array.from(coursesMap.values());
+    } catch (error) {
+      console.error("Error getting explore courses:", error);
+      return [];
     }
   }
 }
