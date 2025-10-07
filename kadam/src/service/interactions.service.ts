@@ -1,6 +1,6 @@
 import {
     CreateLikeDTO, Like, UpdateLikeDTO, Comment, CreateCommentDTO, UpdateCommentDTO,
-    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, View, CreateViewDTO, UpdateViewDTO
+    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO
 } from "../schemas/interaction";
 import { ParentType } from "../shared/enums";
 import { InteractionsRepository } from "../repository/interactions.repository";
@@ -179,40 +179,60 @@ export class InteractionsService {
         }
     }
 
-    // View operations
-    async createView(data: CreateViewDTO, userId: number): Promise<View> {
+    // User Enrollment operations
+    async createUserEnrollment(enrollmentData: CreateUserEnrollmentDTO, userId: number): Promise<UserEnrollment> {
         try {
-            const view = await this.interactionsRepository.createView(data, userId);
-            if (view) {
-                return view;
+            const enrollment = await this.interactionsRepository.createUserEnrollment(enrollmentData, userId);
+            if (enrollment) {
+                return enrollment;
             }
-            throw new Error("Failed to create view");
+            throw new Error("Failed to create user enrollment");
         } catch (error) {
-            console.error("Error creating view:", error);
+            console.error("Error creating user enrollment:", error);
             throw error;
         }
     }
 
-    async getViewsByUserId(userId: number): Promise<View[]> {
+
+    async getUserEnrollmentsByUserId(userId: number): Promise<UserEnrollment[]> {
         try {
-            return this.interactionsRepository.getViewsByUserId(userId);
+            return await this.interactionsRepository.getUserEnrollmentsByUserId(userId);
         } catch (error) {
-            console.error("Error getting views by user ID:", error);
+            console.error("Error getting user enrollments by user ID:", error);
             throw error;
         }
     }
 
-    async updateView(id: number, data: UpdateViewDTO): Promise<View> {
+    async getUserEnrollmentsByCourseId(courseId: number): Promise<UserEnrollment[]> {
         try {
-            const view = await this.interactionsRepository.updateView(id, data);
-            if (view) {
-                return view;
-            }
-            throw new Error("Failed to update view");
+            return await this.interactionsRepository.getUserEnrollmentsByCourseId(courseId);
         } catch (error) {
-            console.error("Error updating view:", error);
+            console.error("Error getting user enrollments by course ID:", error);
             throw error;
         }
     }
+
+    async updateUserEnrollment(id: number, enrollmentData: UpdateUserEnrollmentDTO): Promise<UserEnrollment> {
+        try {
+            const enrollment = await this.interactionsRepository.updateUserEnrollment(id, enrollmentData);
+            if (enrollment) {
+                return enrollment;
+            }
+            throw new Error("Failed to update user enrollment");
+        } catch (error) {
+            console.error("Error updating user enrollment:", error);
+            throw error;
+        }
+    }
+
+    async deleteUserEnrollment(id: number): Promise<boolean> {
+        try {
+            return await this.interactionsRepository.deleteUserEnrollment(id);
+        } catch (error) {
+            console.error("Error deleting user enrollment:", error);
+            throw error;
+        }
+    }
+
 
 }

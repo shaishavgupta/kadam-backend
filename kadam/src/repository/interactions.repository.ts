@@ -1,7 +1,7 @@
 import { db } from "../infra/db";
 import {
     Like, CreateLikeDTO, UpdateLikeDTO, Comment, CreateCommentDTO, UpdateCommentDTO,
-    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, View, CreateViewDTO, UpdateViewDTO
+    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO
 } from "../schemas/interaction";
 import { ParentType } from "../shared/enums";
 
@@ -236,53 +236,114 @@ export class InteractionsRepository {
         }
     }
 
-    // View operations
-    async createView(viewData: CreateViewDTO, userId: number): Promise<View | null> {
+    // User Enrollment operations
+    async createUserEnrollment(enrollmentData: CreateUserEnrollmentDTO, userId: number): Promise<UserEnrollment | null> {
         try {
-            const result = await db.query(
-                `INSERT INTO views (user_id, parent_id, parent_type, duration, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
-                [userId, viewData.parent_id, viewData.parent_type, viewData.duration]
+            // First try to update existing enrollment
+            const getResult = await db.query(
+                `SELECT * FROM user_enrollments
+                 WHERE user_id = $1 AND course_id = $2 AND module_id = $3 AND content_id = $4`,
+                [userId, enrollmentData.course_id, enrollmentData.module_id, enrollmentData.content_id]
             );
 
-            if (result.rows.length > 0) {
-                return result.rows[0] as View;
+            // If update affected rows, return the updated record
+            if (getResult.rows.length > 0) {
+                return getResult.rows[0] as UserEnrollment;
+            }
+
+            // If no rows were updated, insert new enrollment
+            const insertResult = await db.query(
+                `INSERT INTO user_enrollments (user_id, course_id, module_id, content_id, progress, created_at)
+                 VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
+                [userId, enrollmentData.course_id, enrollmentData.module_id, enrollmentData.content_id, enrollmentData.progress || 0]
+            );
+
+            if (insertResult.rows.length > 0) {
+                return insertResult.rows[0] as UserEnrollment;
             }
             return null;
         } catch (error) {
-            console.error("Error creating view:", error);
+            console.error("Error creating user enrollment:", error);
             return null;
         }
     }
 
-    async getViewsByUserId(userId: number): Promise<View[]> {
+    async getUserEnrollmentsByUserId(userId: number): Promise<UserEnrollment[]> {
         try {
             const result = await db.query(
-                `SELECT * FROM views WHERE user_id = $1 ORDER BY created_at DESC`,
+                `SELECT * FROM user_enrollments WHERE user_id = $1 ORDER BY created_at DESC`,
                 [userId]
             );
-            return result.rows as View[];
+            return result.rows as UserEnrollment[];
         } catch (error) {
-            console.error("Error getting views by user ID:", error);
+            console.error("Error getting user enrollments by user ID:", error);
             return [];
         }
     }
 
-    async updateView(id: number, viewData: UpdateViewDTO): Promise<View | null> {
+    async getUserEnrollmentsByCourseId(courseId: number): Promise<UserEnrollment[]> {
         try {
             const result = await db.query(
-                `UPDATE views SET duration = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
-                [viewData.duration, id]
+                `SELECT * FROM user_enrollments WHERE course_id = $1 ORDER BY created_at DESC`,
+                [courseId]
+            );
+            return result.rows as UserEnrollment[];
+        } catch (error) {
+            console.error("Error getting user enrollments by course ID:", error);
+            return [];
+        }
+    }
+
+    async updateUserEnrollment(id: number, enrollmentData: UpdateUserEnrollmentDTO): Promise<UserEnrollment | null> {
+        try {
+            const updateFields = [];
+            const values = [];
+            let paramCount = 1;
+
+            if (enrollmentData.completed_at !== undefined) {
+                updateFields.push(`completed_at = $${paramCount}`);
+                values.push(enrollmentData.completed_at);
+                paramCount++;
+            }
+            if (enrollmentData.progress !== undefined) {
+                updateFields.push(`progress = $${paramCount}`);
+                values.push(enrollmentData.progress);
+                paramCount++;
+            }
+
+            if (updateFields.length === 0) {
+                return null;
+            }
+
+            values.push(id);
+
+            const result = await db.query(
+                `UPDATE user_enrollments SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
+                values
             );
 
             if (result.rows.length > 0) {
-                return result.rows[0] as View;
+                return result.rows[0] as UserEnrollment;
             }
             return null;
         } catch (error) {
-            console.error("Error updating view:", error);
+            console.error("Error updating user enrollment:", error);
             return null;
         }
     }
+
+    async deleteUserEnrollment(id: number): Promise<boolean> {
+        try {
+            const result = await db.query(
+                `DELETE FROM user_enrollments WHERE id = $1`,
+                [id]
+            );
+            return (result.rowCount || 0) > 0;
+        } catch (error) {
+            console.error("Error deleting user enrollment:", error);
+            return false;
+        }
+    }
+
 
 }

@@ -561,7 +561,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         schema: {
             tags: ['Courses'],
             summary: 'Get home page courses',
-            description: 'Retrieve course list with aggregated interaction data (likes, views, saves, shares)',
+            description: 'Retrieve course list with aggregated interaction data (likes, saves, shares)',
             security: [{ bearerAuth: [] }],
             response: {
                 200: CourseListResponseSchema
@@ -579,7 +579,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                         keep_watching: [],
                         for_you: [],
                         top_10: [],
-                        popular: [],
+
                         latest: [],
                     },
                     message: "Language preference is required"
@@ -601,7 +601,6 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                     keep_watching: [],
                     for_you: [],
                     top_10: [],
-                    popular: [],
                     latest: [],
                 },
                 message: errorMessage

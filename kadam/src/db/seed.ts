@@ -75,7 +75,6 @@ async function seedDatabase() {
 
 async function clearExistingData() {
     const tables = [
-        'views',
         'saves',
         'shares',
         'comments',
@@ -828,23 +827,7 @@ async function seedInteractions(userIds: number[], courseIds: number[], contentI
         );
     }
 
-    // Seed views
-    console.log('👀 Seeding views...');
-    for (let i = 0; i < 25; i++) {
-        const userId = userIds[Math.floor(Math.random() * userIds.length)];
-        const parentId = Math.random() > 0.5 ?
-            courseIds[Math.floor(Math.random() * courseIds.length)] :
-            contentIds[Math.floor(Math.random() * contentIds.length)];
-        const parentType = Math.random() > 0.5 ? 'course' : 'content';
-        const duration = Math.floor(Math.random() * 1800) + 60; // 1-30 minutes
-
-        await client.query(
-            `INSERT INTO views (user_id, parent_id, parent_type, duration) VALUES ($1, $2, $3, $4)`,
-            [userId, parentId, parentType, duration]
-        );
-    }
-
-    console.log('✅ Seeded interactions (likes, comments, shares, saves, views)');
+    console.log('✅ Seeded interactions (likes, comments, shares, saves)');
 }
 
 async function printSeedingSummary(): Promise<void> {
@@ -855,7 +838,7 @@ async function printSeedingSummary(): Promise<void> {
         'qualifications', 'achievements', 'courses', 'modules', 'contents',
         'user_enrollments', 'user_badges', 'user_certificates', 'user_quiz_attempts',
         'admin_configurations', 'admin_activities', 'vectors',
-        'likes', 'comments', 'shares', 'saves', 'views'
+        'likes', 'comments', 'shares', 'saves'
     ];
 
     for (const table of tables) {

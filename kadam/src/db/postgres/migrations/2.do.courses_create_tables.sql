@@ -108,14 +108,3 @@ CREATE TABLE vectors (
   UNIQUE(source, source_id)
 );
 
-CREATE TABLE user_enrollments (
-  id BIGSERIAL PRIMARY KEY,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  user_id BIGINT NOT NULL,
-  course_id BIGINT NOT NULL,
-  content_id BIGINT NOT NULL,
-  completed_at TIMESTAMP DEFAULT NULL,
-  progress FLOAT DEFAULT 0
-);
-
-CREATE INDEX idx_user_enrollments_user_id ON user_enrollments(user_id);

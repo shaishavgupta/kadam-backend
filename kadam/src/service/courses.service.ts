@@ -20,7 +20,6 @@ export class CoursesService {
                 keep_watching: [],
                 for_you: [],
                 top_10: [],
-                popular: [],
                 latest: []
             };
         }

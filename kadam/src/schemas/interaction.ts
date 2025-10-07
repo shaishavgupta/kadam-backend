@@ -49,14 +49,6 @@ export const SaveSchema = Type.Object({
     parent_type: ParentTypeSchema
 });
 
-export const ViewSchema = Type.Object({
-    id: Type.Number(),
-    created_at: Type.String({ format: 'date-time' }),
-    user_id: Type.Number(),
-    parent_id: Type.Number(),
-    parent_type: ParentTypeSchema,
-    duration: Type.Optional(Type.Number())
-});
 
 export const RatingSchema = Type.Object({
     id: Type.Number(),
@@ -65,6 +57,17 @@ export const RatingSchema = Type.Object({
     course_id: Type.Number(),
     rating: Type.Number({ minimum: 1, maximum: 5 }),
     review: Type.Optional(Type.String())
+});
+
+export const UserEnrollmentSchema = Type.Object({
+    id: Type.Number(),
+    created_at: Type.String({ format: 'date-time' }),
+    user_id: Type.Number(),
+    course_id: Type.Number(),
+    module_id: Type.Number(),
+    content_id: Type.Number(),
+    completed_at: Type.Optional(Type.String({ format: 'date-time' })),
+    progress: Type.Number({ minimum: 0, maximum: 100 })
 });
 
 // Request schemas
@@ -108,15 +111,7 @@ export const CreateSaveDTOSchema = Type.Object({
     parent_type: ParentTypeSchema
 });
 
-export const CreateViewDTOSchema = Type.Object({
-    parent_id: Type.Number(),
-    parent_type: ParentTypeSchema,
-    duration: Type.Optional(Type.Number())
-});
 
-export const UpdateViewDTOSchema = Type.Object({
-    duration: Type.Optional(Type.Number())
-});
 
 export const CreateRatingDTOSchema = Type.Object({
     course_id: Type.Number(),
@@ -129,21 +124,33 @@ export const UpdateRatingDTOSchema = Type.Object({
     review: Type.Optional(Type.String())
 });
 
+export const CreateUserEnrollmentDTOSchema = Type.Object({
+    course_id: Type.Number(),
+    module_id: Type.Number(),
+    content_id: Type.Number(),
+    progress: Type.Optional(Type.Number({ minimum: 0, maximum: 100 }))
+});
+
+export const UpdateUserEnrollmentDTOSchema = Type.Object({
+    completed_at: Type.Optional(Type.String({ format: 'date-time' })),
+    progress: Type.Optional(Type.Number({ minimum: 0, maximum: 100 }))
+});
+
 // Response wrapper schemas
 export const LikeResponseSchema = ApiResponseSchema(LikeSchema);
 export const CommentResponseSchema = ApiResponseSchema(CommentSchema);
 export const ShareResponseSchema = ApiResponseSchema(ShareSchema);
 export const SaveResponseSchema = ApiResponseSchema(SaveSchema);
-export const ViewResponseSchema = ApiResponseSchema(ViewSchema);
 export const RatingResponseSchema = ApiResponseSchema(RatingSchema);
+export const UserEnrollmentResponseSchema = ApiResponseSchema(UserEnrollmentSchema);
 
 // Array response schemas
 export const LikesArrayResponseSchema = ApiResponseSchema(Type.Array(LikeSchema));
 export const CommentsArrayResponseSchema = ApiResponseSchema(Type.Array(CommentSchema));
 export const SharesArrayResponseSchema = ApiResponseSchema(Type.Array(ShareSchema));
 export const SavesArrayResponseSchema = ApiResponseSchema(Type.Array(SaveSchema));
-export const ViewsArrayResponseSchema = ApiResponseSchema(Type.Array(ViewSchema));
 export const RatingsArrayResponseSchema = ApiResponseSchema(Type.Array(RatingSchema));
+export const UserEnrollmentsArrayResponseSchema = ApiResponseSchema(Type.Array(UserEnrollmentSchema));
 
 // Additional schemas for missing endpoints
 export const InteractionUserIdParamSchema = Type.Object({
@@ -166,13 +173,15 @@ export const SaveIdParamSchema = Type.Object({
     saveId: Type.String({ pattern: '^[0-9]+$' })
 });
 
-export const ViewIdParamSchema = Type.Object({
-    viewId: Type.String({ pattern: '^[0-9]+$' })
-});
 
 export const RatingIdParamSchema = Type.Object({
     ratingId: Type.String({ pattern: '^[0-9]+$' })
 });
+
+export const UserEnrollmentIdParamSchema = Type.Object({
+    enrollmentId: Type.String({ pattern: '^[0-9]+$' })
+});
+
 
 export const ParentIdParamSchema = Type.Object({
     parentId: Type.String({ pattern: '^[0-9]+$' })
@@ -199,11 +208,12 @@ export const SaveDeleteParamSchema = Type.Object({
     id: Type.String({ pattern: '^[0-9]+$' })
 });
 
-export const ViewUpdateParamSchema = Type.Object({
+
+export const RatingUpdateParamSchema = Type.Object({
     id: Type.String({ pattern: '^[0-9]+$' })
 });
 
-export const RatingUpdateParamSchema = Type.Object({
+export const UserEnrollmentUpdateParamSchema = Type.Object({
     id: Type.String({ pattern: '^[0-9]+$' })
 });
 
@@ -234,8 +244,8 @@ export type Like = Static<typeof LikeSchema>;
 export type Comment = Static<typeof CommentSchema>;
 export type Share = Static<typeof ShareSchema>;
 export type Save = Static<typeof SaveSchema>;
-export type View = Static<typeof ViewSchema>;
 export type Rating = Static<typeof RatingSchema>;
+export type UserEnrollment = Static<typeof UserEnrollmentSchema>;
 export type CreateLikeDTO = Static<typeof CreateLikeDTOSchema>;
 export type UpdateLikeDTO = Static<typeof UpdateLikeDTOSchema>;
 export type GetLikesByUserIdDTO = Static<typeof GetLikesByUserIdDTOSchema>;
@@ -244,25 +254,25 @@ export type UpdateCommentDTO = Static<typeof UpdateCommentDTOSchema>;
 export type CreateShareDTO = Static<typeof CreateShareDTOSchema>;
 export type UpdateShareDTO = Static<typeof UpdateShareDTOSchema>;
 export type CreateSaveDTO = Static<typeof CreateSaveDTOSchema>;
-export type CreateViewDTO = Static<typeof CreateViewDTOSchema>;
-export type UpdateViewDTO = Static<typeof UpdateViewDTOSchema>;
 export type CreateRatingDTO = Static<typeof CreateRatingDTOSchema>;
 export type UpdateRatingDTO = Static<typeof UpdateRatingDTOSchema>;
+export type CreateUserEnrollmentDTO = Static<typeof CreateUserEnrollmentDTOSchema>;
+export type UpdateUserEnrollmentDTO = Static<typeof UpdateUserEnrollmentDTOSchema>;
 export type InteractionUserIdParam = Static<typeof InteractionUserIdParamSchema>;
 export type LikeIdParam = Static<typeof LikeIdParamSchema>;
 export type CommentIdParam = Static<typeof CommentIdParamSchema>;
 export type ShareIdParam = Static<typeof ShareIdParamSchema>;
 export type SaveIdParam = Static<typeof SaveIdParamSchema>;
-export type ViewIdParam = Static<typeof ViewIdParamSchema>;
 export type RatingIdParam = Static<typeof RatingIdParamSchema>;
+export type UserEnrollmentIdParam = Static<typeof UserEnrollmentIdParamSchema>;
 export type ParentIdParam = Static<typeof ParentIdParamSchema>;
 export type InteractionCourseIdParam = Static<typeof InteractionCourseIdParamSchema>;
 export type LikeUpdateParam = Static<typeof LikeUpdateParamSchema>;
 export type CommentUpdateParam = Static<typeof CommentUpdateParamSchema>;
 export type ShareUpdateParam = Static<typeof ShareUpdateParamSchema>;
 export type SaveDeleteParam = Static<typeof SaveDeleteParamSchema>;
-export type ViewUpdateParam = Static<typeof ViewUpdateParamSchema>;
 export type RatingUpdateParam = Static<typeof RatingUpdateParamSchema>;
+export type UserEnrollmentUpdateParam = Static<typeof UserEnrollmentUpdateParamSchema>;
 export type ParentTypeParam = Static<typeof ParentTypeParamSchema>;
 export type SimpleUserIdParam = Static<typeof SimpleUserIdParamSchema>;
 

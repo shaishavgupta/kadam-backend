@@ -13,7 +13,7 @@ export async function initializeDailyCourseRankingCron(): Promise<void> {
                 eventType: 'course_ranking_calculation',
                 data: {
                     calculationType: 'daily_ranking_update',
-                    formula: 'score = (views * 1) + (likes * 3) + (comments * 5) + (shares * 8)'
+                    formula: 'score = (likes * 3) + (comments * 5) + (shares * 8)'
                 },
                 timestamp: new Date().toISOString()
             },

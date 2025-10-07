@@ -9,81 +9,76 @@ export class CoursesRepository {
   async getHomePageCourseList(language: string): Promise<CourseListData> {
     // Base query for course data with ratings
     const baseQuery = `
-      SELECT
-        c.id,
-        c.name as title,
-        c.thumbnail_url as thumbnail,
-        c.description,
-        cat.name as category,
-        COALESCE(video_count.total_videos, 0) as total_videos,
-        COALESCE(duration_sum.total_duration, 0) as total_duration,
-        0 as likes,
-        0 as views,
-        0 as saves,
-        0 as shares,
-        c.created_at,
-        c.rank as rating_ratio
-      FROM courses c
-      LEFT JOIN course_categories cc ON c.id = cc.course_id
-      LEFT JOIN categories cat ON cc.category_id = cat.id
-      LEFT JOIN (
-        SELECT course_id, COUNT(*) as total_videos
-        FROM contents
-        WHERE content_type = 'VIDEO' AND is_active = true
-        GROUP BY course_id
-      ) video_count ON c.id = video_count.course_id
-      LEFT JOIN (
-        SELECT course_id, SUM(COALESCE(duration, 0)) as total_duration
-        FROM contents
-        WHERE is_active = true
-        GROUP BY course_id
-      ) duration_sum ON c.id = duration_sum.course_id
-      WHERE c.is_active = true
-        AND c.creator_published_at IS NOT NULL
-        AND c.approved_at IS NOT NULL
-        AND (c.approved_at > c.creator_published_at OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp))
-        AND (c.language = $1)
-    `;
+    SELECT
+      c.id,
+      c.name AS title,
+      c.thumbnail_url AS thumbnail,
+      c.description,
+      cat.name AS category,
+      COALESCE(video_count.total_videos, 0) AS total_videos,
+      COALESCE(duration_sum.total_duration, 0) AS total_duration,
+      0 AS likes,
+      0 AS saves,
+      0 AS shares,
+      c.created_at,
+      c.rank AS rating_ratio
+    FROM courses c
+    LEFT JOIN course_categories cc ON c.id = cc.course_id
+    LEFT JOIN categories cat ON cc.category_id = cat.id
+
+    LEFT JOIN (
+      SELECT m.course_id, COUNT(*) AS total_videos
+      FROM contents cont
+      JOIN modules m ON cont.module_id = m.id
+      WHERE cont.content_type = 'VIDEO' AND cont.is_active = true
+      GROUP BY m.course_id
+    ) video_count ON c.id = video_count.course_id
+
+    LEFT JOIN (
+      SELECT m.course_id, SUM(COALESCE(cont.duration, 0)) AS total_duration
+      FROM contents cont
+      JOIN modules m ON cont.module_id = m.id
+      WHERE cont.is_active = true
+      GROUP BY m.course_id
+    ) duration_sum ON c.id = duration_sum.course_id
+
+    WHERE c.is_active = true
+      AND c.creator_published_at IS NOT NULL
+      AND c.approved_at IS NOT NULL
+      AND (
+        c.approved_at > c.creator_published_at
+        OR c.approved_at > COALESCE(c.rejected_at, '1900-01-01'::timestamp)
+      )
+      AND c.language = $1
+  `;
+
 
     // Get keep_watching courses (from user_enrollments)
     const keepWatchingQuery = `
-      ${baseQuery}
-      AND c.id IN (
-        SELECT DISTINCT ue.course_id
-        FROM user_enrollments ue
-        WHERE ue.completed_at IS NULL AND ue.progress > 0
-        ORDER BY ue.created_at DESC
-      )
-      ORDER BY ue.created_at DESC
-    `;
+    ${baseQuery}
+    AND c.id IN (
+      SELECT DISTINCT ue.course_id
+      FROM user_enrollments ue
+      WHERE ue.completed_at IS NULL AND ue.progress > 0
+    )
+    ORDER BY c.created_at DESC;
+  `;
+
 
     // Get for_you courses (ordered by rank)
     const forYouQuery = `
-      ${baseQuery}
-      ORDER BY c.rank DESC, c.created_at DESC
-      LIMIT 10
-    `;
+    ${baseQuery}
+    ORDER BY c.rank DESC NULLS LAST, c.created_at DESC
+    LIMIT 10;
+  `;
+
 
     // Get top_10 courses (ordered by rank)
     const top10Query = `
-      ${baseQuery}
-      ORDER BY c.rank DESC, c.created_at DESC
-      LIMIT 10
-    `;
-
-    // Get Popular courses (ordered by rank, offset from top_10)
-    const popularQuery = `
-      ${baseQuery}
-      AND c.id NOT IN (
-        SELECT id FROM (
-          ${baseQuery}
-          ORDER BY c.rank DESC, c.created_at DESC
-          LIMIT 10
-        ) top_courses
-      )
-      ORDER BY c.rank DESC, c.created_at DESC
-      LIMIT 20 OFFSET 10
-    `;
+    ${baseQuery}
+    ORDER BY c.rank DESC NULLS LAST, c.created_at DESC
+    LIMIT 10;
+  `;
 
     // Get Latest courses
     const latestQuery = `
@@ -93,11 +88,10 @@ export class CoursesRepository {
     `;
 
     try {
-      const [keepWatchingResult, forYouResult, top10Result, popularResult, latestResult] = await Promise.all([
+      const [keepWatchingResult, forYouResult, top10Result, latestResult] = await Promise.all([
         db.query(keepWatchingQuery, [language]),
         db.query(forYouQuery, [language]),
         db.query(top10Query, [language]),
-        db.query(popularQuery, [language]),
         db.query(latestQuery, [language])
       ]);
 
@@ -105,7 +99,6 @@ export class CoursesRepository {
         keep_watching: keepWatchingResult.rows as CourseListItem[],
         for_you: forYouResult.rows as CourseListItem[],
         top_10: top10Result.rows as CourseListItem[],
-        popular: popularResult.rows as CourseListItem[],
         latest: latestResult.rows as CourseListItem[]
       };
     } catch (error) {
@@ -114,7 +107,6 @@ export class CoursesRepository {
         keep_watching: [],
         for_you: [],
         top_10: [],
-        popular: [],
         latest: []
       };
     }
@@ -663,12 +655,6 @@ export class CoursesRepository {
             -- Calculate total interactions for each course
             COALESCE(SUM(
               CASE
-                WHEN v.id IS NOT NULL THEN 1  -- views
-                ELSE 0
-              END
-            ), 0) as total_views,
-            COALESCE(SUM(
-              CASE
                 WHEN l.id IS NOT NULL THEN 1  -- likes
                 ELSE 0
               END
@@ -688,7 +674,6 @@ export class CoursesRepository {
           FROM courses c
           LEFT JOIN modules m ON c.id = m.course_id
           LEFT JOIN contents ct ON m.id = ct.module_id AND ct.is_active = true
-          LEFT JOIN views v ON ct.id = v.parent_id AND v.parent_type = 'content' AND v.created_at >= NOW() - INTERVAL '30 days'
           LEFT JOIN likes l ON ct.id = l.parent_id AND l.parent_type = 'content' AND l.is_active = true AND l.created_at >= NOW() - INTERVAL '30 days'
           LEFT JOIN comments cm ON ct.id = cm.parent_id AND cm.parent_type = 'content' AND cm.is_active = true AND cm.created_at >= NOW() - INTERVAL '30 days'
           LEFT JOIN shares s ON ct.id = s.parent_id AND s.parent_type = 'content' AND s.created_at >= NOW() - INTERVAL '30 days'
@@ -702,12 +687,11 @@ export class CoursesRepository {
           SELECT
             course_id,
             course_name,
-            total_views,
             total_likes,
             total_comments,
             total_shares,
-            -- Calculate score using the formula: (views * 1) + (likes * 3) + (comments * 5) + (shares * 8)
-            (total_views * 1.0) + (total_likes * 3.0) + (total_comments * 5.0) + (total_shares * 8.0) as calculated_score
+            -- Calculate score using the formula: (likes * 3) + (comments * 5) + (shares * 8)
+            (total_likes * 3.0) + (total_comments * 5.0) + (total_shares * 8.0) as calculated_score
           FROM course_interactions
         )
         UPDATE courses
