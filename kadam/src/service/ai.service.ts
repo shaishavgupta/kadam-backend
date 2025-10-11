@@ -2,11 +2,7 @@ import {
     chatFlow,
     sessionManagerExports
 } from '../repository/ai';
-import { 
-    CourseRecommendationRequest, 
-    ContentDiscoveryRequest, 
-    SimilarContentRequest, 
-    VectorReindexRequest, 
+import {
     ChatRequest 
 } from '../schemas';
 

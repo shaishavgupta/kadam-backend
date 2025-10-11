@@ -22,6 +22,9 @@ import interactionsRoutes from './controller/interactions.controller';
 import authRoutes from './controller/auth.controller';
 import mediaRoutes from './controller/media.controller';
 import aiRoutes from './controller/ai.controller';
+import clubsRoutes from './controller/clubs.controller';
+import groupsRoutes from './controller/groups.controller';
+import webhookRoutes from './controller/webhook.controller';
 
 const fastifyInstance = Fastify({
     logger: {
@@ -144,6 +147,9 @@ fastifyInstance.register(creatorsRoutes, { prefix: '/api/creators' });
 fastifyInstance.register(interactionsRoutes, { prefix: '/api/interactions' });
 fastifyInstance.register(mediaRoutes, { prefix: '/api/media' });
 fastifyInstance.register(aiRoutes, { prefix: '/api/ai' });
+fastifyInstance.register(clubsRoutes, { prefix: '/api/clubs' });
+fastifyInstance.register(groupsRoutes, { prefix: '/api/groups' });
+fastifyInstance.register(webhookRoutes, { prefix: '/api/webhooks' });
 
 // Connection checks are now handled by centralized infrastructure functions
 
@@ -171,7 +177,8 @@ const start = async () => {
             enableTracing: false, // Tracing is already initialized by index.ts
             enableS3: true,
             enableDatabase: true,
-            enableRedis: true
+            enableRedis: true,
+            enablePubSub: true
         });
 
         if (!infraStatus.overall) {

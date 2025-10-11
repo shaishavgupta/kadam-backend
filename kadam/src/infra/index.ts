@@ -12,6 +12,7 @@ export * from './db';
 export * from './cache';
 export * from './tracing';
 export * from './aws/s3';
+export * from './pubsub';
 
 // Import infrastructure components
 import { db } from './db';
@@ -19,6 +20,7 @@ import pool from './db';
 import { redis } from './cache';
 import { startTelemetry } from './tracing';
 import { getS3Status } from './aws/s3';
+import { postgresPubSub } from './pubsub';
 import { config } from '../config';
 
 /**
@@ -29,6 +31,7 @@ export interface InfrastructureStatus {
     redis: boolean;
     tracing: boolean;
     s3: boolean;
+    pubsub: boolean;
     overall: boolean;
 }
 
@@ -40,6 +43,7 @@ export interface InfrastructureOptions {
     enableS3?: boolean;
     enableDatabase?: boolean;
     enableRedis?: boolean;
+    enablePubSub?: boolean;
 }
 
 /**
@@ -53,7 +57,8 @@ export async function connectInfrastructure(options: InfrastructureOptions = {})
         enableTracing = true,
         enableS3 = true,
         enableDatabase = true,
-        enableRedis = true
+        enableRedis = true,
+        enablePubSub = true
     } = options;
 
     console.log('🔄 Connecting to infrastructure components...');
@@ -63,6 +68,7 @@ export async function connectInfrastructure(options: InfrastructureOptions = {})
         redis: false,
         tracing: false,
         s3: false,
+        pubsub: false,
         overall: false
     };
 
@@ -115,12 +121,28 @@ export async function connectInfrastructure(options: InfrastructureOptions = {})
             }
         }
 
+        // Check PostgreSQL Pub/Sub
+        if (enablePubSub) {
+            try {
+                const pubsubStatus = await postgresPubSub.healthCheck();
+                status.pubsub = pubsubStatus.status === 'healthy';
+                if (status.pubsub) {
+                    console.log('✅ PostgreSQL pub/sub connected successfully');
+                } else {
+                    console.warn('⚠️  PostgreSQL pub/sub not healthy');
+                }
+            } catch (error) {
+                console.error('❌ PostgreSQL pub/sub connection failed:', error);
+            }
+        }
+
         // Determine overall status
         const enabledServices = [
             enableDatabase ? status.database : true,
             enableRedis ? status.redis : true,
             enableTracing ? status.tracing : true,
-            enableS3 ? status.s3 : true
+            enableS3 ? status.s3 : true,
+            enablePubSub ? status.pubsub : true
         ];
 
         status.overall = enabledServices.every(serviceStatus => serviceStatus === true);
@@ -153,6 +175,7 @@ export async function checkInfrastructureHealth(): Promise<InfrastructureStatus>
         redis: false,
         tracing: false,
         s3: false,
+        pubsub: false,
         overall: false
     };
 
@@ -184,8 +207,16 @@ export async function checkInfrastructureHealth(): Promise<InfrastructureStatus>
             console.error('❌ S3 health check failed:', error);
         }
 
+        // Check PostgreSQL Pub/Sub
+        try {
+            const pubsubStatus = await postgresPubSub.healthCheck();
+            status.pubsub = pubsubStatus.status === 'healthy';
+        } catch (error) {
+            console.error('❌ PostgreSQL pub/sub health check failed:', error);
+        }
+
         // Determine overall status
-        status.overall = status.database && status.redis && status.tracing && status.s3;
+        status.overall = status.database && status.redis && status.tracing && status.s3 && status.pubsub;
 
         return status;
 
