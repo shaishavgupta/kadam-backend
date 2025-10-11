@@ -268,7 +268,6 @@ export const CourseListItemSchema = Type.Object({
     total_videos: Type.Number(),
     total_duration: Type.Number(),
     likes: Type.Number(),
-    views: Type.Number(),
     saves: Type.Number(),
     shares: Type.Number()
 });
@@ -277,7 +276,6 @@ export const CourseListDataSchema = Type.Object({
     keep_watching: Type.Array(Type.Any()),
     for_you: Type.Array(Type.Any()),
     top_10: Type.Array(Type.Any()),
-    popular: Type.Array(Type.Any()),
     latest: Type.Array(Type.Any())
 });
 

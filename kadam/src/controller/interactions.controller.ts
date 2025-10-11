@@ -13,24 +13,24 @@ import {
     UpdateShareDTO,
     Save,
     CreateSaveDTO,
-    View,
-    CreateViewDTO,
-    UpdateViewDTO,
     GetLikesByUserIdDTO,
+    UserEnrollment,
+    CreateUserEnrollmentDTO,
+    UpdateUserEnrollmentDTO,
     InteractionUserIdParam,
     LikeIdParam,
     CommentIdParam,
     ShareIdParam,
     SaveIdParam,
-    ViewIdParam,
     ParentIdParam,
     LikeUpdateParam,
     CommentUpdateParam,
     ShareUpdateParam,
     SaveDeleteParam,
-    ViewUpdateParam,
     ParentTypeParam,
     SimpleUserIdParam,
+    UserEnrollmentIdParam,
+    UserEnrollmentUpdateParam,
     CreateLikeDTOSchema,
     UpdateLikeDTOSchema,
     CreateCommentDTOSchema,
@@ -38,32 +38,32 @@ import {
     CreateShareDTOSchema,
     UpdateShareDTOSchema,
     CreateSaveDTOSchema,
-    CreateViewDTOSchema,
-    UpdateViewDTOSchema,
+    CreateUserEnrollmentDTOSchema,
+    UpdateUserEnrollmentDTOSchema,
     LikeResponseSchema,
     CommentResponseSchema,
     ShareResponseSchema,
     SaveResponseSchema,
-    ViewResponseSchema,
+    UserEnrollmentResponseSchema,
     LikesArrayResponseSchema,
     CommentsArrayResponseSchema,
     SharesArrayResponseSchema,
     SavesArrayResponseSchema,
-    ViewsArrayResponseSchema,
+    UserEnrollmentsArrayResponseSchema,
     InteractionUserIdParamSchema,
     LikeIdParamSchema,
     CommentIdParamSchema,
     ShareIdParamSchema,
     SaveIdParamSchema,
-    ViewIdParamSchema,
     ParentIdParamSchema,
     LikeUpdateParamSchema,
     CommentUpdateParamSchema,
     ShareUpdateParamSchema,
     SaveDeleteParamSchema,
-    ViewUpdateParamSchema,
     ParentTypeParamSchema,
     SimpleUserIdParamSchema,
+    UserEnrollmentIdParamSchema,
+    UserEnrollmentUpdateParamSchema,
     CountResponseSchema,
     DeleteResponseSchema
 } from '../schemas/interaction';
@@ -579,27 +579,28 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Create view
-    fastify.post('/views', {
+    // User Enrollment endpoints
+    // Create user enrollment
+    fastify.post('/enrollments', {
         preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Interactions'],
-            summary: 'Create view',
-            description: 'Record a view for content, course, or comment',
-            body: CreateViewDTOSchema,
+            summary: 'Create user enrollment',
+            description: 'Create a new user enrollment for a course and content',
+            body: CreateUserEnrollmentDTOSchema,
             security: [{ bearerAuth: [] }],
             response: {
-                200: ViewResponseSchema
+                200: UserEnrollmentResponseSchema
             }
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const userId = parseInt(request.user!.userID);
-            const data = await interactionsService.createView(request.body as any as CreateViewDTO, userId);
+            const data = await interactionsService.createUserEnrollment(request.body as any as CreateUserEnrollmentDTO, userId);
             return {
                 success: true,
                 data,
-                message: "View created successfully"
+                message: "User enrollment created successfully"
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
@@ -612,27 +613,28 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Get views by user ID
-    fastify.get('/views/user/:userId', {
+
+    // Get user enrollments by user ID
+    fastify.get('/enrollments/user/:userId', {
         preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Interactions'],
-            summary: 'Get views by user ID',
-            description: 'Retrieve all views by a specific user',
+            summary: 'Get user enrollments by user ID',
+            description: 'Retrieve all enrollments for a specific user',
             params: SimpleUserIdParamSchema,
             security: [{ bearerAuth: [] }],
             response: {
-                200: ViewsArrayResponseSchema
+                200: UserEnrollmentsArrayResponseSchema
             }
         }
     }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const userId = parseInt((request.params as any).userId, 10);
-            const data = await interactionsService.getViewsByUserId(userId);
+            const data = await interactionsService.getUserEnrollmentsByUserId(userId);
             return {
                 success: true,
                 data,
-                message: "User views retrieved successfully"
+                message: "User enrollments retrieved successfully"
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
@@ -645,28 +647,61 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Update view
-    fastify.patch('/views/:id', {
+    // Get user enrollments by course ID
+    fastify.get('/enrollments/course/:courseId', {
         preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Interactions'],
-            summary: 'Update view',
-            description: 'Update an existing view record',
-            params: ViewUpdateParamSchema,
-            body: UpdateViewDTOSchema,
+            summary: 'Get user enrollments by course ID',
+            description: 'Retrieve all enrollments for a specific course',
+            params: ParentIdParamSchema,
             security: [{ bearerAuth: [] }],
             response: {
-                200: ViewResponseSchema
+                200: UserEnrollmentsArrayResponseSchema
             }
         }
     }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
-            const viewId = parseInt((request.params as any).id, 10);
-            const data = await interactionsService.updateView(viewId, request.body as any);
+            const courseId = parseInt((request.params as any).parentId, 10);
+            const data = await interactionsService.getUserEnrollmentsByCourseId(courseId);
             return {
                 success: true,
                 data,
-                message: "View updated successfully"
+                message: "Course enrollments retrieved successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
+    });
+
+    // Update user enrollment
+    fastify.patch('/enrollments/:id', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Update user enrollment',
+            description: 'Update an existing user enrollment',
+            params: UserEnrollmentUpdateParamSchema,
+            body: UpdateUserEnrollmentDTOSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: UserEnrollmentResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+        try {
+            const enrollmentId = parseInt((request.params as any).id, 10);
+            const data = await interactionsService.updateUserEnrollment(enrollmentId, request.body as any);
+            return {
+                success: true,
+                data,
+                message: "User enrollment updated successfully"
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
@@ -678,5 +713,39 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             };
         }
     });
+
+    // Delete user enrollment
+    fastify.delete('/enrollments/:id', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Delete user enrollment',
+            description: 'Delete a user enrollment',
+            params: UserEnrollmentUpdateParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: DeleteResponseSchema
+            }
+        }
+    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+        try {
+            const enrollmentId = parseInt((request.params as any).id, 10);
+            const data = await interactionsService.deleteUserEnrollment(enrollmentId);
+            return {
+                success: true,
+                data,
+                message: "User enrollment deleted successfully"
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
+                data: null,
+                message: errorMessage
+            };
+        }
+    });
+
 
 }

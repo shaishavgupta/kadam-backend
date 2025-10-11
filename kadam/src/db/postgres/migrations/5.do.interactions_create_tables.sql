@@ -35,11 +35,14 @@ CREATE TABLE saves (
   parent_type TEXT NOT NULL
 );
 
-CREATE TABLE views (
+CREATE TABLE user_enrollments (
   id BIGSERIAL PRIMARY KEY,
-  created_at TIMESTAMP DEFAULT (now()),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   user_id BIGINT NOT NULL,
-  parent_id BIGINT NOT NULL,
-  parent_type TEXT NOT NULL,
-  duration INTEGER
+  course_id BIGINT NOT NULL,
+  module_id BIGINT NOT NULL,
+  content_id BIGINT NOT NULL,
+  completed_at TIMESTAMP DEFAULT NULL,
+  progress FLOAT DEFAULT 0,
+  UNIQUE(user_id, course_id, module_id, content_id)
 );

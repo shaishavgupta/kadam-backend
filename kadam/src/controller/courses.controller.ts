@@ -561,7 +561,7 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
         schema: {
             tags: ['Courses'],
             summary: 'Get home page courses',
-            description: 'Retrieve course list with aggregated interaction data (likes, views, saves, shares)',
+            description: 'Retrieve course list with aggregated interaction data (likes, saves, shares)',
             security: [{ bearerAuth: [] }],
             response: {
                 200: CourseListResponseSchema
@@ -579,7 +579,6 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                         keep_watching: [],
                         for_you: [],
                         top_10: [],
-                        popular: [],
                         latest: [],
                     },
                     message: "Language preference is required"
@@ -589,7 +588,12 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             const data = await coursesService.getHomePageCourseList(language);
             return {
                 success: true,
-                data: data,
+                data: {
+                    keep_watching: data.keep_watching.concat(data.keep_watching).concat(data.keep_watching).concat(data.keep_watching),
+                    for_you: data.for_you.concat(data.for_you).concat(data.for_you).concat(data.for_you).concat(data.for_you),
+                    top_10: data.top_10.concat(data.top_10).concat(data.top_10).concat(data.top_10).concat(data.top_10),
+                    latest: data.latest.concat(data.latest).concat(data.latest).concat(data.latest).concat(data.latest),
+                },
                 message: "Home page courses retrieved successfully"
             };
         } catch (error) {
@@ -601,7 +605,6 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                     keep_watching: [],
                     for_you: [],
                     top_10: [],
-                    popular: [],
                     latest: [],
                 },
                 message: errorMessage
