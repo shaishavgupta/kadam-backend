@@ -291,7 +291,8 @@ export const SimpleUserIdParamSchema = Type.Object({
 
 // Count response schema
 export const CountResponseSchema = ApiResponseSchema(Type.Object({
-    count: Type.Number()
+    count: Type.Number(),
+    isLiked: Type.Boolean()
 }));
 
 // Delete response schema
