@@ -1,5 +1,5 @@
 import { CoursesRepository } from "../repository/courses.repository";
-import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector, ExploreCourse, ExploreResponse, Path, CreatePathRequest, UpdatePathRequest, PathEnrollment } from "../schemas/course";
+import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector, ExploreCourse, ExploreResponse, Path, CreatePathRequest, UpdatePathRequest } from "../schemas/course";
 import { UserCourse } from "../schemas/course";
 import { ContentType, CourseListData, UserStats, CourseListItem } from "../schemas/course";
 
@@ -53,34 +53,6 @@ export class CoursesService {
         } catch (error) {
             console.error("Error deleting path:", error);
             return false;
-        }
-    }
-
-    // Path enrollments
-    async enrollInPath(userId: number, pathId: number): Promise<PathEnrollment | null> {
-        try {
-            return await this.repository.enrollUserInPath(userId, pathId);
-        } catch (error) {
-            console.error("Error enrolling in path:", error);
-            return null;
-        }
-    }
-
-    async unenrollFromPath(userId: number, pathId: number): Promise<boolean> {
-        try {
-            return await this.repository.unenrollUserFromPath(userId, pathId);
-        } catch (error) {
-            console.error("Error unenrolling from path:", error);
-            return false;
-        }
-    }
-
-    async getMyPathEnrollments(userId: number, page: number = 1, limit: number = 10): Promise<{ enrollments: PathEnrollment[]; total: number; page: number; limit: number; totalPages: number; }> {
-        try {
-            return await this.repository.getUserPathEnrollments(userId, page, limit);
-        } catch (error) {
-            console.error("Error getting path enrollments:", error);
-            return { enrollments: [], total: 0, page, limit, totalPages: 0 };
         }
     }
 

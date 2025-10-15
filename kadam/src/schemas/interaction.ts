@@ -60,6 +60,35 @@ export const RatingSchema = Type.Object({
     review: Type.Optional(Type.String())
 });
 
+export const PathEnrollmentSchema = Type.Object({
+    id: Type.Number(),
+    user_id: Type.Number(),
+    path_id: Type.Number(),
+    is_active: Type.Boolean(),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' })
+});
+
+export const CreatePathEnrollmentRequestSchema = Type.Object({
+    path_id: Type.Number()
+});
+
+export const PathEnrollmentResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: PathEnrollmentSchema,
+    message: Type.String()
+});
+
+export const PathEnrollmentsResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        enrollments: Type.Array(PathEnrollmentSchema),
+        total: Type.Number()
+    }),
+    message: Type.String()
+});
+
+
 export const UserEnrollmentSchema = Type.Object({
     id: Type.Number(),
     created_at: Type.String({ format: 'date-time' }),
@@ -71,7 +100,6 @@ export const UserEnrollmentSchema = Type.Object({
     progress: Type.Number({ minimum: 0, maximum: 100 })
 });
 
-// Request schemas
 export const CreateLikeDTOSchema = Type.Object({
     parent_id: Type.Number(),
     parent_type: ParentTypeSchema,
@@ -314,5 +342,9 @@ export type RatingUpdateParam = Static<typeof RatingUpdateParamSchema>;
 export type UserEnrollmentUpdateParam = Static<typeof UserEnrollmentUpdateParamSchema>;
 export type ParentTypeParam = Static<typeof ParentTypeParamSchema>;
 export type SimpleUserIdParam = Static<typeof SimpleUserIdParamSchema>;
+export type PathEnrollment = Static<typeof PathEnrollmentSchema>;
+export type CreatePathEnrollmentRequest = Static<typeof CreatePathEnrollmentRequestSchema>;
+export type PathEnrollmentResponse = Static<typeof PathEnrollmentResponseSchema>;
+export type PathEnrollmentsResponse = Static<typeof PathEnrollmentsResponseSchema>;
 export type SavedContentWithDetails = Static<typeof SavedContentWithDetailsSchema>;
 

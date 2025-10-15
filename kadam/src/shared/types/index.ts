@@ -1,6 +1,6 @@
 export * from './admin.types';
 export * from './common.types';
-export * from './courses.types';
+// export * from './courses.types';
 export * from './creators.types';
 export * from './embeddings.types';
 // export * from './interactions.types';

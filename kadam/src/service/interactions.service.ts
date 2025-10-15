@@ -1,6 +1,6 @@
 import {
     CreateLikeDTO, Like, Comment, CreateCommentDTO, UpdateCommentDTO,
-    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO
+    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO, PathEnrollment
 } from "../schemas/interaction";
 import { ParentType } from "../shared/enums";
 import { InteractionsRepository } from "../repository/interactions.repository";
@@ -37,9 +37,11 @@ export class InteractionsService {
 
 
 
-    async getLikesCountByParentId(parentId: number, parentType: ParentType): Promise<number> {
+    async getLikesCountByParentId(parentId: number, parentType: ParentType, userId: number): Promise<{ likesCount: number; isLiked: boolean }> {
         try {
-            return this.interactionsRepository.getLikesCountByParentId(parentId, parentType);
+            const likesCount = await this.interactionsRepository.getLikesCountByParentId(parentId, parentType);
+            const isLiked = await this.isLikedByUser(parentId, parentType, userId);
+            return { likesCount, isLiked };
         } catch (error) {
             console.error("Error getting likes count:", error);
             throw error;
@@ -242,6 +244,34 @@ export class InteractionsService {
         } catch (error) {
             console.error("Error deleting user enrollment:", error);
             throw error;
+        }
+    }
+
+    // Path Enrollment operations
+    async enrollInPath(userId: number, pathId: number): Promise<PathEnrollment | null> {
+        try {
+            return await this.interactionsRepository.enrollUserInPath(userId, pathId);
+        } catch (error) {
+            console.error("Error enrolling in path:", error);
+            return null;
+        }
+    }
+
+    async unenrollFromPath(userId: number, pathId: number): Promise<boolean> {
+        try {
+            return await this.interactionsRepository.unenrollUserFromPath(userId, pathId);
+        } catch (error) {
+            console.error("Error unenrolling from path:", error);
+            return false;
+        }
+    }
+
+    async getMyPathEnrollments(userId: number, page: number = 1, limit: number = 10): Promise<{ enrollments: PathEnrollment[]; total: number; page: number; limit: number; totalPages: number; }> {
+        try {
+            return await this.interactionsRepository.getUserPathEnrollments(userId, page, limit);
+        } catch (error) {
+            console.error("Error getting path enrollments:", error);
+            return { enrollments: [], total: 0, page, limit, totalPages: 0 };
         }
     }
 

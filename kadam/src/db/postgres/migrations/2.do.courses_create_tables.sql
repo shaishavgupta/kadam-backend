@@ -108,8 +108,6 @@ CREATE TABLE vectors (
   UNIQUE(source, source_id)
 );
 
-
--- Learning Paths
 CREATE TABLE paths (
   id BIGSERIAL PRIMARY KEY,
   created_at TIMESTAMP DEFAULT (now()),
@@ -120,13 +118,4 @@ CREATE TABLE paths (
   is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
-CREATE TABLE user_enrolled_paths (
-  id BIGSERIAL PRIMARY KEY,
-  created_at TIMESTAMP DEFAULT (now()),
-  updated_at TIMESTAMP NOT NULL,
-  user_id BIGINT NOT NULL,
-  path_id BIGINT NOT NULL,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  UNIQUE(user_id, path_id)
-);
 

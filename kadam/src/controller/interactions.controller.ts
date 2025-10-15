@@ -67,12 +67,17 @@ import {
     UserEnrollmentUpdateParamSchema,
     CountResponseSchema,
     DeleteResponseSchema,
-    BooleanFlagResponseSchema
+    BooleanFlagResponseSchema,
+    PathEnrollment,
+    PathEnrollmentResponseSchema,
+    PathEnrollmentsResponseSchema
 } from '../schemas/interaction';
 
 // Import the user schema's UserIdParamSchema with alias to avoid conflicts
 import { UserIdParamSchema as UserParamSchema, UserIdParam } from '../schemas/user';
-import { ContentsResponseSchema } from '../schemas/course';
+import { ContentsResponseSchema, PathIdParamSchema } from '../schemas/course';
+import { PaginationQuerySchema } from '../schemas/common';
+import { Type } from '@sinclair/typebox';
 
 // Helper to create error responses
 function createErrorResponse(message: string, statusCode: number = 500) {
@@ -81,6 +86,31 @@ function createErrorResponse(message: string, statusCode: number = 500) {
         message,
         statusCode
     };
+}
+
+// Helper to serialize dates
+function serializeDates<T>(obj: T): T {
+    if (obj === null || obj === undefined) {
+        return obj;
+    }
+
+    if (obj instanceof Date) {
+        return obj.toISOString() as any;
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(serializeDates) as any;
+    }
+
+    if (typeof obj === 'object') {
+        const serialized: any = {};
+        for (const [key, value] of Object.entries(obj)) {
+            serialized[key] = serializeDates(value);
+        }
+        return serialized;
+    }
+
+    return obj;
 }
 
 export default async function interactionsRoutes(fastify: FastifyInstance) {
@@ -134,12 +164,13 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
+            const userId = parseInt(request.user!.userID, 10);
             const parentId = parseInt((request.params as any).parentId, 10);
             const parentType = (request.params as any).parentType;
-            const count = await interactionsService.getLikesCountByParentId(parentId, parentType as any);
+            const result = await interactionsService.getLikesCountByParentId(parentId, parentType as any, userId);
             return {
                 success: true,
-                data: { count },
+                data: { count: result.likesCount, isLiked: result.isLiked },
                 message: 'Likes count retrieved successfully'
             };
         } catch (error) {
@@ -147,7 +178,7 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             reply.status(500).send(createErrorResponse(errorMessage, 500));
             return {
                 success: false,
-                data: { count: 0 },
+                data: { count: 0, isLiked: false },
                 message: errorMessage
             };
         }
@@ -716,6 +747,81 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
                 data: null,
                 message: errorMessage
             };
+        }
+    });
+
+    // Path Enrollments
+    // POST /paths/:pathId/enroll
+    fastify.post('/paths/:pathId/enroll', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Enroll in a path',
+            params: PathIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: PathEnrollmentResponseSchema }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const pathId = parseInt((request.params as any).pathId, 10);
+            const userId = parseInt(request.user!.userID);
+            const enrollment = await interactionsService.enrollInPath(userId, pathId);
+            if (!enrollment) { reply.status(400); return { success: false, data: {} as any, message: 'Failed to enroll in path' }; }
+            const data = serializeDates<any>(enrollment);
+            return { success: true, data, message: 'Enrolled in path successfully' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, data: {} as any, message: errorMessage };
+        }
+    });
+
+    // DELETE /paths/:pathId/enroll
+    fastify.delete('/paths/:pathId/enroll', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Unenroll from a path',
+            params: PathIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: Type.Object({ success: Type.Boolean(), message: Type.String() }) }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const pathId = parseInt((request.params as any).pathId, 10);
+            const userId = parseInt(request.user!.userID);
+            const success = await interactionsService.unenrollFromPath(userId, pathId);
+            return { success, message: success ? 'Unenrolled from path successfully' : 'Enrollment not found' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, message: errorMessage } as any;
+        }
+    });
+
+    // GET /paths/enrollments/me
+    fastify.get('/paths/enrollments/me', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get my path enrollments',
+            description: 'List current user\'s active path enrollments',
+            querystring: PaginationQuerySchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: PathEnrollmentsResponseSchema }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
+            const userId = parseInt(request.user!.userID);
+            const raw = await interactionsService.getMyPathEnrollments(userId, page, limit);
+            const data = serializeDates<any>(raw);
+            return { success: true, data: { enrollments: data.enrollments, total: data.total }, message: 'Enrollments retrieved successfully' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, data: { enrollments: [], total: 0 }, message: errorMessage } as any;
         }
     });
 

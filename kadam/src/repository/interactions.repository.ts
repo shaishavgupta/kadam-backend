@@ -1,7 +1,7 @@
 import { db } from "../infra/db";
 import {
     Like, CreateLikeDTO, Comment, CreateCommentDTO, UpdateCommentDTO,
-    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UpdateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO, UpdateLikeDTO
+    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UpdateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO, UpdateLikeDTO, PathEnrollment
 } from "../schemas/interaction";
 import { ParentType } from "../shared/enums";
 import { ContentWithModule } from "../schemas/course";
@@ -511,6 +511,56 @@ export class InteractionsRepository {
         } catch (error) {
             console.error("Error deleting user enrollment:", error);
             return false;
+        }
+    }
+
+    // Path Enrollment operations
+    async enrollUserInPath(userId: number, pathId: number): Promise<PathEnrollment | null> {
+        try {
+            const result = await db.query(
+                `INSERT INTO user_enrolled_paths (user_id, path_id, is_active, created_at, updated_at)
+                 VALUES ($1, $2, true, NOW(), NOW())
+                 ON CONFLICT (user_id, path_id)
+                 DO UPDATE SET is_active = true, updated_at = NOW()
+                 RETURNING *`,
+                [userId, pathId]
+            );
+            return result.rows[0] as PathEnrollment;
+        } catch (error) {
+            console.error("Error enrolling user in path:", error);
+            return null;
+        }
+    }
+
+    async unenrollUserFromPath(userId: number, pathId: number): Promise<boolean> {
+        try {
+            const result = await db.query(
+                `UPDATE user_enrolled_paths SET is_active = false, updated_at = NOW() WHERE user_id = $1 AND path_id = $2`,
+                [userId, pathId]
+            );
+            return (result.rowCount ?? 0) > 0;
+        } catch (error) {
+            console.error("Error unenrolling user from path:", error);
+            return false;
+        }
+    }
+
+    async getUserPathEnrollments(userId: number, page: number = 1, limit: number = 10): Promise<{ enrollments: PathEnrollment[]; total: number; page: number; limit: number; totalPages: number; }> {
+        try {
+            const offset = (page - 1) * limit;
+            const listResult = await db.query(
+                `SELECT * FROM user_enrolled_paths WHERE user_id = $1 AND is_active = true ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+                [userId, limit, offset]
+            );
+            const countResult = await db.query(
+                `SELECT COUNT(*) FROM user_enrolled_paths WHERE user_id = $1 AND is_active = true`,
+                [userId]
+            );
+            const total = parseInt(countResult.rows[0].count, 10);
+            return { enrollments: listResult.rows as PathEnrollment[], total, page, limit, totalPages: Math.ceil(total / limit) };
+        } catch (error) {
+            console.error("Error getting user path enrollments:", error);
+            return { enrollments: [], total: 0, page, limit, totalPages: 0 };
         }
     }
 
