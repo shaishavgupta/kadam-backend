@@ -49,6 +49,7 @@ import {
     CommentsArrayResponseSchema,
     SharesArrayResponseSchema,
     SavesArrayResponseSchema,
+    SavedContentsArrayResponseSchema,
     UserEnrollmentsArrayResponseSchema,
     InteractionUserIdParamSchema,
     LikeIdParamSchema,
@@ -71,6 +72,7 @@ import {
 
 // Import the user schema's UserIdParamSchema with alias to avoid conflicts
 import { UserIdParamSchema as UserParamSchema, UserIdParam } from '../schemas/user';
+import { ContentsResponseSchema } from '../schemas/course';
 
 // Helper to create error responses
 function createErrorResponse(message: string, statusCode: number = 500) {
@@ -117,8 +119,6 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         }
     });
 
-
-
     // Get total likes for a parent (using same route)
     fastify.get('/likes/is-liked/:parentType/:parentId', {
         preHandler: [authMiddleware, requireUser],
@@ -153,26 +153,26 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Get likes for authenticated user
+    // Get liked contents for authenticated user
     fastify.get('/likes/user', {
         preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Interactions'],
-            summary: 'Get likes for current user',
-            description: 'Retrieve all likes created by the authenticated user',
+            summary: 'Get liked contents for current user',
+            description: 'Retrieve all content items liked by the authenticated user',
             security: [{ bearerAuth: [] }],
             response: {
-                200: LikesArrayResponseSchema
+                200: ContentsResponseSchema
             }
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const userId = parseInt(request.user!.userID, 10);
-            const data = await interactionsService.getLikesByUserId(userId);
+            const data = await interactionsService.getLikedContentsByUserId(userId);
             return {
                 success: true,
                 data,
-                message: "Likes retrieved successfully"
+                message: "Liked contents retrieved successfully"
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
@@ -457,20 +457,20 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         schema: {
             tags: ['Interactions'],
             summary: 'Get saves for current user',
-            description: 'Retrieve all saved items for the authenticated user',
+            description: 'Retrieve all saved items with full content details for the authenticated user',
             security: [{ bearerAuth: [] }],
             response: {
-                200: SavesArrayResponseSchema
+                200: SavedContentsArrayResponseSchema
             }
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
             const userId = parseInt(request.user!.userID);
-            const data = await interactionsService.getSavesByUserId(userId);
+            const data = await interactionsService.getSavedContentsByUserId(userId);
             return {
                 success: true,
                 data,
-                message: "User saves retrieved successfully"
+                message: "User saved content retrieved successfully"
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";

@@ -26,11 +26,11 @@ export class InteractionsService {
         }
     }
 
-    async getLikesByUserId(userId: number): Promise<Like[]> {
+    async getLikedContentsByUserId(userId: number) {
         try {
-            return this.interactionsRepository.getLikesByUserId(userId);
+            return this.interactionsRepository.getLikedContentsByUserId(userId);
         } catch (error) {
-            console.error("Error getting likes by user ID:", error);
+            console.error("Error getting liked contents by user ID:", error);
             throw error;
         }
     }
@@ -158,6 +158,15 @@ export class InteractionsService {
             return this.interactionsRepository.getSavesByUserId(userId);
         } catch (error) {
             console.error("Error getting saves by user ID:", error);
+            throw error;
+        }
+    }
+
+    async getSavedContentsByUserId(userId: number) {
+        try {
+            return this.interactionsRepository.getSavedContentsByUserId(userId);
+        } catch (error) {
+            console.error("Error getting saved contents by user ID:", error);
             throw error;
         }
     }

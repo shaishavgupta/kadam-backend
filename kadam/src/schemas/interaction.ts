@@ -46,7 +46,8 @@ export const SaveSchema = Type.Object({
     created_at: Type.String({ format: 'date-time' }),
     user_id: Type.Number(),
     parent_id: Type.Number(),
-    parent_type: ParentTypeSchema
+    parent_type: ParentTypeSchema,
+    is_active: Type.Boolean()
 });
 
 
@@ -113,6 +114,10 @@ export const CreateSaveDTOSchema = Type.Object({
     is_active: Type.Boolean()
 });
 
+export const UpdateSaveDTOSchema = Type.Object({
+    is_active: Type.Boolean()
+});
+
 
 
 export const CreateRatingDTOSchema = Type.Object({
@@ -153,6 +158,34 @@ export const SharesArrayResponseSchema = ApiResponseSchema(Type.Array(ShareSchem
 export const SavesArrayResponseSchema = ApiResponseSchema(Type.Array(SaveSchema));
 export const RatingsArrayResponseSchema = ApiResponseSchema(Type.Array(RatingSchema));
 export const UserEnrollmentsArrayResponseSchema = ApiResponseSchema(Type.Array(UserEnrollmentSchema));
+
+// Saved content with details schema
+export const SavedContentWithDetailsSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    description: Type.String(),
+    module_id: Type.Number(),
+    type: Type.String(),
+    position: Type.Number(),
+    is_paid: Type.Boolean(),
+    is_active: Type.Boolean(),
+    url: Type.Optional(Type.String()),
+    abs_url: Type.Optional(Type.String()),
+    duration: Type.Optional(Type.Number()),
+    thumbnail_url: Type.Optional(Type.String()),
+    category_id: Type.Optional(Type.Number()),
+    next_content_id: Type.Optional(Type.Number()),
+    approved_at: Type.Optional(Type.String({ format: 'date-time' })),
+    approved_by: Type.Optional(Type.Number()),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' }),
+    course_id: Type.Optional(Type.Number()),
+    module_title: Type.Optional(Type.String()),
+    module_description: Type.Optional(Type.String()),
+    saved_at: Type.String({ format: 'date-time' })
+});
+
+export const SavedContentsArrayResponseSchema = ApiResponseSchema(Type.Array(SavedContentWithDetailsSchema));
 
 // Additional schemas for missing endpoints
 export const InteractionUserIdParamSchema = Type.Object({
@@ -259,6 +292,7 @@ export type UpdateCommentDTO = Static<typeof UpdateCommentDTOSchema>;
 export type CreateShareDTO = Static<typeof CreateShareDTOSchema>;
 export type UpdateShareDTO = Static<typeof UpdateShareDTOSchema>;
 export type CreateSaveDTO = Static<typeof CreateSaveDTOSchema>;
+export type UpdateSaveDTO = Static<typeof UpdateSaveDTOSchema>;
 export type CreateRatingDTO = Static<typeof CreateRatingDTOSchema>;
 export type UpdateRatingDTO = Static<typeof UpdateRatingDTOSchema>;
 export type CreateUserEnrollmentDTO = Static<typeof CreateUserEnrollmentDTOSchema>;
@@ -280,4 +314,5 @@ export type RatingUpdateParam = Static<typeof RatingUpdateParamSchema>;
 export type UserEnrollmentUpdateParam = Static<typeof UserEnrollmentUpdateParamSchema>;
 export type ParentTypeParam = Static<typeof ParentTypeParamSchema>;
 export type SimpleUserIdParam = Static<typeof SimpleUserIdParamSchema>;
+export type SavedContentWithDetails = Static<typeof SavedContentWithDetailsSchema>;
 

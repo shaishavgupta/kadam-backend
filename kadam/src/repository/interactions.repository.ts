@@ -1,9 +1,10 @@
 import { db } from "../infra/db";
 import {
     Like, CreateLikeDTO, Comment, CreateCommentDTO, UpdateCommentDTO,
-    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO, UpdateLikeDTO
+    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UpdateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO, UpdateLikeDTO
 } from "../schemas/interaction";
 import { ParentType } from "../shared/enums";
+import { ContentWithModule } from "../schemas/course";
 
 export class InteractionsRepository {
     // Like operations
@@ -22,7 +23,7 @@ export class InteractionsRepository {
             const result = await db.query(
                 `INSERT INTO likes (user_id, parent_id, parent_type, is_active, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
-                [userId, likeData.parent_id, likeData.parent_type, likeData.is_active || true]
+                [userId, likeData.parent_id, likeData.parent_type, likeData.is_active ?? true]
             );
 
             if (result.rows.length > 0) {
@@ -74,6 +75,45 @@ export class InteractionsRepository {
         } catch (error) {
             console.error("Error checking like existence:", error);
             return null;
+        }
+    }
+
+    async getLikedContentsByUserId(userId: number): Promise<ContentWithModule[]> {
+        try {
+            const result = await db.query(
+                `SELECT
+                    c.id,
+                    c.name,
+                    c.description,
+                    c.module_id,
+                    c.content_type as type,
+                    c.position,
+                    c.is_paid,
+                    c.is_active,
+                    c.url,
+                    c.abs_url,
+                    c.duration,
+                    c.thumbnail_url,
+                    c.category_id,
+                    c.next_content_id,
+                    c.approved_at,
+                    c.approved_by,
+                    c.created_at,
+                    c.updated_at,
+                    m.course_id,
+                    m.name as module_title,
+                    m.description as module_description
+                FROM likes l
+                JOIN contents c ON l.parent_id = c.id AND l.parent_type = 'content'
+                JOIN modules m ON c.module_id = m.id
+                WHERE l.user_id = $1 AND l.is_active = true AND c.is_active = true AND m.is_active = true
+                ORDER BY l.created_at DESC`,
+                [userId]
+            );
+            return result.rows as ContentWithModule[];
+        } catch (error) {
+            console.error("Error getting liked contents by user ID:", error);
+            return [];
         }
     }
 
@@ -226,10 +266,19 @@ export class InteractionsRepository {
     // Save operations
     async createSave(saveData: CreateSaveDTO, userId: number): Promise<Save | null> {
         try {
+            const existingSave = await this.getSaveByUser(saveData.parent_id, saveData.parent_type, userId);
+            if (existingSave) {
+                if (existingSave.is_active === saveData.is_active) {
+                    return existingSave;
+                } else {
+                    return await this.updateSave(existingSave.id, { is_active: saveData.is_active } as UpdateSaveDTO);
+                }
+            }
+
             const result = await db.query(
-                `INSERT INTO saves (user_id, parent_id, parent_type, created_at, updated_at)
-                 VALUES ($1, $2, $3, NOW(), NOW()) RETURNING *`,
-                [userId, saveData.parent_id, saveData.parent_type]
+                `INSERT INTO saves (user_id, parent_id, parent_type, is_active, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
+                [userId, saveData.parent_id, saveData.parent_type, saveData.is_active ?? true]
             );
 
             if (result.rows.length > 0) {
@@ -251,6 +300,46 @@ export class InteractionsRepository {
             return result.rows as Save[];
         } catch (error) {
             console.error("Error getting saves by user ID:", error);
+            return [];
+        }
+    }
+
+    async getSavedContentsByUserId(userId: number): Promise<ContentWithModule[]> {
+        try {
+            const result = await db.query(
+                `SELECT
+                    c.id,
+                    c.name,
+                    c.description,
+                    c.module_id,
+                    c.content_type as type,
+                    c.position,
+                    c.is_paid,
+                    c.is_active,
+                    c.url,
+                    c.abs_url,
+                    c.duration,
+                    c.thumbnail_url,
+                    c.category_id,
+                    c.next_content_id,
+                    c.approved_at,
+                    c.approved_by,
+                    c.created_at,
+                    c.updated_at,
+                    m.course_id,
+                    m.name as module_title,
+                    m.description as module_description,
+                    s.created_at as saved_at
+                FROM saves s
+                JOIN contents c ON s.parent_id = c.id AND s.parent_type = 'content'
+                JOIN modules m ON c.module_id = m.id
+                WHERE s.user_id = $1 AND c.is_active = true AND m.is_active = true
+                ORDER BY s.created_at DESC`,
+                [userId]
+            );
+            return result.rows as ContentWithModule[];
+        } catch (error) {
+            console.error("Error getting saved contents by user ID:", error);
             return [];
         }
     }
@@ -278,6 +367,41 @@ export class InteractionsRepository {
         } catch (error) {
             console.error("Error deleting save:", error);
             return false;
+        }
+    }
+
+    async updateSave(id: number, saveData: UpdateSaveDTO): Promise<Save | null> {
+        try {
+            const updateFields: string[] = [];
+            const values: any[] = [];
+            let paramCount = 1;
+
+            if (saveData.is_active !== undefined) {
+                updateFields.push(`is_active = $${paramCount}`);
+                values.push(saveData.is_active);
+                paramCount++;
+            }
+
+            if (updateFields.length === 0) {
+                return null;
+            }
+
+            // Always update the timestamp
+            const setClauses = [...updateFields, `updated_at = NOW()`].join(', ');
+
+            values.push(id);
+            const result = await db.query(
+                `UPDATE saves SET ${setClauses} WHERE id = $${paramCount} RETURNING *`,
+                values
+            );
+
+            if (result.rows.length > 0) {
+                return result.rows[0] as Save;
+            }
+            return null;
+        } catch (error) {
+            console.error("Error updating save:", error);
+            return null;
         }
     }
 
