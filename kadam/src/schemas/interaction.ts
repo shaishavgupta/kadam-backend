@@ -73,11 +73,12 @@ export const UserEnrollmentSchema = Type.Object({
 // Request schemas
 export const CreateLikeDTOSchema = Type.Object({
     parent_id: Type.Number(),
-    parent_type: ParentTypeSchema
+    parent_type: ParentTypeSchema,
+    is_active: Type.Boolean()
 });
 
 export const UpdateLikeDTOSchema = Type.Object({
-    is_active: Type.Optional(Type.Boolean())
+    is_active: Type.Boolean()
 });
 
 export const GetLikesByUserIdDTOSchema = Type.Object({
@@ -88,12 +89,12 @@ export const CreateCommentDTOSchema = Type.Object({
     parent_id: Type.Number(),
     parent_type: ParentTypeSchema,
     comment_text: Type.String(),
-    is_active: Type.Optional(Type.Boolean())
+    is_active: Type.Boolean()
 });
 
 export const UpdateCommentDTOSchema = Type.Object({
     comment_text: Type.Optional(Type.String()),
-    is_active: Type.Optional(Type.Boolean())
+    is_active: Type.Boolean()
 });
 
 export const CreateShareDTOSchema = Type.Object({
@@ -108,7 +109,8 @@ export const UpdateShareDTOSchema = Type.Object({
 
 export const CreateSaveDTOSchema = Type.Object({
     parent_id: Type.Number(),
-    parent_type: ParentTypeSchema
+    parent_type: ParentTypeSchema,
+    is_active: Type.Boolean()
 });
 
 
@@ -192,9 +194,7 @@ export const InteractionCourseIdParamSchema = Type.Object({
 });
 
 // Additional parameter schemas for missing endpoints
-export const LikeUpdateParamSchema = Type.Object({
-    id: Type.String({ pattern: '^[0-9]+$' })
-});
+
 
 export const CommentUpdateParamSchema = Type.Object({
     id: Type.String({ pattern: '^[0-9]+$' })
@@ -238,6 +238,11 @@ export const DeleteResponseSchema = ApiResponseSchema(Type.Object({
     deleted: Type.Boolean()
 }));
 
+// Boolean flag responses
+export const BooleanFlagResponseSchema = ApiResponseSchema(Type.Object({
+    value: Type.Boolean()
+}));
+
 // Export inferred TypeScript types using Static
 export type ParentType = Static<typeof ParentTypeSchema>;
 export type Like = Static<typeof LikeSchema>;
@@ -267,7 +272,7 @@ export type RatingIdParam = Static<typeof RatingIdParamSchema>;
 export type UserEnrollmentIdParam = Static<typeof UserEnrollmentIdParamSchema>;
 export type ParentIdParam = Static<typeof ParentIdParamSchema>;
 export type InteractionCourseIdParam = Static<typeof InteractionCourseIdParamSchema>;
-export type LikeUpdateParam = Static<typeof LikeUpdateParamSchema>;
+
 export type CommentUpdateParam = Static<typeof CommentUpdateParamSchema>;
 export type ShareUpdateParam = Static<typeof ShareUpdateParamSchema>;
 export type SaveDeleteParam = Static<typeof SaveDeleteParamSchema>;

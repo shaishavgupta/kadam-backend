@@ -3,7 +3,7 @@ import { InteractionsService } from '../service/interactions.service';
 import { authMiddleware, AuthenticatedRequest, requireUser } from '../shared/middleware/auth';
 import {
     CreateLikeDTO,
-    UpdateLikeDTO,
+
     Like,
     Comment,
     CreateCommentDTO,
@@ -23,7 +23,7 @@ import {
     ShareIdParam,
     SaveIdParam,
     ParentIdParam,
-    LikeUpdateParam,
+
     CommentUpdateParam,
     ShareUpdateParam,
     SaveDeleteParam,
@@ -32,7 +32,7 @@ import {
     UserEnrollmentIdParam,
     UserEnrollmentUpdateParam,
     CreateLikeDTOSchema,
-    UpdateLikeDTOSchema,
+
     CreateCommentDTOSchema,
     UpdateCommentDTOSchema,
     CreateShareDTOSchema,
@@ -56,7 +56,7 @@ import {
     ShareIdParamSchema,
     SaveIdParamSchema,
     ParentIdParamSchema,
-    LikeUpdateParamSchema,
+
     CommentUpdateParamSchema,
     ShareUpdateParamSchema,
     SaveDeleteParamSchema,
@@ -65,7 +65,8 @@ import {
     UserEnrollmentIdParamSchema,
     UserEnrollmentUpdateParamSchema,
     CountResponseSchema,
-    DeleteResponseSchema
+    DeleteResponseSchema,
+    BooleanFlagResponseSchema
 } from '../schemas/interaction';
 
 // Import the user schema's UserIdParamSchema with alias to avoid conflicts
@@ -116,22 +117,57 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Get likes by user ID
-    fastify.get('/likes/user/:userId', {
+
+
+    // Get total likes for a parent (using same route)
+    fastify.get('/likes/is-liked/:parentType/:parentId', {
         preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Interactions'],
-            summary: 'Get likes by user ID',
-            description: 'Retrieve all likes created by a specific user',
-            params: InteractionUserIdParamSchema,
+            summary: 'Get total likes for entity',
+            description: 'Return total count of likes for the given parentType and parentId',
+            params: ParentTypeParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: CountResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+        try {
+            const parentId = parseInt((request.params as any).parentId, 10);
+            const parentType = (request.params as any).parentType;
+            const count = await interactionsService.getLikesCountByParentId(parentId, parentType as any);
+            return {
+                success: true,
+                data: { count },
+                message: 'Likes count retrieved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
+                data: { count: 0 },
+                message: errorMessage
+            };
+        }
+    });
+
+    // Get likes for authenticated user
+    fastify.get('/likes/user', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Get likes for current user',
+            description: 'Retrieve all likes created by the authenticated user',
             security: [{ bearerAuth: [] }],
             response: {
                 200: LikesArrayResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
-            const userId = parseInt((request.params as any).userId, 10);
+            const userId = parseInt(request.user!.userID, 10);
             const data = await interactionsService.getLikesByUserId(userId);
             return {
                 success: true,
@@ -144,104 +180,6 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             return {
                 success: false,
                 data: [],
-                message: errorMessage
-            };
-        }
-    });
-
-    // Get all likes
-    fastify.get('/likes', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Interactions'],
-            summary: 'Get all likes',
-            description: 'Retrieve all likes',
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: LikesArrayResponseSchema
-            }
-        }
-    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
-        try {
-            const data = await interactionsService.getAllLikes();
-            return {
-                success: true,
-                data,
-                message: "Likes retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send(createErrorResponse(errorMessage, 500));
-            return {
-                success: false,
-                data: [],
-                message: errorMessage
-            };
-        }
-    });
-
-    // Update like
-    fastify.patch('/likes/:id', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Interactions'],
-            summary: 'Update like',
-            description: 'Update an existing like',
-            params: LikeUpdateParamSchema,
-            body: UpdateLikeDTOSchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: LikeResponseSchema
-            }
-        }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
-        try {
-            const likeId = parseInt((request.params as any).id, 10);
-            const data = await interactionsService.updateLike(likeId, request.body as any as any);
-            return {
-                success: true,
-                data,
-                message: "Like updated successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send(createErrorResponse(errorMessage, 500));
-            return {
-                success: false,
-                data: null,
-                message: errorMessage
-            };
-        }
-    });
-
-    // Get likes count by parent ID
-    fastify.get('/likes/count/:parentType/:parentId', {
-        preHandler: [authMiddleware, requireUser],
-        schema: {
-            tags: ['Interactions'],
-            summary: 'Get likes count by parent ID',
-            description: 'Get the count of likes for a specific parent (content, course, or comment)',
-            params: ParentTypeParamSchema,
-            security: [{ bearerAuth: [] }],
-            response: {
-                200: CountResponseSchema
-            }
-        }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: { count: number }; message: string }> => {
-        try {
-            const parentId = parseInt((request.params as any).parentId, 10);
-            const data = await interactionsService.getLikesCountByParentId(parentId, (request.params as any).parentType);
-            return {
-                success: true,
-                data: { count: data },
-                message: "Likes count retrieved successfully"
-            };
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-            reply.status(500).send(createErrorResponse(errorMessage, 500));
-            return {
-                success: false,
-                data: { count: 0 },
                 message: errorMessage
             };
         }
@@ -513,22 +451,21 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
         }
     });
 
-    // Get saves by user ID
-    fastify.get('/saves/user/:userId', {
+    // Get saves for authenticated user
+    fastify.get('/saves/user', {
         preHandler: [authMiddleware, requireUser],
         schema: {
             tags: ['Interactions'],
-            summary: 'Get saves by user ID',
-            description: 'Retrieve all saved items by a specific user',
-            params: SimpleUserIdParamSchema,
+            summary: 'Get saves for current user',
+            description: 'Retrieve all saved items for the authenticated user',
             security: [{ bearerAuth: [] }],
             response: {
                 200: SavesArrayResponseSchema
             }
         }
-    }, async (request: FastifyRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
         try {
-            const userId = parseInt((request.params as any).userId, 10);
+            const userId = parseInt(request.user!.userID);
             const data = await interactionsService.getSavesByUserId(userId);
             return {
                 success: true,
@@ -574,6 +511,41 @@ export default async function interactionsRoutes(fastify: FastifyInstance) {
             return {
                 success: false,
                 data: null,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Check if saved by current user
+    fastify.get('/saves/is-saved/:parentType/:parentId', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Interactions'],
+            summary: 'Check if saved by current user',
+            description: 'Return true if the given entity is saved by the authenticated user',
+            params: ParentTypeParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: BooleanFlagResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: any; message: string }> => {
+        try {
+            const userId = parseInt(request.user!.userID, 10);
+            const parentId = parseInt((request.params as any).parentId, 10);
+            const parentType = (request.params as any).parentType;
+            const value = await interactionsService.isSavedByUser(parentId, parentType as any, userId);
+            return {
+                success: true,
+                data: { value },
+                message: 'Save status retrieved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return {
+                success: false,
+                data: { value: false },
                 message: errorMessage
             };
         }

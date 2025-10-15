@@ -117,6 +117,79 @@ export const VectorSchema = Type.Object({
     source_id: Type.Number()
 });
 
+// Paths schemas
+export const PathSchema = Type.Object({
+    id: Type.Number(),
+    name: Type.String(),
+    description: Type.Optional(Type.String()),
+    module_ids: Type.Optional(Type.Array(Type.Number())),
+    is_active: Type.Boolean(),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' })
+});
+
+export const CreatePathRequestSchema = Type.Object({
+    name: Type.String({ minLength: 1 }),
+    description: Type.Optional(Type.String()),
+    module_ids: Type.Optional(Type.Array(Type.Number())),
+    is_active: Type.Optional(Type.Boolean())
+});
+
+export const UpdatePathRequestSchema = Type.Object({
+    name: Type.Optional(Type.String({ minLength: 1 })),
+    description: Type.Optional(Type.String()),
+    module_ids: Type.Optional(Type.Array(Type.Number())),
+    is_active: Type.Optional(Type.Boolean())
+});
+
+export const PathIdParamSchema = Type.Object({
+    pathId: Type.String({ pattern: '^[0-9]+$' })
+});
+
+export const PathResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: PathSchema,
+    message: Type.String()
+});
+
+export const PathsResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        paths: Type.Array(PathSchema),
+        total: Type.Number()
+    }),
+    message: Type.String()
+});
+
+// Path Enrollments
+export const PathEnrollmentSchema = Type.Object({
+    id: Type.Number(),
+    user_id: Type.Number(),
+    path_id: Type.Number(),
+    is_active: Type.Boolean(),
+    created_at: Type.String({ format: 'date-time' }),
+    updated_at: Type.String({ format: 'date-time' })
+});
+
+export const CreatePathEnrollmentRequestSchema = Type.Object({
+    path_id: Type.Number()
+});
+
+export const PathEnrollmentResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: PathEnrollmentSchema,
+    message: Type.String()
+});
+
+export const PathEnrollmentsResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        enrollments: Type.Array(PathEnrollmentSchema),
+        total: Type.Number()
+    }),
+    message: Type.String()
+});
+
 // Request schemas
 export const CreateContentRequestSchema = Type.Object({
     name: Type.String(),
@@ -245,6 +318,10 @@ export type Module = Static<typeof ModuleSchema>;
 export type Content = Static<typeof ContentSchema>;
 export type Course = Static<typeof CourseSchema>;
 export type Vector = Static<typeof VectorSchema>;
+export type Path = Static<typeof PathSchema>;
+export type CreatePathRequest = Static<typeof CreatePathRequestSchema>;
+export type UpdatePathRequest = Static<typeof UpdatePathRequestSchema>;
+export type PathEnrollment = Static<typeof PathEnrollmentSchema>;
 export type CreateContentRequest = Static<typeof CreateContentRequestSchema>;
 export type CreateCourseRequest = Static<typeof CreateCourseRequestSchema>;
 export type UpdateCourseRequest = Static<typeof UpdateCourseRequestSchema>;

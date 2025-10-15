@@ -8,6 +8,7 @@ import { promisify } from 'util';
 import { CoursesService } from '../service/courses.service';
 import { ContentWithModule } from '../schemas/course';
 import { ContentType } from '../shared/enums';
+import { awsConfig } from '../config';
 
 const execAsync = promisify(exec);
 
@@ -782,7 +783,7 @@ const videoProcessingProcessor = async (job: Job<VideoProcessingJobData>) => {
 
         // Update content with the master playlist URL and actual duration
         await coursesService.updateContent(videoId, {
-            abs_url: generateMasterPlaylistKey(courseId, moduleId, videoId),
+            abs_url: `${awsConfig.s3.prefixes.processedVideos}/${generateMasterPlaylistKey(courseId, moduleId, videoId)}`,
             duration: parseInt(actualDuration.toString())
         });
 

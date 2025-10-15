@@ -1,7 +1,7 @@
 import { db } from "../infra/db";
 import {
-    Like, CreateLikeDTO, UpdateLikeDTO, Comment, CreateCommentDTO, UpdateCommentDTO,
-    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO
+    Like, CreateLikeDTO, Comment, CreateCommentDTO, UpdateCommentDTO,
+    Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO, UpdateLikeDTO
 } from "../schemas/interaction";
 import { ParentType } from "../shared/enums";
 
@@ -9,10 +9,20 @@ export class InteractionsRepository {
     // Like operations
     async createLike(likeData: CreateLikeDTO, userId: number): Promise<Like | null> {
         try {
+            const existingLike = await this.getLikeByUser(likeData.parent_id, likeData.parent_type, userId);
+            if (existingLike) {
+                if (existingLike.is_active === likeData.is_active) {
+                    return existingLike;
+                } else {
+                    return await this.updateLike(existingLike.id, { is_active: likeData.is_active } as UpdateLikeDTO);
+
+                }
+            }
+
             const result = await db.query(
                 `INSERT INTO likes (user_id, parent_id, parent_type, is_active, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
-                [userId, likeData.parent_id, likeData.parent_type, true]
+                [userId, likeData.parent_id, likeData.parent_type, likeData.is_active || true]
             );
 
             if (result.rows.length > 0) {
@@ -38,34 +48,7 @@ export class InteractionsRepository {
         }
     }
 
-    async getAllLikes(): Promise<Like[]> {
-        try {
-            const result = await db.query(
-                `SELECT * FROM likes ORDER BY created_at DESC`
-            );
-            return result.rows as Like[];
-        } catch (error) {
-            console.error("Error getting all likes:", error);
-            return [];
-        }
-    }
 
-    async updateLike(id: number, likeData: UpdateLikeDTO): Promise<Like | null> {
-        try {
-            const result = await db.query(
-                `UPDATE likes SET is_active = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
-                [likeData.is_active, id]
-            );
-
-            if (result.rows.length > 0) {
-                return result.rows[0] as Like;
-            }
-            return null;
-        } catch (error) {
-            console.error("Error updating like:", error);
-            return null;
-        }
-    }
 
     async getLikesCountByParentId(parentId: number, parentType: ParentType): Promise<number> {
         try {
@@ -77,6 +60,55 @@ export class InteractionsRepository {
         } catch (error) {
             console.error("Error getting likes count:", error);
             return 0;
+        }
+    }
+
+    async getLikeByUser(parentId: number, parentType: ParentType, userId: number): Promise<Like | null> {
+        try {
+            const result = await db.query(
+                `SELECT * FROM likes WHERE parent_id = $1 AND parent_type = $2 AND user_id = $3 LIMIT 1`,
+                [parentId, parentType, userId]
+            );
+
+            return (result.rows.length > 0) ? result.rows[0] as Like : null;
+        } catch (error) {
+            console.error("Error checking like existence:", error);
+            return null;
+        }
+    }
+
+    async updateLike(id: number, likeData: UpdateLikeDTO): Promise<Like | null> {
+        try {
+            const updateFields: string[] = [];
+            const values: any[] = [];
+            let paramCount = 1;
+
+            if (likeData.is_active !== undefined) {
+                updateFields.push(`is_active = $${paramCount}`);
+                values.push(likeData.is_active);
+                paramCount++;
+            }
+
+            if (updateFields.length === 0) {
+                return null;
+            }
+
+            // Always update the timestamp
+            const setClauses = [...updateFields, `updated_at = NOW()`].join(', ');
+
+            values.push(id);
+            const result = await db.query(
+                `UPDATE likes SET ${setClauses} WHERE id = $${paramCount} RETURNING *`,
+                values
+            );
+
+            if (result.rows.length > 0) {
+                return result.rows[0] as Like;
+            }
+            return null;
+        } catch (error) {
+            console.error("Error updating like:", error);
+            return null;
         }
     }
 
@@ -220,6 +252,19 @@ export class InteractionsRepository {
         } catch (error) {
             console.error("Error getting saves by user ID:", error);
             return [];
+        }
+    }
+
+    async getSaveByUser(parentId: number, parentType: ParentType, userId: number): Promise<Save | null> {
+        try {
+            const result = await db.query(
+                `SELECT * FROM saves WHERE parent_id = $1 AND parent_type = $2 AND user_id = $3 LIMIT 1`,
+                [parentId, parentType, userId]
+            );
+            return (result.rows.length > 0) ? result.rows[0] as Save : null;
+        } catch (error) {
+            console.error("Error checking save existence:", error);
+            return null;
         }
     }
 

@@ -75,7 +75,17 @@ import {
     // Enhanced Course
     CourseWithModulesResponseSchema,
     CourseWithModulesResponse,
-    CourseSchema
+    CourseSchema,
+    // Paths
+    PathSchema,
+    CreatePathRequestSchema,
+    UpdatePathRequestSchema,
+    PathIdParamSchema,
+    PathResponseSchema,
+    PathsResponseSchema,
+    PathEnrollmentSchema,
+    PathEnrollmentResponseSchema,
+    PathEnrollmentsResponseSchema
 } from '../schemas/course';
 
 import { PaginationQuery, PaginationQuerySchema } from '../schemas/common';
@@ -852,6 +862,203 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                 data: null,
                 message: errorMessage
             };
+        }
+    });
+
+    // Paths CRUD
+    // GET /paths
+    fastify.get('/paths', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Paths'],
+            summary: 'List paths',
+            description: 'List active learning paths',
+            querystring: PaginationQuerySchema,
+            security: [{ bearerAuth: [] }],
+            response: {
+                200: PathsResponseSchema
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
+            const raw = await coursesService.getPaths(page, limit);
+            const data = serializeDates<any>(raw);
+            return { success: true, data: { paths: data.paths, total: data.total }, message: 'Paths retrieved successfully' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, data: { paths: [], total: 0 }, message: errorMessage } as any;
+        }
+    });
+
+    // GET /paths/:pathId
+    fastify.get('/paths/:pathId', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Paths'],
+            summary: 'Get a path',
+            params: PathIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: PathResponseSchema, 404: PathResponseSchema }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const pathId = parseInt((request.params as any).pathId, 10);
+            const raw = await coursesService.getPathById(pathId);
+            if (!raw) { reply.status(404); return { success: false, data: {} as any, message: 'Path not found' }; }
+            const data = serializeDates<any>(raw);
+            return { success: true, data, message: 'Path retrieved successfully' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, data: {} as any, message: errorMessage };
+        }
+    });
+
+    // POST /paths
+    fastify.post('/paths', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Paths'],
+            summary: 'Create a path',
+            body: CreatePathRequestSchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: PathResponseSchema }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const created = await coursesService.createPath(request.body as any);
+            if (!created) { reply.status(400); return { success: false, data: {} as any, message: 'Failed to create path' }; }
+            const data = serializeDates<any>(created);
+            return { success: true, data, message: 'Path created successfully' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, data: {} as any, message: errorMessage };
+        }
+    });
+
+    // PATCH /paths/:pathId
+    fastify.patch('/paths/:pathId', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Paths'],
+            summary: 'Update a path',
+            params: PathIdParamSchema,
+            body: UpdatePathRequestSchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: PathResponseSchema, 404: PathResponseSchema }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const pathId = parseInt((request.params as any).pathId, 10);
+            const updated = await coursesService.updatePath(pathId, request.body as any);
+            if (!updated) { reply.status(404); return { success: false, data: {} as any, message: 'Path not found' }; }
+            const data = serializeDates<any>(updated);
+            return { success: true, data, message: 'Path updated successfully' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, data: {} as any, message: errorMessage };
+        }
+    });
+
+    // DELETE /paths/:pathId
+    fastify.delete('/paths/:pathId', {
+        preHandler: [authMiddleware, requireAdmin],
+        schema: {
+            tags: ['Paths'],
+            summary: 'Delete a path',
+            params: PathIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: Type.Object({ success: Type.Boolean(), message: Type.String() }) }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const pathId = parseInt((request.params as any).pathId, 10);
+            const success = await coursesService.deletePath(pathId);
+            return { success, message: success ? 'Path deleted successfully' : 'Path not found' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, message: errorMessage } as any;
+        }
+    });
+
+    // Path Enrollments
+    // POST /paths/:pathId/enroll
+    fastify.post('/paths/:pathId/enroll', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Paths'],
+            summary: 'Enroll in a path',
+            params: PathIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: PathEnrollmentResponseSchema }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const pathId = parseInt((request.params as any).pathId, 10);
+            const userId = parseInt(request.user!.userID);
+            const enrollment = await coursesService.enrollInPath(userId, pathId);
+            if (!enrollment) { reply.status(400); return { success: false, data: {} as any, message: 'Failed to enroll in path' }; }
+            const data = serializeDates<any>(enrollment);
+            return { success: true, data, message: 'Enrolled in path successfully' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, data: {} as any, message: errorMessage };
+        }
+    });
+
+    // DELETE /paths/:pathId/enroll
+    fastify.delete('/paths/:pathId/enroll', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Paths'],
+            summary: 'Unenroll from a path',
+            params: PathIdParamSchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: Type.Object({ success: Type.Boolean(), message: Type.String() }) }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const pathId = parseInt((request.params as any).pathId, 10);
+            const userId = parseInt(request.user!.userID);
+            const success = await coursesService.unenrollFromPath(userId, pathId);
+            return { success, message: success ? 'Unenrolled from path successfully' : 'Enrollment not found' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, message: errorMessage } as any;
+        }
+    });
+
+    // GET /paths/enrollments/me
+    fastify.get('/paths/enrollments/me', {
+        preHandler: [authMiddleware, requireUser],
+        schema: {
+            tags: ['Paths'],
+            summary: 'Get my path enrollments',
+            description: 'List current user\'s active path enrollments',
+            querystring: PaginationQuerySchema,
+            security: [{ bearerAuth: [] }],
+            response: { 200: PathEnrollmentsResponseSchema }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const page = (request.query as any)?.page ? parseInt((request.query as any).page, 10) : 1;
+            const limit = (request.query as any)?.limit ? parseInt((request.query as any).limit, 10) : 10;
+            const userId = parseInt(request.user!.userID);
+            const raw = await coursesService.getMyPathEnrollments(userId, page, limit);
+            const data = serializeDates<any>(raw);
+            return { success: true, data: { enrollments: data.enrollments, total: data.total }, message: 'Enrollments retrieved successfully' };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send(createErrorResponse(errorMessage, 500));
+            return { success: false, data: { enrollments: [], total: 0 }, message: errorMessage } as any;
         }
     });
 

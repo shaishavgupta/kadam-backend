@@ -1,5 +1,5 @@
 import { db } from "../infra/db";
-import { Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector, ExploreCourse, CreateCourseRequest } from "../schemas/course";
+import { Category, Module, Course, ContentWithModule, PaginatedCoursesResponse, Vector, ExploreCourse, CreateCourseRequest, Path, PathEnrollment, CreatePathRequest, UpdatePathRequest } from "../schemas/course";
 import { ContentType } from "../shared/enums";
 import { CourseListItem, CourseListData, UserStats, UpdateCourseRequest } from "../schemas/course";
 import { UserCourse, UserCoursesResponse } from "../schemas/course";
@@ -109,6 +109,141 @@ export class CoursesRepository {
         top_10: [],
         latest: []
       };
+    }
+  }
+
+  // Paths CRUD
+  async getPaths(page: number = 1, limit: number = 10): Promise<{ paths: Path[]; total: number; page: number; limit: number; totalPages: number; }> {
+    try {
+      const offset = (page - 1) * limit;
+      const listResult = await db.query(
+        `SELECT * FROM paths WHERE is_active = true ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+        [limit, offset]
+      );
+      const countResult = await db.query(
+        `SELECT COUNT(*) FROM paths WHERE is_active = true`
+      );
+      const total = parseInt(countResult.rows[0].count, 10);
+      return {
+        paths: listResult.rows as Path[],
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      };
+    } catch (error) {
+      console.error("Error getting paths:", error);
+      return { paths: [], total: 0, page, limit, totalPages: 0 };
+    }
+  }
+
+  async getPathById(pathId: number): Promise<Path | null> {
+    try {
+      const result = await db.query(`SELECT * FROM paths WHERE id = $1 AND is_active = true`, [pathId]);
+      if (result.rows.length === 0) return null;
+      return result.rows[0] as Path;
+    } catch (error) {
+      console.error("Error getting path by id:", error);
+      return null;
+    }
+  }
+
+  async createPath(data: CreatePathRequest): Promise<Path | null> {
+    try {
+      const result = await db.query(
+        `INSERT INTO paths (name, description, module_ids, is_active, created_at, updated_at)
+         VALUES ($1, $2, $3, COALESCE($4, true), NOW(), NOW())
+         RETURNING *`,
+        [data.name, data.description ?? null, data.module_ids ?? [], data.is_active ?? true]
+      );
+      return result.rows[0] as Path;
+    } catch (error) {
+      console.error("Error creating path:", error);
+      return null;
+    }
+  }
+
+  async updatePath(pathId: number, data: UpdatePathRequest): Promise<Path | null> {
+    try {
+      const updateFields: string[] = [];
+      const values: any[] = [];
+      let i = 1;
+      if (data.name !== undefined) { updateFields.push(`name = $${i++}`); values.push(data.name); }
+      if (data.description !== undefined) { updateFields.push(`description = $${i++}`); values.push(data.description); }
+      if (data.module_ids !== undefined) { updateFields.push(`module_ids = $${i++}`); values.push(data.module_ids); }
+      if (data.is_active !== undefined) { updateFields.push(`is_active = $${i++}`); values.push(data.is_active); }
+      if (updateFields.length === 0) return await this.getPathById(pathId);
+      updateFields.push(`updated_at = NOW()`);
+      values.push(pathId);
+      const result = await db.query(
+        `UPDATE paths SET ${updateFields.join(', ')} WHERE id = $${i} RETURNING *`,
+        values
+      );
+      if (result.rows.length === 0) return null;
+      return result.rows[0] as Path;
+    } catch (error) {
+      console.error("Error updating path:", error);
+      return null;
+    }
+  }
+
+  async deletePath(pathId: number): Promise<boolean> {
+    try {
+      const result = await db.query(`UPDATE paths SET is_active = false, updated_at = NOW() WHERE id = $1`, [pathId]);
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      console.error("Error deleting path:", error);
+      return false;
+    }
+  }
+
+  // User Enrolled Paths
+  async enrollUserInPath(userId: number, pathId: number): Promise<PathEnrollment | null> {
+    try {
+      const result = await db.query(
+        `INSERT INTO user_enrolled_paths (user_id, path_id, is_active, created_at, updated_at)
+         VALUES ($1, $2, true, NOW(), NOW())
+         ON CONFLICT (user_id, path_id)
+         DO UPDATE SET is_active = true, updated_at = NOW()
+         RETURNING *`,
+        [userId, pathId]
+      );
+      return result.rows[0] as PathEnrollment;
+    } catch (error) {
+      console.error("Error enrolling user in path:", error);
+      return null;
+    }
+  }
+
+  async unenrollUserFromPath(userId: number, pathId: number): Promise<boolean> {
+    try {
+      const result = await db.query(
+        `UPDATE user_enrolled_paths SET is_active = false, updated_at = NOW() WHERE user_id = $1 AND path_id = $2`,
+        [userId, pathId]
+      );
+      return (result.rowCount ?? 0) > 0;
+    } catch (error) {
+      console.error("Error unenrolling user from path:", error);
+      return false;
+    }
+  }
+
+  async getUserPathEnrollments(userId: number, page: number = 1, limit: number = 10): Promise<{ enrollments: PathEnrollment[]; total: number; page: number; limit: number; totalPages: number; }> {
+    try {
+      const offset = (page - 1) * limit;
+      const listResult = await db.query(
+        `SELECT * FROM user_enrolled_paths WHERE user_id = $1 AND is_active = true ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+        [userId, limit, offset]
+      );
+      const countResult = await db.query(
+        `SELECT COUNT(*) FROM user_enrolled_paths WHERE user_id = $1 AND is_active = true`,
+        [userId]
+      );
+      const total = parseInt(countResult.rows[0].count, 10);
+      return { enrollments: listResult.rows as PathEnrollment[], total, page, limit, totalPages: Math.ceil(total / limit) };
+    } catch (error) {
+      console.error("Error getting user path enrollments:", error);
+      return { enrollments: [], total: 0, page, limit, totalPages: 0 };
     }
   }
 

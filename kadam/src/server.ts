@@ -36,8 +36,8 @@ const fastifyInstance = Fastify({
 fastifyInstance.register(cors, {
     origin: (origin, callback) => {
         // Allow requests from localhost with any port for development
-        if (!origin || 
-            origin.startsWith('http://localhost') || 
+        if (!origin ||
+            origin.startsWith('http://localhost') ||
             origin.startsWith('http://127.0.0.1') ||
             origin.startsWith('https://localhost') ||
             origin.startsWith('https://127.0.0.1')) {
@@ -50,9 +50,9 @@ fastifyInstance.register(cors, {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
-        'Content-Type', 
-        'Authorization', 
-        'Accept', 
+        'Content-Type',
+        'Authorization',
+        'Accept',
         'X-Kadam-Path',
         'sec-ch-ua',
         'sec-ch-ua-mobile',
@@ -159,9 +159,9 @@ function getServerUrl(): string {
     const port = appConfig.PORT;
     const environment = appConfig.NODE_ENV;
 
-    // For local development, include port
+    // For local development, force loopback to avoid LAN IP resolutions
     if (environment === 'local') {
-        return `${domain}:${port}`;
+        return `http://127.0.0.1:${port}`;
     }
 
     // For production domains, don't include port (assumes standard ports 80/443)

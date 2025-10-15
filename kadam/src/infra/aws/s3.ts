@@ -415,26 +415,6 @@ export async function generateVideoUploadUrl(
 }
 
 /**
- * Generate presigned URL for video download
- */
-export async function generateVideoDownloadUrl(
-    courseId: number,
-    moduleId: number,
-    contentId: number,
-    fileName: string,
-    expiresIn: number = 3600
-): Promise<string> {
-    const key = generateMasterPlaylistKey(courseId, moduleId, contentId);
-
-    return generatePresignedUrl({
-        prefix: 'processedVideos',
-        key,
-        expiresIn,
-        operation: S3Operation.GET_OBJECT,
-    });
-}
-
-/**
  * Generate presigned URL for thumbnail upload
  */
 export async function generateThumbnailUploadUrl(

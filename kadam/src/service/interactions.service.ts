@@ -1,5 +1,5 @@
 import {
-    CreateLikeDTO, Like, UpdateLikeDTO, Comment, CreateCommentDTO, UpdateCommentDTO,
+    CreateLikeDTO, Like, Comment, CreateCommentDTO, UpdateCommentDTO,
     Share, CreateShareDTO, UpdateShareDTO, Save, CreateSaveDTO, UserEnrollment, CreateUserEnrollmentDTO, UpdateUserEnrollmentDTO
 } from "../schemas/interaction";
 import { ParentType } from "../shared/enums";
@@ -35,27 +35,7 @@ export class InteractionsService {
         }
     }
 
-    async getAllLikes(): Promise<Like[]> {
-        try {
-            return this.interactionsRepository.getAllLikes();
-        } catch (error) {
-            console.error("Error getting all likes:", error);
-            throw error;
-        }
-    }
 
-    async updateLike(id: number, data: UpdateLikeDTO): Promise<Like> {
-        try {
-            const like = await this.interactionsRepository.updateLike(id, data);
-            if (like) {
-                return like;
-            }
-            throw new Error("Failed to update like");
-        } catch (error) {
-            console.error("Error updating like:", error);
-            throw error;
-        }
-    }
 
     async getLikesCountByParentId(parentId: number, parentType: ParentType): Promise<number> {
         try {
@@ -65,6 +45,18 @@ export class InteractionsService {
             throw error;
         }
     }
+
+    async isLikedByUser(parentId: number, parentType: ParentType, userId: number): Promise<boolean> {
+        try {
+            const like = await this.interactionsRepository.getLikeByUser(parentId, parentType, userId);
+            return like ? true : false;
+        } catch (error) {
+            console.error("Error checking if liked by user:", error);
+            throw error;
+        }
+    }
+
+
 
     // Comment operations
     async createComment(data: CreateCommentDTO, userId: number): Promise<Comment> {
@@ -175,6 +167,16 @@ export class InteractionsService {
             return await this.interactionsRepository.deleteSave(id);
         } catch (error) {
             console.error("Error deleting save:", error);
+            throw error;
+        }
+    }
+
+    async isSavedByUser(parentId: number, parentType: ParentType, userId: number): Promise<boolean> {
+        try {
+            const save = await this.interactionsRepository.getSaveByUser(parentId, parentType, userId);
+            return save ? true : false;
+        } catch (error) {
+            console.error("Error checking if saved by user:", error);
             throw error;
         }
     }
