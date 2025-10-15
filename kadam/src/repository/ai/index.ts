@@ -172,7 +172,7 @@ Generate a response that:
 - **Name**: ${currentProfile.name || 'unknown'}
 
 ### Available Courses
-${availableCourses.map(course => `- **${course.name}**: ${course.description}`).join('\n')}
+${availableCourses.map(course => `- **${course.name}** (ID: ${course.id}): ${course.description}${course.thumbnail_url ? ` | Thumbnail: ${course.thumbnail_url}` : ''}`).join('\n')}
 
 ### Current Message
 **User**: "${input.message}"
