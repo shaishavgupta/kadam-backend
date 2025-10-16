@@ -12,10 +12,19 @@ import {
     CreateSessionRequestSchema,
     CreateSessionResponseSchema,
     ChatRequest,
-    CreateSessionRequest
+    CreateSessionRequest,
+    GetExpertsResponseSchema,
+    GetExpertResponseSchema,
+    CreateExpertRequestSchema,
+    CreateExpertResponseSchema,
+    UpdateExpertRequestSchema,
+    UpdateExpertResponseSchema,
+    DeleteExpertResponseSchema
 } from '../schemas';
+import { ExpertRepository } from '../repository/experts.repository';
 
 const aiService = new AIService();
+const expertRepository = new ExpertRepository();
 
 export default async function aiRoutes(fastify: FastifyInstance) {
 
@@ -62,9 +71,20 @@ export default async function aiRoutes(fastify: FastifyInstance) {
             
             const jwtUserId = request.user.userID;
             
+            // Validate expertId is provided
+            const body = request.body as any;
+            if (!body.expertId) {
+                reply.status(400);
+                return {
+                    success: false,
+                    data: null,
+                    message: 'Expert ID is required'
+                };
+            }
+
             // Use JWT userId as the primary source
             const requestData = { 
-                ...(request.body as any), 
+                ...body, 
                 userId: jwtUserId 
             } as ChatRequest & { userId: string };
             
@@ -111,7 +131,9 @@ export default async function aiRoutes(fastify: FastifyInstance) {
     }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
         try {
             const userId = request.user!.userID;
-            const sessions = await aiService.getUserSessions(userId);
+            const { expertId } = request.query as { expertId?: string };
+            
+            const sessions = await aiService.getUserSessions(userId, expertId);
 
             return {
                 success: true,
@@ -147,7 +169,8 @@ export default async function aiRoutes(fastify: FastifyInstance) {
             querystring: {
                 type: 'object',
                 properties: {
-                    limit: { type: 'number' }
+                    limit: { type: 'number' },
+                    expertId: { type: 'string' }
                 }
             },
             response: {
@@ -211,7 +234,7 @@ export default async function aiRoutes(fastify: FastifyInstance) {
             const userId = request.user!.userID;
             const requestData = { ...(request.body as any), userId } as CreateSessionRequest;
             
-            const result = await aiService.createNewSession(requestData.userId, requestData.title);
+            const result = await aiService.createNewSession(requestData.userId, requestData.expertId, requestData.title);
 
             return {
                 success: true,
@@ -320,6 +343,117 @@ export default async function aiRoutes(fastify: FastifyInstance) {
             reply.status(500);
             return {
                 success: false,
+                message: errorMessage
+            };
+        }
+    });
+
+    // Expert Management Endpoints
+
+    // Get All Active Experts
+    fastify.get('/experts', {
+        schema: {
+            tags: ['AI Experts'],
+            summary: 'Get all active experts',
+            description: 'Get list of all active AI experts available for chat',
+            response: {
+                200: GetExpertsResponseSchema,
+                500: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' },
+                        statusCode: { type: 'number' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const experts = await expertRepository.getAllActiveExperts();
+
+            return {
+                success: true,
+                data: experts.map(expert => ({
+                    id: expert.id,
+                    name: expert.name,
+                    title: expert.title,
+                    description: expert.description,
+                    avatar_url: expert.avatar_url,
+                    actions: expert.actions,
+                    tags: expert.tags
+                })),
+                message: 'Active experts retrieved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500);
+            return {
+                success: false,
+                data: [],
+                message: errorMessage
+            };
+        }
+    });
+
+    // Get Expert by ID
+    fastify.get('/experts/:expertId', {
+        schema: {
+            tags: ['AI Experts'],
+            summary: 'Get expert by ID',
+            description: 'Get detailed information about a specific expert',
+            params: {
+                type: 'object',
+                properties: {
+                    expertId: { type: 'string' }
+                },
+                required: ['expertId']
+            },
+            response: {
+                200: GetExpertResponseSchema,
+                404: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' },
+                        statusCode: { type: 'number' }
+                    }
+                },
+                500: {
+                    type: 'object',
+                    properties: {
+                        success: { type: 'boolean' },
+                        message: { type: 'string' },
+                        statusCode: { type: 'number' }
+                    }
+                }
+            }
+        }
+    }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
+        try {
+            const { expertId } = request.params as { expertId: string };
+            const expert = await expertRepository.getExpertById(parseInt(expertId));
+
+            if (!expert) {
+                reply.status(404);
+                return {
+                    success: false,
+                    data: null,
+                    message: 'Expert not found'
+                };
+            }
+
+            return {
+                success: true,
+                data: expert,
+                message: 'Expert retrieved successfully'
+            };
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500);
+            return {
+                success: false,
+                data: null,
                 message: errorMessage
             };
         }

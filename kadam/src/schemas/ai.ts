@@ -109,7 +109,8 @@ export const ChatRequestSchema = Type.Object({
     message: Type.String({ description: 'User message' }),
     type: Type.Optional(Type.String({ description: 'Message type' })),
     sessionId: Type.Optional(Type.String({ description: 'Session ID for conversation continuity' })),
-    newSession: Type.Optional(Type.Boolean({ default: false, description: 'Whether to create a new session' }))
+    newSession: Type.Optional(Type.Boolean({ default: false, description: 'Whether to create a new session' })),
+    expertId: Type.Number({ description: 'Expert ID for AI personality and behavior' })
 });
 
 // Chat Response Schema (moved up to avoid temporal dead zone)
@@ -155,7 +156,12 @@ export const ChatApiResponseSchema = Type.Object({
                 reason: Type.String()
             })))
         }),
-        sessionId: Type.Optional(Type.String())
+        sessionId: Type.Optional(Type.String()),
+        expert: Type.Object({
+            id: Type.Number(),
+            name: Type.String(),
+            title: Type.Optional(Type.String())
+        })
     }),
     message: Type.String()
 });
@@ -186,6 +192,7 @@ export interface ChatRequest {
     type?: string;
     sessionId?: string;
     newSession?: boolean;
+    expertId: number;
 }
 
 // Session Management Schemas
@@ -199,7 +206,8 @@ export const GetUserSessionsResponseSchema = Type.Object({
         session_id: Type.String(),
         title: Type.Union([Type.String(), Type.Null()]),
         created_at: Type.String(),
-        updated_at: Type.String()
+        updated_at: Type.String(),
+        expert_id: Type.String()
     })),
     message: Type.String()
 });
@@ -240,7 +248,8 @@ export const UpdateSessionTitleResponseSchema = Type.Object({
 
 export const CreateSessionRequestSchema = Type.Object({
     userId: Type.String({ description: 'User ID to create session for' }),
-    title: Type.Optional(Type.String({ description: 'Title for the new session' }))
+    title: Type.Optional(Type.String({ description: 'Title for the new session' })),
+    expertId: Type.Number({ description: 'Expert ID for this session' })
 });
 
 export const CreateSessionResponseSchema = Type.Object({
@@ -273,6 +282,168 @@ export interface UpdateSessionTitleRequest {
 export interface CreateSessionRequest {
     userId: string;
     title?: string;
+    expertId: number;
+}
+
+// Expert Management Schemas
+export const GetExpertsResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Array(Type.Object({
+        id: Type.Number(),
+        name: Type.String(),
+        title: Type.Optional(Type.String()),
+        description: Type.Optional(Type.String()),
+        avatar_url: Type.Optional(Type.String()),
+        actions: Type.Array(Type.Object({
+            icon: Type.String(),
+            label: Type.String(),
+            prompt: Type.String()
+        })),
+        tags: Type.Array(Type.String())
+    })),
+    message: Type.String()
+});
+
+export const GetExpertResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        id: Type.Number(),
+        name: Type.String(),
+        title: Type.Optional(Type.String()),
+        description: Type.Optional(Type.String()),
+        avatar_url: Type.Optional(Type.String()),
+        prompt_function_name: Type.String(),
+        is_active: Type.Boolean(),
+        actions: Type.Array(Type.Object({
+            icon: Type.String(),
+            label: Type.String(),
+            prompt: Type.String()
+        })),
+        tags: Type.Array(Type.String()),
+        created_at: Type.String(),
+        updated_at: Type.String()
+    }),
+    message: Type.String()
+});
+
+export const CreateExpertRequestSchema = Type.Object({
+    name: Type.String({ description: 'Expert display name' }),
+    title: Type.Optional(Type.String({ description: 'Expert title or role' })),
+    description: Type.Optional(Type.String({ description: 'Expert description' })),
+    avatar_url: Type.Optional(Type.String({ description: 'Expert avatar URL' })),
+    prompt_function_name: Type.String({ description: 'TypeScript function name for prompt generation' }),
+    actions: Type.Optional(Type.Array(Type.Object({
+        icon: Type.String({ description: 'Icon identifier for the action' }),
+        label: Type.String({ description: 'Display label for the action' }),
+        prompt: Type.String({ description: 'Prompt text for the action' })
+    }))),
+    tags: Type.Optional(Type.Array(Type.String({ description: 'Tags/categories for expert specialization' })))
+});
+
+export const UpdateExpertRequestSchema = Type.Object({
+    name: Type.Optional(Type.String({ description: 'Expert display name' })),
+    title: Type.Optional(Type.String({ description: 'Expert title or role' })),
+    description: Type.Optional(Type.String({ description: 'Expert description' })),
+    avatar_url: Type.Optional(Type.String({ description: 'Expert avatar URL' })),
+    prompt_function_name: Type.Optional(Type.String({ description: 'TypeScript function name for prompt generation' })),
+    is_active: Type.Optional(Type.Boolean({ description: 'Whether expert is active' })),
+    actions: Type.Optional(Type.Array(Type.Object({
+        icon: Type.String({ description: 'Icon identifier for the action' }),
+        label: Type.String({ description: 'Display label for the action' }),
+        prompt: Type.String({ description: 'Prompt text for the action' })
+    }))),
+    tags: Type.Optional(Type.Array(Type.String({ description: 'Tags/categories for expert specialization' })))
+});
+
+export const CreateExpertResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        id: Type.Number(),
+        name: Type.String(),
+        title: Type.Optional(Type.String()),
+        description: Type.Optional(Type.String()),
+        avatar_url: Type.Optional(Type.String()),
+        prompt_function_name: Type.String(),
+        is_active: Type.Boolean(),
+        actions: Type.Array(Type.Object({
+            icon: Type.String(),
+            label: Type.String(),
+            prompt: Type.String()
+        })),
+        tags: Type.Array(Type.String()),
+        created_at: Type.String(),
+        updated_at: Type.String()
+    }),
+    message: Type.String()
+});
+
+export const UpdateExpertResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    data: Type.Object({
+        id: Type.Number(),
+        name: Type.String(),
+        title: Type.Optional(Type.String()),
+        description: Type.Optional(Type.String()),
+        avatar_url: Type.Optional(Type.String()),
+        prompt_function_name: Type.String(),
+        is_active: Type.Boolean(),
+        actions: Type.Array(Type.Object({
+            icon: Type.String(),
+            label: Type.String(),
+            prompt: Type.String()
+        })),
+        tags: Type.Array(Type.String()),
+        created_at: Type.String(),
+        updated_at: Type.String()
+    }),
+    message: Type.String()
+});
+
+export const DeleteExpertResponseSchema = Type.Object({
+    success: Type.Boolean(),
+    message: Type.String()
+});
+
+// TypeScript interfaces for expert management
+export interface GetExpertsRequest {
+    // No query parameters needed for listing all active experts
+}
+
+export interface GetExpertRequest {
+    expertId: string;
+}
+
+export interface CreateExpertRequest {
+    name: string;
+    title?: string;
+    description?: string;
+    avatar_url?: string;
+    prompt_function_name: string;
+    actions?: Array<{
+        icon: string;
+        label: string;
+        prompt: string;
+    }>;
+    tags?: string[];
+}
+
+export interface UpdateExpertRequest {
+    name?: string;
+    title?: string;
+    description?: string;
+    avatar_url?: string;
+    prompt_function_name?: string;
+    is_active?: boolean;
+    actions?: Array<{
+        icon: string;
+        label: string;
+        prompt: string;
+    }>;
+    tags?: string[];
+}
+
+export interface DeleteExpertRequest {
+    expertId: string;
 }
 
 // Persona Detection Schema

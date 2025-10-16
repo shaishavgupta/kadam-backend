@@ -60,16 +60,20 @@ export class PostgresRedisSessionStore<S = UserState> implements SessionStore<S>
   }
 
   async save(sessionId: string, sessionData: SessionData<S>): Promise<void> {
+    // Get the expert_id from the session data if it exists
+    const expertId = (sessionData as any).expertId;
+    
     // Save to PostgreSQL
     await this.pool.query(
-      `INSERT INTO chat_sessions (session_id, state, messages, updated_at)
-       VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+      `INSERT INTO chat_sessions (session_id, state, messages, expert_id, updated_at)
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
        ON CONFLICT (session_id) 
        DO UPDATE SET 
          state = $2,
          messages = $3,
+         expert_id = $4,
          updated_at = CURRENT_TIMESTAMP`,
-      [sessionId, JSON.stringify(sessionData.state), JSON.stringify(sessionData.messages)]
+      [sessionId, JSON.stringify(sessionData.state), JSON.stringify(sessionData.messages), expertId]
     );
 
     // Update Redis cache
@@ -78,7 +82,12 @@ export class PostgresRedisSessionStore<S = UserState> implements SessionStore<S>
     
     // Invalidate user session list cache if userId exists in state
     if (sessionData.state && (sessionData.state as any).userId) {
-      await this.redis.delete(`user_sessions:${(sessionData.state as any).userId}`);
+      const userId = (sessionData.state as any).userId;
+      await this.redis.delete(`user_sessions:${userId}`);
+      // Also invalidate expert-specific cache if expertId exists
+      if ((sessionData as any).expertId) {
+        await this.redis.delete(`user_sessions:${userId}:${(sessionData as any).expertId}`);
+      }
     }
   }
 
@@ -94,7 +103,12 @@ export class PostgresRedisSessionStore<S = UserState> implements SessionStore<S>
     await this.redis.delete(`session:${sessionId}`);
     
     if (session?.state && (session.state as any).userId) {
-      await this.redis.delete(`user_sessions:${(session.state as any).userId}`);
+      const userId = (session.state as any).userId;
+      await this.redis.delete(`user_sessions:${userId}`);
+      // Also invalidate expert-specific cache if expertId exists
+      if ((session as any).expertId) {
+        await this.redis.delete(`user_sessions:${userId}:${(session as any).expertId}`);
+      }
     }
   }
 }
@@ -124,21 +138,29 @@ export class ChatDatabase {
     return userId;
   }
 
-  async getUserSessions(userId: string) {
-    const cacheKey = `user_sessions:${userId}`;
+  async getUserSessions(userId: string, expertId?: string) {
+    const cacheKey = expertId ? `user_sessions:${userId}:${expertId}` : `user_sessions:${userId}`;
     const cached = await this.redis.get(cacheKey);
     
     if (cached) {
       return cached;
     }
 
-    const result = await this.pool.query(
-      `SELECT session_id, title, created_at, updated_at 
-       FROM chat_sessions 
-       WHERE user_id = $1 
-       ORDER BY updated_at DESC`,
-      [userId]
-    );
+    let query = `
+      SELECT session_id, title, created_at, updated_at, expert_id 
+      FROM chat_sessions 
+      WHERE user_id = $1 
+    `;
+    const values: any[] = [userId];
+
+    if (expertId) {
+      query += ` AND expert_id = $2`;
+      values.push(expertId);
+    }
+
+    query += ` ORDER BY updated_at DESC`;
+
+    const result = await this.pool.query(query, values);
 
     const sessions = result.rows;
     await this.redis.set(cacheKey, sessions, 300);
@@ -183,15 +205,20 @@ export class ChatDatabase {
     return messages;
   }
 
-  async createSession(sessionId: string, userId: string, title?: string) {
+  async createSession(sessionId: string, userId: string, title?: string, expertId?: number) {
+    if (!expertId) {
+      throw new Error('Expert ID is required for session creation');
+    }
+
     await this.pool.query(
-      `INSERT INTO chat_sessions (session_id, user_id, title, state, messages, created_at, updated_at)
-       VALUES ($1, $2, $3, '{}', '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [sessionId, userId, title || 'New Chat']
+      `INSERT INTO chat_sessions (session_id, user_id, title, expert_id, state, messages, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, '{}', '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      [sessionId, userId, title || 'New Chat', expertId]
     );
     
-    // Invalidate user session list cache
+    // Invalidate user session list caches
     await this.redis.delete(`user_sessions:${userId}`);
+    await this.redis.delete(`user_sessions:${userId}:${expertId}`);
   }
 
   async deleteSession(sessionId: string) {

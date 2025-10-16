@@ -59,8 +59,10 @@
     "@opentelemetry/semantic-conventions": "^1.9.0",
     "@sinclair/typebox": "^0.34.41",
     "@types/bcrypt": "^6.0.0",
+    "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.58.7",
+    "crypto": "^1.0.1",
     "dotenv": "^17.2.2",
     "fastify": "^5.6.0",
     "fastify-cors": "^6.0.3",
@@ -70,6 +72,7 @@
     "pg": "^8.16.3",
     "pgvector": "^0.2.1",
     "postgrator": "^8.0.0",
+    "razorpay": "^2.9.6",
     "redis": "^5.8.2",
     "zod": "^3.25.76"
   }

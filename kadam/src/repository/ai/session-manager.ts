@@ -7,6 +7,7 @@ export interface SessionData {
     content: string;
     timestamp: string;
   }>;
+  expertId: number;
 }
 
 export interface UserProfile {
@@ -37,16 +38,22 @@ export class SessionManager {
   async handleSession(
     userId: string, 
     sessionId?: string, 
-    newSession: boolean = false
+    newSession: boolean = false,
+    expertId?: number
   ): Promise<{ sessionId: string; sessionData: SessionData }> {
     let finalSessionId = sessionId;
     let sessionData: SessionData | null = null;
 
+    // Validate expertId is provided
+    if (!expertId) {
+      throw new Error('Expert ID is required for session management');
+    }
+
     // Handle session management
     if (newSession || !sessionId) {
       // Create new session
-      finalSessionId = `session_${userId}_${Date.now()}`;
-      await chatDatabase.createSession(finalSessionId, userId, 'New Chat');
+      finalSessionId = `session_${userId}_${expertId}_${Date.now()}`;
+      await chatDatabase.createSession(finalSessionId, userId, 'New Chat', expertId);
       
       // Initialize session data
       sessionData = {
@@ -54,22 +61,39 @@ export class SessionManager {
           userId,
           userName: userId, // You might want to fetch actual user name
         } as UserState,
-        messages: []
+        messages: [],
+        expertId
       };
     } else {
       // Load existing session
       sessionData = await sessionStore.get(finalSessionId!) as SessionData | null;
       if (!sessionData) {
         // Session not found, create new one
-        finalSessionId = `session_${userId}_${Date.now()}`;
-        await chatDatabase.createSession(finalSessionId, userId, 'New Chat');
+        finalSessionId = `session_${userId}_${expertId}_${Date.now()}`;
+        await chatDatabase.createSession(finalSessionId, userId, 'New Chat', expertId);
         sessionData = {
           state: {
             userId,
             userName: userId,
           } as UserState,
-          messages: []
+          messages: [],
+          expertId
         };
+      } else {
+        // Verify session belongs to the correct expert
+        if (sessionData.expertId !== expertId) {
+          // Create new session for different expert
+          finalSessionId = `session_${userId}_${expertId}_${Date.now()}`;
+          await chatDatabase.createSession(finalSessionId, userId, 'New Chat', expertId);
+          sessionData = {
+            state: {
+              userId,
+              userName: userId,
+            } as UserState,
+            messages: [],
+            expertId
+          };
+        }
       }
     }
 

@@ -6,6 +6,7 @@ import { db } from '../../infra/db';
 // Import all modules
 import * as schemas from '../../schemas/ai';
 import { SessionManager } from './session-manager';
+import { ExpertRepository } from '../experts.repository';
 
 // Initialize Genkit with xAI plugin
 export const ai = genkit({
@@ -17,6 +18,7 @@ export const ai = genkit({
 
 // Initialize managers
 const sessionManager = new SessionManager();
+const expertRepository = new ExpertRepository();
 
 // Course cache interface
 interface CourseCache {
@@ -82,6 +84,7 @@ export const chatFlow = ai.defineFlow(
       sessionId: z.string().optional().describe('Session ID for conversation continuity'),
       newSession: z.boolean().default(false).describe('Whether to create a new session'),
       type: z.string().optional().describe('Message type'),
+      expertId: z.number().describe('Expert ID for AI personality and behavior'),
     }),
     outputSchema: schemas.ChatResponseSchema,
   },
@@ -89,16 +92,31 @@ export const chatFlow = ai.defineFlow(
     try {
       const userId = input.userId;
 
-      // Ensure userId is provided
+      // Ensure userId and expertId are provided
       if (!userId) {
         throw new Error('User ID is required for chat flow');
       }
 
-      // Handle session management
+      if (!input.expertId) {
+        throw new Error('Expert ID is required for chat flow');
+      }
+
+      // Validate expert exists and is active
+      const expert = await expertRepository.getExpertById(input.expertId);
+      if (!expert) {
+        throw new Error(`Expert with ID '${input.expertId}' not found`);
+      }
+
+      if (!expert.is_active) {
+        throw new Error(`Expert '${expert.name}' is currently inactive`);
+      }
+
+      // Handle session management with expert context
       const { sessionId, sessionData } = await sessionManager.handleSession(
         userId,
         input.sessionId,
-        input.newSession
+        input.newSession,
+        input.expertId
       );
 
       // Get user profile from user table (for basic info only)
@@ -110,75 +128,17 @@ export const chatFlow = ai.defineFlow(
       // Get available courses
       const availableCourses = await getActiveCourses();
 
+      // Generate expert-specific prompt
+      const expertPrompt = await expertRepository.getExpertPrompt(input.expertId, {
+        userProfile: currentProfile,
+        availableCourses,
+        conversationHistory,
+        userMessage: input.message
+      });
+
       // Generate simplified response using single LLM call with full history
       const responseResult = await ai.generate({
-        prompt: 
-`# AI Learning Assistant Prompt
-
-## Role & Purpose
-You are a helpful AI learning assistant designed to guide users through their learning journey by:
-- Understanding their learning goals and current role
-- Recommending relevant courses when available
-- Creating custom learning roadmaps when no courses match
-- Maintaining conversational, personalized interactions
-
-## Core Instructions
-
-### 1. Learning Goal Discovery
-- **Check**: Has the user already shared their learning goal?
-- **If NO**: Ask them about their learning objectives and current role
-- **If YES**: Proceed to course matching or custom roadmap creation
-
-### 2. Course Recommendation Logic
-- **When goal is known**: Check if it matches any available courses
-- **If match found**: Recommend the course and encourage enrollment
-- **If no match**: Appreciate their intent, and provide custom roadmap
-
-### 3. Custom Learning Roadmap
-When no courses match the user's goals:
-- Appreciate their learning intent
-- Tell them Kadam is currently working on this course and will be available soon and we will let them know when it is ready
-- Provide a practical 5-10 step learning roadmap
-- Focus on actionable steps (no third-party/external apps/softwares recommendations)
-- Keep it simple and achievable
-
-## Communication Style Rules
-
-### Tone & Approach
-- **Be friendly and conversational**
-- **Keep responses concise**: Maximum 2 messages, ≤12 words each
-- **Match user's style**: Mirror their tone, dialect, and writing style
-- **Use Hinglish**: If the user communicates in Hinglish, respond accordingly
-
-### Response Structure
-- Always end with **3 helpful next question options**
-- Make questions relevant to their current learning stage
-- Use natural, conversational language
-
-## Response Requirements
-
-Generate a response that:
-
-1. **Addresses** their current message directly
-2. **Evaluates** if their query matches available courses
-3. **Recommends** matching courses if found
-4. **Provides** custom learning plan if no courses match
-5. **Inquires** about goals if not known from history
-6. **Includes** 3 helpful next questions
-
-## Context Information
-
-### User Profile
-- **Name**: ${currentProfile.name || 'unknown'}
-
-### Available Courses
-${availableCourses.map(course => `- **${course.name}** (ID: ${course.id}): ${course.description}${course.thumbnail_url ? ` | Thumbnail: ${course.thumbnail_url}` : ''}`).join('\n')}
-
-### Current Message
-**User**: "${input.message}"
-
-### Conversation History
-${conversationHistory.map((msg: any) => `**${msg.role}**: ${msg.content}`).join('\n')}`,
+        prompt: expertPrompt,
         output: {
           schema: z.object({
             messages: z.array(z.string()),
@@ -225,6 +185,11 @@ ${conversationHistory.map((msg: any) => `**${msg.role}**: ${msg.content}`).join(
           courses: recommendedCourses
         },
         sessionId, // Return session ID for client to use
+        expert: {
+          id: expert.id,
+          name: expert.name,
+          title: expert.title
+        }
       };
     } catch (error) {
       console.error('Error in chat flow:', error);
@@ -249,7 +214,12 @@ function getErrorResponse(input: any) {
       suggested: false,
       courses: []
     },
-    sessionId: input.sessionId || `session_${input.userId}_${Date.now()}`
+    sessionId: input.sessionId || `session_${input.userId}_${Date.now()}`,
+    expert: {
+      id: 0,
+      name: 'Unknown',
+      title: 'Assistant'
+    }
   };
 }
 
