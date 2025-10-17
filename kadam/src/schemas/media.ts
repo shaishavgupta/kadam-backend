@@ -19,6 +19,9 @@ const ContentBannerPayload = Type.Object({
 
 const ExpertBannerPayload = Type.Object({
     expert_id: Type.Number(),
+    name: Type.String(),
+    title: Type.String(),
+    avatar_url: Type.String(),
 });
 
 export const Banners = Type.Object({
