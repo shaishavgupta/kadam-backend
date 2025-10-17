@@ -35,6 +35,19 @@ CREATE TABLE saves (
   parent_type TEXT NOT NULL
 );
 
+CREATE TABLE user_enrollments (
+  id BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  user_id BIGINT NOT NULL,
+  course_id BIGINT NOT NULL,
+  module_id BIGINT,
+  content_id BIGINT,
+  progress FLOAT DEFAULT 0,
+  completed_at TIMESTAMP,
+  is_active BOOLEAN DEFAULT TRUE
+);
+
 CREATE TABLE user_enrolled_paths (
   id BIGSERIAL PRIMARY KEY,
   created_at TIMESTAMP DEFAULT (now()),

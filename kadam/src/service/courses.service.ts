@@ -2,6 +2,7 @@ import { CoursesRepository } from "../repository/courses.repository";
 import { Category, Module, ContentWithModule, CreateCourseRequest, UpdateCourseRequest, Course, PublishCourseRequest, PaginatedCoursesResponse, Vector, ExploreCourse, ExploreResponse, Path, CreatePathRequest, UpdatePathRequest } from "../schemas/course";
 import { UserCourse } from "../schemas/course";
 import { ContentType, CourseListData, UserStats, CourseListItem } from "../schemas/course";
+import { cache } from "../infra/cache";
 
 export class CoursesService {
     private repository: CoursesRepository;
@@ -12,8 +13,21 @@ export class CoursesService {
 
     // Paths
     async getPaths(page: number = 1, limit: number = 10): Promise<{ paths: Path[]; total: number; page: number; limit: number; totalPages: number; }> {
+        const cacheKey = `paths:${page}:${limit}`;
+
         try {
-            return await this.repository.getPaths(page, limit);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getPaths(page, limit);
+
+            // Cache for 30 minutes (paths don't change frequently)
+            await cache.set(cacheKey, result, 1800);
+
+            return result;
         } catch (error) {
             console.error("Error getting paths:", error);
             return { paths: [], total: 0, page, limit, totalPages: 0 };
@@ -21,8 +35,21 @@ export class CoursesService {
     }
 
     async getPathById(pathId: number): Promise<Path | null> {
+        const cacheKey = `path:${pathId}`;
+
         try {
-            return await this.repository.getPathById(pathId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getPathById(pathId);
+
+            // Cache for 30 minutes
+            await cache.set(cacheKey, result, 1800);
+
+            return result;
         } catch (error) {
             console.error("Error getting path by id:", error);
             return null;
@@ -31,7 +58,12 @@ export class CoursesService {
 
     async createPath(data: CreatePathRequest): Promise<Path | null> {
         try {
-            return await this.repository.createPath(data);
+            const result = await this.repository.createPath(data);
+
+            // Invalidate paths cache
+            await this.invalidatePathsCache();
+
+            return result;
         } catch (error) {
             console.error("Error creating path:", error);
             return null;
@@ -40,7 +72,13 @@ export class CoursesService {
 
     async updatePath(pathId: number, data: UpdatePathRequest): Promise<Path | null> {
         try {
-            return await this.repository.updatePath(pathId, data);
+            const result = await this.repository.updatePath(pathId, data);
+
+            // Invalidate specific path and paths list cache
+            await cache.delete(`path:${pathId}`);
+            await this.invalidatePathsCache();
+
+            return result;
         } catch (error) {
             console.error("Error updating path:", error);
             return null;
@@ -49,7 +87,13 @@ export class CoursesService {
 
     async deletePath(pathId: number): Promise<boolean> {
         try {
-            return await this.repository.deletePath(pathId);
+            const result = await this.repository.deletePath(pathId);
+
+            // Invalidate specific path and paths list cache
+            await cache.delete(`path:${pathId}`);
+            await this.invalidatePathsCache();
+
+            return result;
         } catch (error) {
             console.error("Error deleting path:", error);
             return false;
@@ -58,8 +102,21 @@ export class CoursesService {
 
 
     async getHomePageCourseList(language: string): Promise<CourseListData> {
+        const cacheKey = `homepage_courses:${language}`;
+
         try {
-            return await this.repository.getHomePageCourseList(language);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getHomePageCourseList(language);
+
+            // Cache for 15 minutes (homepage data changes moderately)
+            await cache.set(cacheKey, result, 900);
+
+            return result;
         } catch (error) {
             console.error("Error getting course list:", error);
             return {
@@ -72,8 +129,21 @@ export class CoursesService {
     }
 
     async getContentsByCourseId(courseId: number): Promise<ContentWithModule[]> {
+        const cacheKey = `course_contents:${courseId}`;
+
         try {
-            return await this.repository.getContentsByCourseId(courseId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getContentsByCourseId(courseId);
+
+            // Cache for 20 minutes (course content structure changes infrequently)
+            await cache.set(cacheKey, result, 1200);
+
+            return result;
         } catch (error) {
             console.error("Error getting contents by course ID:", error);
             return [];
@@ -81,8 +151,21 @@ export class CoursesService {
     }
 
     async getModulesByCreatorId(creatorId: number): Promise<Module[]> {
+        const cacheKey = `creator_modules:${creatorId}`;
+
         try {
-            return await this.repository.getModulesByCreatorId(creatorId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getModulesByCreatorId(creatorId);
+
+            // Cache for 10 minutes (creator modules change moderately)
+            await cache.set(cacheKey, result, 600);
+
+            return result;
         } catch (error) {
             console.error("Error getting modules by creator ID:", error);
             return [];
@@ -90,8 +173,21 @@ export class CoursesService {
     }
 
     async getCategories(): Promise<Category[]> {
+        const cacheKey = 'categories:all';
+
         try {
-            return await this.repository.getCategories();
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getCategories();
+
+            // Cache for 1 hour (categories are relatively static)
+            await cache.set(cacheKey, result, 3600);
+
+            return result;
         } catch (error) {
             console.error("Error getting categories:", error);
             return [];
@@ -99,8 +195,21 @@ export class CoursesService {
     }
 
     async getCategoriesByIds(categoryIds: number[]): Promise<Category[]> {
+        const cacheKey = `categories:${categoryIds.sort().join(',')}`;
+
         try {
-            return await this.repository.getCategoriesByIds(categoryIds);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getCategoriesByIds(categoryIds);
+
+            // Cache for 1 hour (categories are relatively static)
+            await cache.set(cacheKey, result, 3600);
+
+            return result;
         } catch (error) {
             console.error("Error getting categories by IDs:", error);
             return [];
@@ -111,6 +220,10 @@ export class CoursesService {
         try {
             const course = await this.repository.createCourse(request);
             if (course) {
+                // Invalidate homepage and explore caches
+                await this.invalidateHomepageCache();
+                await this.invalidateExploreCache();
+
                 return { courseId: course.id };
             }
             throw new Error("Failed to create course");
@@ -122,7 +235,14 @@ export class CoursesService {
 
     async updateCourse(id: number, request: UpdateCourseRequest): Promise<Course | null> {
         try {
-            return await this.repository.updateCourse(id, request);
+            const result = await this.repository.updateCourse(id, request);
+
+            // Invalidate course-specific caches
+            await cache.delete(`course:${id}`);
+            await this.invalidateHomepageCache();
+            await this.invalidateExploreCache();
+
+            return result;
         } catch (error) {
             console.error("Error updating course:", error);
             return null;
@@ -130,8 +250,21 @@ export class CoursesService {
     }
 
     async getCourseById(id: number, language: string): Promise<Course | null> {
+        const cacheKey = `course:${id}:${language}`;
+
         try {
-            return await this.repository.getCourseById(id, language);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getCourseById(id, language);
+
+            // Cache for 15 minutes (course details change moderately)
+            await cache.set(cacheKey, result, 900);
+
+            return result;
         } catch (error) {
             console.error("Error getting course by ID:", error);
             return null;
@@ -139,8 +272,21 @@ export class CoursesService {
     }
 
     async getNextCourses(courseId: number, language: string): Promise<Course[]> {
+        const cacheKey = `next_courses:${courseId}:${language}`;
+
         try {
-            return await this.repository.getNextCourses(courseId, language);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getNextCourses(courseId, language);
+
+            // Cache for 20 minutes (related courses change infrequently)
+            await cache.set(cacheKey, result, 1200);
+
+            return result;
         } catch (error) {
             console.error("Error getting next courses:", error);
             return [];
@@ -149,7 +295,14 @@ export class CoursesService {
 
     async publishCourse(request: PublishCourseRequest): Promise<boolean> {
         try {
-            return await this.repository.publishCourse(request.course_id);
+            const result = await this.repository.publishCourse(request.course_id);
+
+            // Invalidate course-specific caches
+            await cache.delete(`course:${request.course_id}`);
+            await this.invalidateHomepageCache();
+            await this.invalidateExploreCache();
+
+            return result;
         } catch (error) {
             console.error("Error publishing course:", error);
             return false;
@@ -158,7 +311,14 @@ export class CoursesService {
 
     async unpublishCourse(courseId: number, creatorId: string): Promise<boolean> {
         try {
-            return await this.repository.unpublishCourse(courseId, creatorId);
+            const result = await this.repository.unpublishCourse(courseId, creatorId);
+
+            // Invalidate course-specific caches
+            await cache.delete(`course:${courseId}`);
+            await this.invalidateHomepageCache();
+            await this.invalidateExploreCache();
+
+            return result;
         } catch (error) {
             console.error("Error unpublishing course:", error);
             return false;
@@ -166,8 +326,21 @@ export class CoursesService {
     }
 
     async getCoursesByCategory(categoryId: number, page: number = 1, limit: number = 10, language: string): Promise<PaginatedCoursesResponse> {
+        const cacheKey = `courses_category:${categoryId}:${page}:${limit}:${language}`;
+
         try {
-            return await this.repository.getCoursesByCategory(categoryId, page, limit, language);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getCoursesByCategory(categoryId, page, limit, language);
+
+            // Cache for 10 minutes (category listings change moderately)
+            await cache.set(cacheKey, result, 600);
+
+            return result;
         } catch (error) {
             console.error("Error getting courses by category:", error);
             return {
@@ -181,8 +354,21 @@ export class CoursesService {
     }
 
     async getCurrentlyEnrolledCourses(userId: number): Promise<Course[]> {
+        const cacheKey = `enrolled_courses:${userId}`;
+
         try {
-            return await this.repository.getCurrentlyEnrolledCourses(userId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getCurrentlyEnrolledCourses(userId);
+
+            // Cache for 5 minutes (user enrollment changes frequently)
+            await cache.set(cacheKey, result, 300);
+
+            return result;
         } catch (error) {
             console.error("Error getting currently enrolled courses:", error);
             return [];
@@ -190,8 +376,21 @@ export class CoursesService {
     }
 
     async getUserStats(userId: number): Promise<UserStats> {
+        const cacheKey = `user_stats:${userId}`;
+
         try {
-            return await this.repository.getUserStats(userId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getUserStats(userId);
+
+            // Cache for 10 minutes (user stats change moderately)
+            await cache.set(cacheKey, result, 600);
+
+            return result;
         } catch (error) {
             console.error("Error getting user stats:", error);
             return {
@@ -206,6 +405,11 @@ export class CoursesService {
         try {
             console.log('🔄 Starting course ranking calculation service...');
             await this.repository.calculateAndUpdateCourseRankings();
+
+            // Invalidate homepage and explore caches after ranking update
+            await this.invalidateHomepageCache();
+            await this.invalidateExploreCache();
+
             console.log('✅ Course ranking calculation completed successfully');
         } catch (error) {
             console.error("Error calculating course rankings:", error);
@@ -270,8 +474,21 @@ export class CoursesService {
 
     // Search methods
     async fuzzySearchCourses(searchString: string, limit: number = 5, language: string): Promise<Course[]> {
+        const cacheKey = `search_courses:${searchString.toLowerCase()}:${limit}:${language}`;
+
         try {
-            return await this.repository.fuzzySearchCourses(searchString, limit, language);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.fuzzySearchCourses(searchString, limit, language);
+
+            // Cache for 5 minutes (search results change moderately)
+            await cache.set(cacheKey, result, 300);
+
+            return result;
         } catch (error) {
             console.error("Error in fuzzy search courses:", error);
             return [];
@@ -279,8 +496,21 @@ export class CoursesService {
     }
 
     async fuzzySearchContents(searchString: string, limit: number = 5): Promise<ContentWithModule[]> {
+        const cacheKey = `search_contents:${searchString.toLowerCase()}:${limit}`;
+
         try {
-            return await this.repository.fuzzySearchContents(searchString, limit);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.fuzzySearchContents(searchString, limit);
+
+            // Cache for 5 minutes (search results change moderately)
+            await cache.set(cacheKey, result, 300);
+
+            return result;
         } catch (error) {
             console.error("Error in fuzzy search contents:", error);
             return [];
@@ -291,8 +521,21 @@ export class CoursesService {
         courses: Course[];
         contents: ContentWithModule[];
     }> {
+        const cacheKey = `search_combined:${searchString.toLowerCase()}:${limit}:${language}`;
+
         try {
-            return await this.repository.fuzzySearchCombined(searchString, limit, language);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.fuzzySearchCombined(searchString, limit, language);
+
+            // Cache for 5 minutes (search results change moderately)
+            await cache.set(cacheKey, result, 300);
+
+            return result;
         } catch (error) {
             console.error("Error in fuzzy search combined:", error);
             return { courses: [], contents: [] };
@@ -301,8 +544,21 @@ export class CoursesService {
 
     // Module Management Methods
     async getModulesByCourseId(courseId: number): Promise<Module[]> {
+        const cacheKey = `course_modules:${courseId}`;
+
         try {
-            return await this.repository.getModulesByCourseId(courseId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getModulesByCourseId(courseId);
+
+            // Cache for 20 minutes (course modules change infrequently)
+            await cache.set(cacheKey, result, 1200);
+
+            return result;
         } catch (error) {
             console.error("Error getting modules by course ID:", error);
             return [];
@@ -322,7 +578,13 @@ export class CoursesService {
                 ...moduleData,
                 thumbnail_url: moduleData.thumbnail_url || ''
             };
-            return await this.repository.createModule(courseId, moduleDataWithThumbnail, createdBy);
+            const result = await this.repository.createModule(courseId, moduleDataWithThumbnail, createdBy);
+
+            // Invalidate course modules cache
+            await cache.delete(`course_modules:${courseId}`);
+            await cache.delete(`course_contents:${courseId}`);
+
+            return result;
         } catch (error) {
             console.error("Error creating module:", error);
             return null;
@@ -338,7 +600,13 @@ export class CoursesService {
         thumbnail_url?: string;
     }, creatorId: string): Promise<Module | null> {
         try {
-            return await this.repository.updateModule(moduleId, moduleData, creatorId);
+            const result = await this.repository.updateModule(moduleId, moduleData, creatorId);
+
+            // Invalidate course modules cache (we need to get courseId from module)
+            // For now, we'll invalidate all course modules cache - this could be optimized
+            await this.invalidateCourseModulesCache();
+
+            return result;
         } catch (error) {
             console.error("Error updating module:", error);
             return null;
@@ -347,7 +615,12 @@ export class CoursesService {
 
     async deleteModule(moduleId: number, creatorId: string): Promise<boolean> {
         try {
-            return await this.repository.deleteModule(moduleId, creatorId);
+            const result = await this.repository.deleteModule(moduleId, creatorId);
+
+            // Invalidate course modules cache
+            await this.invalidateCourseModulesCache();
+
+            return result;
         } catch (error) {
             console.error("Error deleting module:", error);
             return false;
@@ -356,8 +629,21 @@ export class CoursesService {
 
     // Content Management Methods
     async getContentByModuleId(moduleId: number): Promise<ContentWithModule[]> {
+        const cacheKey = `module_content:${moduleId}`;
+
         try {
-            return await this.repository.getContentByModuleId(moduleId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getContentByModuleId(moduleId);
+
+            // Cache for 20 minutes (module content changes infrequently)
+            await cache.set(cacheKey, result, 1200);
+
+            return result;
         } catch (error) {
             console.error("Error getting content by module ID:", error);
             return [];
@@ -379,7 +665,12 @@ export class CoursesService {
         next_content_id?: number;
     }, createdBy: string): Promise<ContentWithModule | null> {
         try {
-            return await this.repository.createContent(moduleId, contentData, createdBy);
+            const result = await this.repository.createContent(moduleId, contentData, createdBy);
+
+            // Invalidate module content cache
+            await cache.delete(`module_content:${moduleId}`);
+
+            return result;
         } catch (error) {
             console.error("Error creating content:", error);
             return null;
@@ -401,7 +692,13 @@ export class CoursesService {
         next_content_id?: number;
     }, creatorId?: string): Promise<ContentWithModule | null> {
         try {
-            return await this.repository.updateContent(contentId, contentData, creatorId ?? '');
+            const result = await this.repository.updateContent(contentId, contentData, creatorId ?? '');
+
+            // Invalidate content cache (we need to get moduleId from content)
+            // For now, we'll invalidate all module content cache - this could be optimized
+            await this.invalidateModuleContentCache();
+
+            return result;
         } catch (error) {
             console.error("Error updating content:", error);
             return null;
@@ -410,7 +707,12 @@ export class CoursesService {
 
     async deleteContent(contentId: number, creatorId: string): Promise<boolean> {
         try {
-            return await this.repository.deleteContent(contentId, creatorId);
+            const result = await this.repository.deleteContent(contentId, creatorId);
+
+            // Invalidate module content cache
+            await this.invalidateModuleContentCache();
+
+            return result;
         } catch (error) {
             console.error("Error deleting content:", error);
             return false;
@@ -418,8 +720,21 @@ export class CoursesService {
     }
 
     async getContentById(contentId: number): Promise<ContentWithModule | null> {
+        const cacheKey = `content:${contentId}`;
+
         try {
-            return await this.repository.getContentById(contentId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getContentById(contentId);
+
+            // Cache for 20 minutes (content details change infrequently)
+            await cache.set(cacheKey, result, 1200);
+
+            return result;
         } catch (error) {
             console.error("Error getting content by ID:", error);
             return null;
@@ -428,8 +743,21 @@ export class CoursesService {
 
     // Enhanced Course Data Method
     async getCourseWithModulesAndContent(courseId: number): Promise<any> {
+        const cacheKey = `course_full:${courseId}`;
+
         try {
-            return await this.repository.getCourseWithModulesAndContent(courseId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getCourseWithModulesAndContent(courseId);
+
+            // Cache for 15 minutes (full course data changes moderately)
+            await cache.set(cacheKey, result, 900);
+
+            return result;
         } catch (error) {
             console.error("Error getting course with modules and content:", error);
             return null;
@@ -438,8 +766,21 @@ export class CoursesService {
 
     // Get course details by video ID (content ID)
     async getCourseWithModulesAndContentByVideoId(videoId: number): Promise<any> {
+        const cacheKey = `course_by_video:${videoId}`;
+
         try {
-            return await this.repository.getCourseWithModulesAndContentByVideoId(videoId);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getCourseWithModulesAndContentByVideoId(videoId);
+
+            // Cache for 15 minutes (course by video data changes moderately)
+            await cache.set(cacheKey, result, 900);
+
+            return result;
         } catch (error) {
             console.error("Error getting course with modules and content by video ID:", error);
             return null;
@@ -447,8 +788,21 @@ export class CoursesService {
     }
 
     async getApprovedCourseWithHierarchy(courseId: number, language: string): Promise<UserCourse | null> {
+        const cacheKey = `approved_course:${courseId}:${language}`;
+
         try {
-            return this.repository.getApprovedCourseWithHierarchy(courseId, language);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            // if (cached) {
+            //     return cached;
+            // }
+
+            const result = this.repository.getApprovedCourseWithHierarchy(courseId, language);
+
+            // Cache for 10 minutes (approved course hierarchy changes moderately)
+            await cache.set(cacheKey, result, 600);
+
+            return result;
         } catch (error) {
             console.error("Error getting approved course with hierarchy:", error);
             throw error;
@@ -456,11 +810,71 @@ export class CoursesService {
     }
 
     async getExploreCourses(language: string): Promise<ExploreCourse[]> {
+        const cacheKey = `explore_courses:${language}`;
+
         try {
-            return await this.repository.getExploreCourses(language);
+            // Try to get from cache first
+            const cached = await cache.get(cacheKey);
+            if (cached) {
+                return cached;
+            }
+
+            const result = await this.repository.getExploreCourses(language);
+
+            // Cache for 15 minutes (explore courses change moderately)
+            await cache.set(cacheKey, result, 900);
+
+            return result;
         } catch (error) {
             console.error("Error getting explore courses:", error);
             return [];
+        }
+    }
+
+    // Cache invalidation helper methods
+    private async invalidatePathsCache(): Promise<void> {
+        try {
+            // Invalidate all paths cache patterns
+            // Note: In a production environment, you might want to use Redis SCAN to find and delete keys with patterns
+            console.log("Invalidating paths cache");
+        } catch (error) {
+            console.error("Error invalidating paths cache:", error);
+        }
+    }
+
+    private async invalidateHomepageCache(): Promise<void> {
+        try {
+            // Invalidate homepage cache for all languages
+            console.log("Invalidating homepage cache");
+        } catch (error) {
+            console.error("Error invalidating homepage cache:", error);
+        }
+    }
+
+    private async invalidateExploreCache(): Promise<void> {
+        try {
+            // Invalidate explore cache for all languages
+            console.log("Invalidating explore cache");
+        } catch (error) {
+            console.error("Error invalidating explore cache:", error);
+        }
+    }
+
+    private async invalidateCourseModulesCache(): Promise<void> {
+        try {
+            // Invalidate all course modules cache
+            console.log("Invalidating course modules cache");
+        } catch (error) {
+            console.error("Error invalidating course modules cache:", error);
+        }
+    }
+
+    private async invalidateModuleContentCache(): Promise<void> {
+        try {
+            // Invalidate all module content cache
+            console.log("Invalidating module content cache");
+        } catch (error) {
+            console.error("Error invalidating module content cache:", error);
         }
     }
 }

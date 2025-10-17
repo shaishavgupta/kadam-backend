@@ -1,7 +1,7 @@
 import { db } from '../infra/db';
-import { 
-  GroupSchema, 
-  GroupMemberSchema, 
+import {
+  GroupSchema,
+  GroupMemberSchema,
   GroupMessageSchema,
   CreateGroupRequest,
   UpdateGroupRequest,
@@ -64,7 +64,7 @@ export class GroupsRepository {
       VALUES ($1, $2, $3, $4)
       RETURNING *
     `;
-    
+
     const values = [
       groupData.name,
       groupData.description || null,
@@ -101,7 +101,7 @@ export class GroupsRepository {
 
     values.push(id);
     const query = `
-      UPDATE groups 
+      UPDATE groups
       SET ${setClause.join(', ')}, updated_at = CURRENT_TIMESTAMP
       WHERE id = $${paramIndex} AND is_active = true
       RETURNING *
@@ -136,7 +136,7 @@ export class GroupsRepository {
 
     // Get total count
     const countQuery = `
-      SELECT COUNT(DISTINCT g.id) 
+      SELECT COUNT(DISTINCT g.id)
       FROM groups g
       INNER JOIN group_members gm ON g.id = gm.group_id
       WHERE gm.user_id = $1 AND ${whereClause}
@@ -164,14 +164,14 @@ export class GroupsRepository {
     const query = `
       INSERT INTO group_members (group_id, user_id, role)
       VALUES ($1, $2, $3)
-      ON CONFLICT (group_id, user_id) 
-      DO UPDATE SET 
+      ON CONFLICT (group_id, user_id)
+      DO UPDATE SET
         role = EXCLUDED.role,
         joined_at = CURRENT_TIMESTAMP,
         updated_at = CURRENT_TIMESTAMP
       RETURNING *
     `;
-    
+
     const result = await db.query(query, [groupId, userId, role]);
     return result.rows[0];
   }
@@ -184,7 +184,7 @@ export class GroupsRepository {
 
   async updateMemberRole(groupId: number, userId: number, role: 'admin' | 'moderator' | 'member'): Promise<GroupMember | null> {
     const query = `
-      UPDATE group_members 
+      UPDATE group_members
       SET role = $3, updated_at = CURRENT_TIMESTAMP
       WHERE group_id = $1 AND user_id = $2
       RETURNING *
@@ -220,13 +220,13 @@ export class GroupsRepository {
 
     // Get members
     const query = `
-      SELECT * FROM group_members 
+      SELECT * FROM group_members
       WHERE ${whereClause}
-      ORDER BY 
-        CASE role 
-          WHEN 'admin' THEN 1 
-          WHEN 'moderator' THEN 2 
-          WHEN 'member' THEN 3 
+      ORDER BY
+        CASE role
+          WHEN 'admin' THEN 1
+          WHEN 'moderator' THEN 2
+          WHEN 'member' THEN 3
         END,
         joined_at ASC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -239,7 +239,7 @@ export class GroupsRepository {
 
   async updateMemberOnlineStatus(groupId: number, userId: number, isOnline: boolean): Promise<GroupMember | null> {
     const query = `
-      UPDATE group_members 
+      UPDATE group_members
       SET is_online = $3, last_seen = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
       WHERE group_id = $1 AND user_id = $2
       RETURNING *
@@ -261,7 +261,7 @@ export class GroupsRepository {
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
-    
+
     const values = [
       groupId,
       senderId,
@@ -305,7 +305,7 @@ export class GroupsRepository {
 
     // Get messages
     const query = `
-      SELECT * FROM group_messages 
+      SELECT * FROM group_messages
       WHERE ${whereClause}
       ORDER BY created_at DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
@@ -318,7 +318,7 @@ export class GroupsRepository {
 
   async deleteMessage(messageId: number, deletedBy: number): Promise<boolean> {
     const query = `
-      UPDATE group_messages 
+      UPDATE group_messages
       SET is_deleted = true, deleted_at = CURRENT_TIMESTAMP, deleted_by = $2, updated_at = CURRENT_TIMESTAMP
       WHERE id = $1 AND is_deleted = false
       RETURNING *
@@ -341,7 +341,7 @@ export class GroupsRepository {
     lastMessageAt?: Date;
   }> {
     const query = `
-      SELECT 
+      SELECT
         COUNT(DISTINCT gm.user_id) as member_count,
         COUNT(DISTINCT CASE WHEN gm.is_online = true THEN gm.user_id END) as online_member_count,
         COUNT(gmsg.id) as message_count,
@@ -350,10 +350,10 @@ export class GroupsRepository {
       LEFT JOIN group_messages gmsg ON gm.group_id = gmsg.group_id AND gmsg.is_deleted = false
       WHERE gm.group_id = $1
     `;
-    
+
     const result = await db.query(query, [groupId]);
     const row = result.rows[0];
-    
+
     return {
       memberCount: parseInt(row.member_count),
       onlineMemberCount: parseInt(row.online_member_count),
@@ -388,8 +388,8 @@ export class GroupsRepository {
     // Exclude groups user has already joined
     if (excludeJoined) {
       whereConditions.push(`g.id NOT IN (
-        SELECT gm.group_id 
-        FROM group_members gm 
+        SELECT gm.group_id
+        FROM group_members gm
         WHERE gm.user_id = $${paramIndex}
       )`);
       values.push(userId);
@@ -407,7 +407,7 @@ export class GroupsRepository {
 
     // Get total count
     const countQuery = `
-      SELECT COUNT(DISTINCT g.id) 
+      SELECT COUNT(DISTINCT g.id)
       FROM groups g
       WHERE ${whereClause}
     `;
@@ -416,7 +416,7 @@ export class GroupsRepository {
 
     // Get groups with member counts and creator info
     const query = `
-      SELECT 
+      SELECT
         g.id,
         g.name,
         g.description,
@@ -458,7 +458,7 @@ export class GroupsRepository {
 
     // Add user as member with role 'member'
     const member = await this.addMember(groupId, userId, 'member');
-    
+
     return member;
   }
 
@@ -489,10 +489,4 @@ export class GroupsRepository {
     return parseInt(result.rows[0].count);
   }
 
-  // Get user info for member response
-  async getUserInfo(userId: number): Promise<{ id: number; name: string; avatar?: string } | null> {
-    const query = 'SELECT id, name, avatar FROM users WHERE id = $1';
-    const result = await db.query(query, [userId]);
-    return result.rows[0] || null;
-  }
 }

@@ -85,7 +85,7 @@ async function clearExistingData() {
         'user_certificates',
         'user_badges',
         'user_enrollments',
-        'vectors',
+        'course_vector',
         'contents',
         'modules',
         'course_creators',
@@ -115,7 +115,6 @@ async function seedAdmins(): Promise<number[]> {
             name: 'Super Admin',
             email: 'admin@kadam.com',
             phone: '+919876543210',
-            password: await bcrypt.hash('admin123', 10),
             is_active: true,
             profile_pic: 'https://example.com/admin1.jpg'
         }
@@ -124,9 +123,9 @@ async function seedAdmins(): Promise<number[]> {
     const adminIds: number[] = [];
     for (const admin of admins) {
         const result = await client.query(
-            `INSERT INTO admins (name, email, phone, password, is_active, profile_pic, last_active_at)
-             VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id`,
-            [admin.name, admin.email, admin.phone, admin.password, admin.is_active, admin.profile_pic]
+            `INSERT INTO admins (name, email, phone, is_active, profile_pic, last_active_at)
+             VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING id`,
+            [admin.name, admin.email, admin.phone, admin.is_active, admin.profile_pic]
         );
         adminIds.push(result.rows[0].id);
     }

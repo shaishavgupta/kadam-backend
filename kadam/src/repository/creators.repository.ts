@@ -216,6 +216,23 @@ export class CreatorRepository {
         }
     }
 
+    async getQualificationById(id: number): Promise<Qualification | null> {
+        try {
+            const result = await db.query(
+                `SELECT * FROM qualifications WHERE id = $1`,
+                [id]
+            );
+
+            if (result.rows.length > 0) {
+                return result.rows[0] as Qualification;
+            }
+            return null;
+        } catch (error) {
+            console.error("Error getting qualification by ID:", error);
+            return null;
+        }
+    }
+
     async deleteQualification(id: number): Promise<boolean> {
         try {
             const result = await db.query(
@@ -226,6 +243,23 @@ export class CreatorRepository {
         } catch (error) {
             console.error("Error deleting qualification:", error);
             return false;
+        }
+    }
+
+    async getAchievementById(id: number): Promise<Achievement | null> {
+        try {
+            const result = await db.query(
+                `SELECT * FROM achievements WHERE id = $1`,
+                [id]
+            );
+
+            if (result.rows.length > 0) {
+                return result.rows[0] as Achievement;
+            }
+            return null;
+        } catch (error) {
+            console.error("Error getting achievement by ID:", error);
+            return null;
         }
     }
 

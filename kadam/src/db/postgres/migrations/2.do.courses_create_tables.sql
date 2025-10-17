@@ -24,9 +24,9 @@ CREATE TABLE courses (
   rank FLOAT DEFAULT 0,
   rejected_at TIMESTAMP,
   rejected_by BIGINT,
-  rejection_reason TEXT
+  rejection_reason TEXT,
   creator_published_at TIMESTAMP,
-  next_course_ids BIGINT[],
+  next_course_ids BIGINT[]
 );
 
 CREATE TABLE certificates (

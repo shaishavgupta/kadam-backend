@@ -12,6 +12,7 @@ A comprehensive learning platform backend built with Fastify, TypeScript, Postgr
 - [Embeddings Service](#embeddings-service)
 - [Development](#development)
 - [Deployment](#deployment)
+- [Load Testing with k6](#load-testing-with-k6)
 
 ## Getting Started
 
@@ -2595,6 +2596,515 @@ The codebase follows a clean layered architecture:
 - Services contain testable business logic
 - Repositories handle data access with proper error handling
 - Infrastructure connections are health-monitored and gracefully degrade
+
+## Genkit Dev Tools Setup for AI Flows
+
+This section explains how to run your current AI flows using Genkit development tools.
+
+### Setup Complete ✅
+
+The following files have been created/updated:
+
+1. **`genkit.config.ts`** - Genkit configuration file
+2. **`src/genkit-flows.ts`** - Exports all AI flows for dev tools
+3. **`package.json`** - Added Genkit CLI and dev scripts
+
+### Available AI Flows
+
+Your project has the following AI flows available for testing:
+
+- `courseRecommendationFlow` - Course recommendations based on user queries
+- `contentDiscoveryFlow` - Content discovery within courses
+- `similarContentFlow` - Find similar content using vector search
+- `vectorReindexFlow` - Reindex vector embeddings
+- `chatFlow` - Interactive chat with persona detection
+
+### Running Genkit Dev Tools
+
+#### 1. Start Genkit Developer UI (Recommended)
+
+```bash
+npm run genkit:dev
+```
+
+This will:
+- Start the Genkit Developer UI at `http://localhost:4000`
+- Run your TypeScript code in watch mode
+- Allow you to test flows interactively
+
+#### 2. Alternative: Run with Built Code
+
+```bash
+npm run build
+npm run genkit:build
+```
+
+#### 3. Command Line Flow Testing
+
+You can also run flows directly from the command line:
+
+```bash
+# Test course recommendation flow
+npm run genkit:flow courseRecommendationFlow '{"userQuery": "machine learning fundamentals"}'
+
+# Test chat flow
+npm run genkit:flow chatFlow '{"message": "Hello, I want to learn web development", "userId": "test-user"}'
+
+# Test content discovery
+npm run genkit:flow contentDiscoveryFlow '{"courseId": "1", "contentType": "video"}'
+
+# Test similar content search
+npm run genkit:flow similarContentFlow '{"query": "artificial intelligence", "source": "courses"}'
+
+# Test vector reindexing
+npm run genkit:flow vectorReindexFlow '{"source": "courses", "batchSize": 5}'
+```
+
+### Environment Variables Required
+
+Make sure these environment variables are set in your `.env` file:
+
+```env
+# AI Provider Keys
+XAI_API_KEY=your_xai_api_key_here
+GOOGLE_AI_API_KEY=your_google_ai_api_key_here
+
+# Database (for flows that need DB access)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=kadam_db
+DB_USER=postgres
+DB_PASSWORD=password
+
+# Other required vars...
+```
+
+### Using the Genkit Developer UI
+
+1. **Start the dev server**: `npm run genkit:dev`
+2. **Open browser**: Go to `http://localhost:4000`
+3. **Navigate to "Run" tab**: Select and test your flows
+4. **Interactive testing**: Input test data and see results
+5. **Debugging**: View logs, traces, and performance metrics
+
+### Flow Examples
+
+#### Course Recommendation Flow
+```json
+{
+  "userQuery": "I want to learn Python programming",
+  "categoryId": "1"
+}
+```
+
+#### Chat Flow
+```json
+{
+  "message": "Hi, I'm a student and want to learn web development",
+  "userId": "user123",
+  "type": "text"
+}
+```
+
+#### Content Discovery Flow
+```json
+{
+  "courseId": "1",
+  "contentType": "video"
+}
+```
+
+#### Similar Content Flow
+```json
+{
+  "query": "machine learning algorithms",
+  "source": "courses"
+}
+```
+
+#### Vector Reindex Flow
+```json
+{
+  "source": "all",
+  "batchSize": 10
+}
+```
+
+### Troubleshooting
+
+#### Common Issues
+
+1. **"Flow not found"**: Make sure `src/genkit-flows.ts` is properly exporting your flows
+2. **Database connection errors**: Ensure PostgreSQL is running and environment variables are set
+3. **API key errors**: Verify your XAI and Google AI API keys are valid
+4. **Port conflicts**: Genkit dev UI uses port 4000, make sure it's available
+
+#### Debug Mode
+
+For more detailed logging, you can modify `genkit.config.ts`:
+
+```typescript
+export default configureGenkit({
+  // ... existing config
+  logLevel: 'debug', // Change to 'info' or 'warn' for less verbose output
+});
+```
+
+### Next Steps
+
+1. **Test all flows**: Use the Genkit Developer UI to test each flow
+2. **Add new flows**: Export them in `src/genkit-flows.ts`
+3. **Customize prompts**: Modify flow logic in `src/repository/ai.repository.ts`
+4. **Monitor performance**: Use Genkit's built-in tracing and metrics
+
+### Integration with Existing API
+
+Your existing Fastify API endpoints in `src/controller/ai.controller.ts` will continue to work as before. The Genkit dev tools are for development and testing purposes only.
+
+The flows are the same ones used by your API endpoints:
+- `/ai/course-recommendation` → `courseRecommendationFlow`
+- `/ai/content-discovery` → `contentDiscoveryFlow`
+- `/ai/similar-content` → `similarContentFlow`
+- `/ai/vector-reindex` → `vectorReindexFlow`
+- `/ai/chat` → `chatFlow`
+
+## Load Testing with k6
+
+This project includes comprehensive load testing scripts using k6 to simulate complete user flows including authentication, course browsing, content interaction, and more.
+
+### 📁 Load Testing Files
+
+- `src/load-test.js` - Basic load test with standard user flow
+- `src/load-test-advanced.js` - Advanced load test with retry logic, custom metrics, and spike testing
+
+### 🚀 Quick Start
+
+#### Prerequisites
+
+1. **Install k6**: Follow the [official installation guide](https://k6.io/docs/getting-started/installation/)
+2. **Start the server**: Ensure your Kadam backend is running on `http://localhost:3001`
+3. **Database setup**: Make sure you have test data (courses, modules, content) in your database
+
+#### Basic Usage
+
+```bash
+# Run basic load test
+npm run load-test
+
+# Run advanced load test
+npm run load-test:advanced
+
+# Run predefined scenarios
+npm run load-test:light    # 10 users, 5 minutes
+npm run load-test:medium   # 50 users, 10 minutes
+npm run load-test:heavy    # 100 users, 15 minutes
+npm run load-test:spike    # Spike test with advanced features
+```
+
+### 🔧 Configuration
+
+#### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BASE_URL` | `http://localhost:3001` | API base URL |
+| `TEST_PHONE` | `+1234567890` | Phone number for authentication |
+| `TEST_OTP` | `123456` | OTP for authentication |
+| `TEST_LANGUAGE` | `en` | User language preference |
+| `TEST_USER_TYPE` | `user` | User type for authentication |
+| `ENABLE_SPIKE_TEST` | `false` | Enable spike testing scenario |
+
+#### Custom Configuration
+
+You can modify the `options` object in the load test files to customize:
+
+```javascript
+export const options = {
+  stages: [
+    { duration: '2m', target: 10 }, // Ramp up to 10 users
+    { duration: '5m', target: 10 }, // Stay at 10 users
+    { duration: '2m', target: 20 }, // Ramp up to 20 users
+    { duration: '5m', target: 20 }, // Stay at 20 users
+    { duration: '2m', target: 0 },  // Ramp down to 0 users
+  ],
+  thresholds: {
+    http_req_duration: ['p(95)<2000'], // 95% of requests must complete below 2s
+    http_req_failed: ['rate<0.1'],     // Error rate must be below 10%
+    errors: ['rate<0.1'],              // Custom error rate must be below 10%
+  },
+};
+```
+
+### 📊 Test Scenarios
+
+#### 1. Basic Load Test (`load-test.js`)
+
+**Purpose**: Standard user flow testing with basic metrics
+
+**Flow**:
+1. Authentication (Send OTP → Verify OTP)
+2. Home page courses
+3. Course details
+4. Modules
+5. Content
+6. Like content
+7. Save content
+8. Status checks
+9. User data fetching
+10. Search and categories
+
+**Metrics**:
+- Response times
+- Error rates
+- Success rates
+- Custom error tracking
+
+#### 2. Advanced Load Test (`load-test-advanced.js`)
+
+**Purpose**: Comprehensive testing with advanced features
+
+**Features**:
+- Retry logic with exponential backoff
+- Custom metrics (auth attempts, interactions)
+- Spike testing scenario
+- Enhanced error handling
+- Random search queries
+- Better logging and debugging
+
+**Scenarios**:
+- **Main Flow**: Standard user journey
+- **Spike Test**: Sudden traffic increase (10 → 100 → 10 users)
+
+### 🎯 Test Flow Details
+
+#### Authentication Flow
+```
+POST /api/auth/send-otp
+POST /api/auth/verify-otp
+```
+
+#### Course Discovery
+```
+GET /api/courses/home-page-courses
+GET /api/courses/approved/{courseId}
+GET /api/courses/{courseId}/modules
+GET /api/courses/modules/{moduleId}/content
+```
+
+#### User Interactions
+```
+POST /api/interactions/likes
+POST /api/interactions/saves
+GET /api/interactions/likes/is-liked/content/{contentId}
+GET /api/interactions/saves/is-saved/content/{contentId}
+```
+
+#### User Data
+```
+GET /api/interactions/saves/user
+GET /api/interactions/likes/user
+```
+
+#### Search & Discovery
+```
+GET /api/courses/search?q={query}&limit=5
+GET /api/courses/categories
+```
+
+### 📈 Performance Thresholds
+
+#### Response Time Thresholds
+- **95th percentile**: < 2000ms
+- **99th percentile**: < 5000ms (advanced test)
+- **Individual endpoints**: < 2000ms
+
+#### Error Rate Thresholds
+- **Overall error rate**: < 5%
+- **Custom error rate**: < 5%
+- **HTTP failures**: < 5%
+
+#### Custom Metrics
+- **Authentication attempts**: Tracked for analysis
+- **Interactions**: Like/save operations tracked
+- **Response time trends**: Custom response time tracking
+
+### 🔍 Monitoring & Debugging
+
+#### Real-time Output
+The tests provide detailed console output:
+```
+🔐 Starting authentication flow...
+✅ OTP sent successfully
+✅ Authentication successful, userId: 123
+🏠 Fetching home page courses...
+✅ Home page courses fetched successfully
+📚 Selected course ID: 456
+...
+```
+
+#### Custom Metrics
+- `errors`: Custom error rate tracking
+- `response_time`: Custom response time trends
+- `auth_attempts`: Authentication attempt counter
+- `interactions`: User interaction counter
+
+#### Health Checks
+- Server health endpoint verification
+- Authentication endpoint testing
+- Database connectivity validation
+
+### 🛠️ Troubleshooting
+
+#### Common Issues
+
+1. **Authentication Failures**
+   ```
+   ❌ Send OTP failed: {"success": false, "message": "Invalid phone number"}
+   ```
+   **Solution**: Check if OTP service is working and phone number format is correct
+
+2. **Database Issues**
+   ```
+   ❌ Home page courses failed: {"success": false, "message": "No courses found"}
+   ```
+   **Solution**: Ensure test data exists in database (courses, modules, content)
+
+3. **Server Issues**
+   ```
+   ❌ Server health check failed: Connection refused
+   ```
+   **Solution**: Verify server is running on correct port and accessible
+
+4. **Network Issues**
+   ```
+   ❌ Request timeout after 30s
+   ```
+   **Solution**: Check network connectivity and server performance
+
+#### Debug Mode
+
+Enable verbose logging by modifying the test:
+```javascript
+// Add this to see detailed request/response data
+console.log('Request:', method, url);
+console.log('Response:', response.status, response.body);
+```
+
+### 📊 Sample Output
+
+#### Successful Test Run
+```
+     ✓ Send OTP status is 200
+     ✓ Send OTP response has success field
+     ✓ Verify OTP status is 200
+     ✓ Verify OTP response has access token
+     ✓ Home page courses status is 200
+     ✓ Home page courses response has data
+     ✓ Home page courses response time < 2s
+     ✓ Course details status is 200
+     ✓ Course details response has data
+     ✓ Course details response time < 2s
+     ✓ Modules status is 200
+     ✓ Modules response has data
+     ✓ Modules response time < 2s
+     ✓ Content status is 200
+     ✓ Content response has data
+     ✓ Content response time < 2s
+     ✓ Like status is 200
+     ✓ Like response has success
+     ✓ Like response time < 1s
+     ✓ Save status is 200
+     ✓ Save response has success
+     ✓ Save response time < 1s
+     ✓ Like check status is 200
+     ✓ Like check response has data
+     ✓ Like check response time < 1s
+     ✓ Save check status is 200
+     ✓ Save check response has data
+     ✓ Save check response time < 1s
+     ✓ Saved content status is 200
+     ✓ Saved content response has data
+     ✓ Saved content response time < 2s
+     ✓ Liked content status is 200
+     ✓ Liked content response has data
+     ✓ Liked content response time < 2s
+     ✓ Search status is 200
+     ✓ Search response has data
+     ✓ Search response time < 2s
+     ✓ Categories status is 200
+     ✓ Categories response has data
+     ✓ Categories response time < 2s
+
+     checks.........................: 100.00% ✓ 39        ✗ 0
+     data_received..................: 1.2 MB   20 kB/s
+     data_sent......................: 45 kB    750 B/s
+     errors.........................: 0.00%     ✓ 0         ✗ 0
+     http_req_blocked...............: avg=1.2ms    min=0s      med=1ms      max=15ms     p(90)=2ms      p(95)=3ms
+     http_req_connecting............: avg=0.5ms    min=0s      med=0s       max=8ms      p(90)=1ms      p(95)=2ms
+     http_req_duration..............: avg=150ms    min=45ms     med=120ms    max=850ms    p(90)=280ms    p(95)=420ms
+     http_req_failed................: 0.00%     ✓ 0         ✗ 39
+     http_req_receiving.............: avg=0.8ms    min=0.1ms    med=0.7ms    max=5ms      p(90)=1.2ms    p(95)=1.8ms
+     http_req_sending...............: avg=0.2ms    min=0.1ms    med=0.2ms    max=1ms      p(90)=0.3ms    p(95)=0.4ms
+     http_req_tls_handshaking.......: avg=0s       min=0s       med=0s       max=0s       p(90)=0s        p(95)=0s
+     http_req_waiting...............: avg=148ms    min=44ms     med=118ms    max=845ms    p(90)=278ms    p(95)=418ms
+     http_reqs......................: 39        0.65/s
+     iteration_duration.............: avg=2.1s     min=1.8s     med=2s       max=3.2s     p(90)=2.5s     p(95)=2.8s
+     iterations.....................: 1         0.017/s
+     vus............................: 1          min=1        max=1
+     vus_max........................: 1          min=1        max=1
+```
+
+### 🎛️ Advanced Configuration
+
+#### Custom Scenarios
+
+Create custom test scenarios by modifying the `options` object:
+
+```javascript
+export const options = {
+  scenarios: {
+    // Custom scenario
+    my_scenario: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '1m', target: 5 },
+        { duration: '2m', target: 5 },
+        { duration: '1m', target: 0 },
+      ],
+    },
+  },
+  thresholds: {
+    http_req_duration: ['p(95)<1000'], // Stricter threshold
+    http_req_failed: ['rate<0.01'],    // Lower error tolerance
+  },
+};
+```
+
+#### Custom Metrics
+
+Add custom metrics for specific tracking:
+
+```javascript
+import { Counter, Rate, Trend } from 'k6/metrics';
+
+const customCounter = new Counter('custom_operations');
+const customRate = new Rate('custom_success_rate');
+const customTrend = new Trend('custom_response_time');
+
+// Use in your test
+customCounter.add(1);
+customRate.add(true);
+customTrend.add(response.timings.duration);
+```
+
+### 📚 Additional Resources
+
+- [k6 Documentation](https://k6.io/docs/)
+- [k6 JavaScript API](https://k6.io/docs/javascript-api/)
+- [k6 Metrics](https://k6.io/docs/using-k6/metrics/)
+- [k6 Scenarios](https://k6.io/docs/using-k6/scenarios/)
+- [k6 Thresholds](https://k6.io/docs/using-k6/thresholds/)
 
 ## License
 

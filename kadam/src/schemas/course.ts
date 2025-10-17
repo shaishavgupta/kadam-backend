@@ -437,7 +437,7 @@ export const ContentResponseSchema = Type.Object({
 
 export const SingleContentResponseSchema = Type.Object({
     success: Type.Boolean(),
-    data: ContentWithModuleSchema,
+    data: Type.Optional(ContentWithModuleSchema),
     message: Type.String()
 });
 

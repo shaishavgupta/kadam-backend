@@ -1,7 +1,8 @@
 import { GroupsRepository, Group, GroupMember, GroupMessage } from '../repository/groups.repository';
+import { UserRepository } from '../repository/users.repository';
 import { postgresPubSub } from '../infra/pubsub';
-import { 
-  CreateGroupRequest, 
+import {
+  CreateGroupRequest,
   UpdateGroupRequest,
   AddMemberRequest,
   UpdateMemberRoleRequest,
@@ -17,9 +18,11 @@ import {
 
 export class GroupsService {
   private groupsRepository: GroupsRepository;
+  private userRepository: UserRepository;
 
   constructor() {
     this.groupsRepository = new GroupsRepository();
+    this.userRepository = new UserRepository();
   }
 
   // Group management
@@ -98,7 +101,7 @@ export class GroupsService {
   }> {
     const { page = 1, limit = 10 } = queryParams;
     const result = await this.groupsRepository.getGroups(queryParams, userId);
-    
+
     return {
       ...result,
       page,
@@ -171,7 +174,7 @@ export class GroupsService {
 
     const { page = 1, limit = 10 } = queryParams;
     const result = await this.groupsRepository.getGroupMembers(groupId, queryParams);
-    
+
     return {
       ...result,
       page,
@@ -257,7 +260,7 @@ export class GroupsService {
 
     const { page = 1, limit = 50 } = queryParams;
     const result = await this.groupsRepository.getGroupMessages(groupId, queryParams);
-    
+
     return {
       ...result,
       page,
@@ -308,7 +311,7 @@ export class GroupsService {
 
     // Subscribe to PostgreSQL channel
     const client = await postgresPubSub.subscribe(groupId, userId);
-    
+
     return client;
   }
 
@@ -347,7 +350,7 @@ export class GroupsService {
   }> {
     const { page = 1, limit = 10 } = queryParams;
     const result = await this.groupsRepository.getSuggestedGroups(queryParams, userId);
-    
+
     return {
       ...result,
       page,
@@ -370,8 +373,8 @@ export class GroupsService {
     };
   }> {
     const member = await this.groupsRepository.joinGroup(groupId, userId);
-    const userInfo = await this.groupsRepository.getUserInfo(userId);
-    
+    const userInfo = await this.userRepository.getUserInfo(userId);
+
     if (!userInfo) {
       throw new Error('User information not found');
     }
@@ -381,7 +384,7 @@ export class GroupsService {
         id: member.id.toString(),
         userId: member.user_id.toString(),
         name: userInfo.name,
-        avatar: userInfo.avatar,
+        avatar: userInfo.avatar_url,
         role: 'member' as const,
         isOnline: member.is_online,
         joinedAt: member.joined_at.toISOString(),

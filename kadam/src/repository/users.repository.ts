@@ -233,28 +233,28 @@ export class UserRepository {
     }
 
     // User Preferences Management Methods
-    
+
     async getUserPreferences(userId: number): Promise<Record<string, any> | null> {
         const result = await db.query(
             'SELECT ai_preferences FROM users WHERE id = $1',
             [userId]
         );
-        
+
         if (result.rows.length === 0) {
             return null;
         }
-        
+
         return result.rows[0].ai_preferences || {};
     }
 
     async updateUserPreferences(userId: number, preferences: Record<string, any>): Promise<void> {
         const result = await db.query(
-            `UPDATE users 
-             SET ai_preferences = $1, updated_at = NOW() 
+            `UPDATE users
+             SET ai_preferences = $1, updated_at = NOW()
              WHERE id = $2`,
             [JSON.stringify(preferences), userId]
         );
-        
+
         if (result.rowCount === 0) {
             throw new Error("User not found");
         }
@@ -262,13 +262,13 @@ export class UserRepository {
 
     async mergeUserPreferences(userId: number, preferences: Record<string, any>): Promise<void> {
         const result = await db.query(
-            `UPDATE users 
-             SET ai_preferences = COALESCE(ai_preferences, '{}'::jsonb) || $1::jsonb, 
-                 updated_at = NOW() 
+            `UPDATE users
+             SET ai_preferences = COALESCE(ai_preferences, '{}'::jsonb) || $1::jsonb,
+                 updated_at = NOW()
              WHERE id = $2`,
             [JSON.stringify(preferences), userId]
         );
-        
+
         if (result.rowCount === 0) {
             throw new Error("User not found");
         }
@@ -276,14 +276,21 @@ export class UserRepository {
 
     async clearUserPreferences(userId: number): Promise<void> {
         const result = await db.query(
-            `UPDATE users 
-             SET ai_preferences = '{}'::jsonb, updated_at = NOW() 
+            `UPDATE users
+             SET ai_preferences = '{}'::jsonb, updated_at = NOW()
              WHERE id = $1`,
             [userId]
         );
-        
+
         if (result.rowCount === 0) {
             throw new Error("User not found");
         }
+    }
+
+    // Get user info for member response
+    async getUserInfo(userId: number): Promise<{ id: number; name: string; avatar_url?: string } | null> {
+        const query = 'SELECT id, name, avatar_url as avatar FROM users WHERE id = $1 AND is_active = true';
+        const result = await db.query(query, [userId]);
+        return result.rows[0] || null;
     }
 }

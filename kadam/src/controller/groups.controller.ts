@@ -39,7 +39,8 @@ import {
   GetGroupsQuery,
   GetGroupMembersQuery,
   GetGroupMessagesQuery,
-  GetSuggestedGroupsQuery
+  GetSuggestedGroupsQuery,
+  ErrorResponseSchema
 } from '../schemas';
 
 const groupsService = new GroupsService();
@@ -57,22 +58,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       body: CreateGroupRequestSchema,
       response: {
         200: CreateGroupResponseSchema,
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
         403: {
           type: 'object',
           properties: {
@@ -81,14 +68,7 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
             statusCode: { type: 'number' }
           }
         },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -125,22 +105,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       querystring: GetGroupsQuerySchema,
       response: {
         200: GetGroupsResponseSchema,
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -175,22 +141,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       querystring: GetSuggestedGroupsQuerySchema,
       response: {
         200: GetSuggestedGroupsResponseSchema,
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -251,30 +203,9 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       },
       response: {
         200: GetGroupResponseSchema,
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        404: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -325,22 +256,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       body: UpdateGroupRequestSchema,
       response: {
         200: GetGroupResponseSchema,
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
         403: {
           type: 'object',
           properties: {
@@ -349,22 +266,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
             statusCode: { type: 'number' }
           }
         },
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -423,14 +326,7 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
             message: { type: 'string' }
           }
         },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
+        401: ErrorResponseSchema,
         403: {
           type: 'object',
           properties: {
@@ -439,22 +335,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
             statusCode: { type: 'number' }
           }
         },
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -506,30 +388,9 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       querystring: GetGroupMembersQuerySchema,
       response: {
         200: GetGroupMembersResponseSchema,
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        404: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -574,22 +435,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       body: AddMemberRequestSchema,
       response: {
         200: AddMemberResponseSchema,
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
         403: {
           type: 'object',
           properties: {
@@ -598,22 +445,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
             statusCode: { type: 'number' }
           }
         },
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -632,8 +465,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       });
     } catch (error) {
       console.error('Error adding member:', error);
-      const statusCode = error instanceof Error && error.message.includes('permission') ? 403 : 
-                        error instanceof Error && error.message.includes('already') ? 400 : 500;
+      const statusCode = error instanceof Error && error.message.includes('permission') ? 403 :
+        error instanceof Error && error.message.includes('already') ? 400 : 500;
       return reply.status(statusCode).send({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error',
@@ -660,14 +493,7 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       },
       response: {
         200: RemoveMemberResponseSchema,
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
+        401: ErrorResponseSchema,
         403: {
           type: 'object',
           properties: {
@@ -676,22 +502,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
             statusCode: { type: 'number' }
           }
         },
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -717,8 +529,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       });
     } catch (error) {
       console.error('Error removing member:', error);
-      const statusCode = error instanceof Error && error.message.includes('permission') ? 403 : 
-                        error instanceof Error && error.message.includes('not found') ? 404 : 500;
+      const statusCode = error instanceof Error && error.message.includes('permission') ? 403 :
+        error instanceof Error && error.message.includes('not found') ? 404 : 500;
       return reply.status(statusCode).send({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error',
@@ -746,22 +558,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       body: UpdateMemberRoleRequestSchema,
       response: {
         200: UpdateMemberRoleResponseSchema,
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
         403: {
           type: 'object',
           properties: {
@@ -770,22 +568,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
             statusCode: { type: 'number' }
           }
         },
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -813,8 +597,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       });
     } catch (error) {
       console.error('Error updating member role:', error);
-      const statusCode = error instanceof Error && error.message.includes('permission') ? 403 : 
-                        error instanceof Error && error.message.includes('not found') ? 404 : 500;
+      const statusCode = error instanceof Error && error.message.includes('permission') ? 403 :
+        error instanceof Error && error.message.includes('not found') ? 404 : 500;
       return reply.status(statusCode).send({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error',
@@ -841,30 +625,9 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       querystring: GetGroupMessagesQuerySchema,
       response: {
         200: GetGroupMessagesResponseSchema,
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        404: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -909,30 +672,9 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       body: SendMessageRequestSchema,
       response: {
         200: SendMessageResponseSchema,
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -977,30 +719,9 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       body: SendAudioMessageRequestSchema,
       response: {
         200: SendMessageResponseSchema,
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -1045,30 +766,9 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       body: SendFileMessageRequestSchema,
       response: {
         200: SendMessageResponseSchema,
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -1113,14 +813,7 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       },
       response: {
         200: DeleteMessageResponseSchema,
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
+        401: ErrorResponseSchema,
         403: {
           type: 'object',
           properties: {
@@ -1129,22 +822,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
             statusCode: { type: 'number' }
           }
         },
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        404: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -1170,8 +849,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       });
     } catch (error) {
       console.error('Error deleting message:', error);
-      const statusCode = error instanceof Error && error.message.includes('permission') ? 403 : 
-                        error instanceof Error && error.message.includes('not found') ? 404 : 500;
+      const statusCode = error instanceof Error && error.message.includes('permission') ? 403 :
+        error instanceof Error && error.message.includes('not found') ? 404 : 500;
       return reply.status(statusCode).send({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error',
@@ -1198,22 +877,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       body: MarkMessagesReadRequestSchema,
       response: {
         200: MarkMessagesReadResponseSchema,
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        401: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -1338,46 +1003,11 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       },
       response: {
         200: JoinGroupResponseSchema,
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        409: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+        409: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -1396,7 +1026,7 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
     } catch (error) {
       console.error('Error joining group:', error);
       const statusCode = error instanceof Error && error.message.includes('already') ? 409 :
-                        error instanceof Error && error.message.includes('not found') ? 404 : 500;
+        error instanceof Error && error.message.includes('not found') ? 404 : 500;
       return reply.status(statusCode).send({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error',
@@ -1422,46 +1052,11 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
       },
       response: {
         200: LeaveGroupResponseSchema,
-        400: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        401: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        404: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        409: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        },
-        500: {
-          type: 'object',
-          properties: {
-            success: { type: 'boolean' },
-            message: { type: 'string' },
-            statusCode: { type: 'number' }
-          }
-        }
+        400: ErrorResponseSchema,
+        401: ErrorResponseSchema,
+        404: ErrorResponseSchema,
+        409: ErrorResponseSchema,
+        500: ErrorResponseSchema
       }
     }
   }, async (request: AuthenticatedRequest, reply: FastifyReply) => {
@@ -1479,8 +1074,8 @@ export default async function groupsRoutes(fastify: FastifyInstance) {
     } catch (error) {
       console.error('Error leaving group:', error);
       const statusCode = error instanceof Error && error.message.includes('not a member') ? 409 :
-                        error instanceof Error && error.message.includes('not found') ? 404 :
-                        error instanceof Error && error.message.includes('last admin') ? 400 : 500;
+        error instanceof Error && error.message.includes('not found') ? 404 :
+          error instanceof Error && error.message.includes('last admin') ? 400 : 500;
       return reply.status(statusCode).send({
         success: false,
         message: error instanceof Error ? error.message : 'Internal server error',
