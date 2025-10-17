@@ -1,17 +1,41 @@
 import { Static, Type } from "@sinclair/typebox";
 import { FileType, S3Operation } from "../shared/enums";
 
+// Dynamic payload schemas based on banner type
+const CourseBannerPayload = Type.Object({
+    course_id: Type.Number(),
+});
+
+const ModuleBannerPayload = Type.Object({
+    course_id: Type.Number(),
+    module_id: Type.Number(),
+});
+
+const ContentBannerPayload = Type.Object({
+    course_id: Type.Number(),
+    module_id: Type.Number(),
+    content_id: Type.Number(),
+});
+
+const ExpertBannerPayload = Type.Object({
+    expert_id: Type.Number(),
+});
+
 export const Banners = Type.Object({
     image_url: Type.String(),
     type: Type.Union([
         Type.Literal('course'),
         Type.Literal('module'),
-        Type.Literal('content')
+        Type.Literal('content'),
+        Type.Literal('expert')
     ]),
-    course_id: Type.Number(),
-    module_id: Type.Optional(Type.Number()),
-    content_id: Type.Optional(Type.Number()),
-    is_active: Type.Boolean()
+    is_active: Type.Boolean(),
+    payload: Type.Union([
+        CourseBannerPayload,
+        ModuleBannerPayload,
+        ContentBannerPayload,
+        ExpertBannerPayload
+    ])
 });
 
 export const Categories = Type.Object({
