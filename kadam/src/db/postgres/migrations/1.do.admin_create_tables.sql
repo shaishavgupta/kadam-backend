@@ -31,8 +31,5 @@ CREATE TABLE admin_activities (
   resource_id BIGINT NOT NULL,
   details JSONB NOT NULL,
   ip_address TEXT NOT NULL,
-  user_agent TEXT NOT NULL,
+  user_agent TEXT NOT NULL
 );
-
-CREATE INDEX idx_admin_configurations_key ON admin_configurations(key);
-CREATE INDEX idx_admin_configurations_value ON admin_configurations(value);

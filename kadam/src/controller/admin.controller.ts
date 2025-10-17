@@ -396,6 +396,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 };
             }
 
+            // Invalidate cache after successful course approval
+            await adminService.invalidateCourseCache(courseId);
+
             return {
                 success: true,
                 data: {
@@ -496,6 +499,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 };
             }
 
+            // Invalidate cache after successful course deletion
+            await adminService.invalidateCourseCache(courseId);
+
             return {
                 success: true,
                 data: {
@@ -562,6 +568,15 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 };
             }
 
+            // Invalidate cache based on the type of item rejected
+            if (type === 'course') {
+                await adminService.invalidateCourseCache(id);
+            } else if (type === 'module') {
+                await adminService.invalidateModuleCache(id);
+            } else if (type === 'content') {
+                await adminService.invalidateContentCache(id);
+            }
+
             return {
                 success: true,
                 data: {
@@ -617,6 +632,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
             const createdVideos = await adminService.saveVideoMetadata(courseId, videos, adminId);
 
+            // Invalidate cache after successful video metadata save
+            await adminService.invalidateCourseCache(courseId);
+
             return {
                 success: true,
                 data: {
@@ -666,6 +684,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             }
 
             const updatedContents = await adminService.reorderContents(moduleId, contentIds, adminId);
+
+            // Invalidate cache after successful content reorder
+            await adminService.invalidateModuleCache(moduleId);
 
             return {
                 success: true,
@@ -723,6 +744,11 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                     message: 'Video not found'
                 };
             }
+
+            // Invalidate cache after successful video deletion
+            // Note: We need to get the courseId from the video to invalidate the right cache
+            // For now, we'll invalidate all course-related caches
+            await adminService.invalidateCourseListCache();
 
             return {
                 success: true,
@@ -879,6 +905,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                 };
             }
 
+            // Invalidate cache after successful module approval
+            await adminService.invalidateModuleCache(moduleId);
+
             return {
                 success: true,
                 data: {
@@ -937,6 +966,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
                     message: 'Content not found or could not be approved'
                 };
             }
+
+            // Invalidate cache after successful content approval
+            await adminService.invalidateContentCache(contentId);
 
             return {
                 success: true,

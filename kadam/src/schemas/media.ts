@@ -81,11 +81,11 @@ export const UnifiedPresignedUrlRequestSchema = Type.Object({
 
 export const PresignedUrlResponseSchema = Type.Object({
     success: Type.Boolean(),
-    data: Type.Object({
+    data: Type.Optional(Type.Object({
         presignedUrl: Type.String(),
         s3Key: Type.String(),
         expiresIn: Type.Number()
-    }),
+    })),
     message: Type.String()
 });
 

@@ -109,16 +109,8 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 body: UnifiedPresignedUrlRequestSchema,
                 response: {
                     200: PresignedUrlResponseSchema,
-                    400: Type.Object({
-                        success: Type.Boolean(),
-                        data: Type.Null(),
-                        message: Type.String()
-                    }),
-                    500: Type.Object({
-                        success: Type.Boolean(),
-                        data: Type.Null(),
-                        message: Type.String()
-                    })
+                    400: PresignedUrlResponseSchema,
+                    500: PresignedUrlResponseSchema
                 }
             }
         }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<PresignedUrlResponse> => {
@@ -188,27 +180,9 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
                 body: VideoUploadRequestSchema,
                 response: {
                     200: VideoUploadResponseSchema,
-                    400: {
-                        type: 'object',
-                        properties: {
-                            success: { type: 'boolean' },
-                            message: { type: 'string' }
-                        }
-                    },
-                    403: {
-                        type: 'object',
-                        properties: {
-                            success: { type: 'boolean' },
-                            message: { type: 'string' }
-                        }
-                    },
-                    500: {
-                        type: 'object',
-                        properties: {
-                            success: { type: 'boolean' },
-                            message: { type: 'string' }
-                        }
-                    }
+                    400: VideoUploadResponseSchema,
+                    403: VideoUploadResponseSchema,
+                    500: VideoUploadResponseSchema
                 }
             }
         }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<VideoUploadResponse> => {

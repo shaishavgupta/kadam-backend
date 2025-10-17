@@ -11,6 +11,10 @@ import { config } from '../config';
 import { ApiClient, ExternalApiResponse } from '../shared/api';
 
 const MASK_ID_REDIS_KEY = "maskId:{phone}";
+const OTP_RATE_LIMIT_KEY = "otp_rate_limit:{phone}";
+const AUTHYO_RESPONSE_CACHE_KEY = "authyo_response:{hash}";
+const TOKEN_CACHE_KEY = "token:{userId}:{userType}:{language}";
+const REFRESH_TOKEN_CACHE_KEY = "refresh_token:{tokenHash}";
 
 // Authyo API interfaces
 export interface AuthyoSendOtpRequest {
@@ -69,16 +73,47 @@ export class AuthService {
     }
 
     /**
+     * Generate cache key with parameters
+     */
+    private generateCacheKey(template: string, params: Record<string, string | number>): string {
+        let key = template;
+        for (const [param, value] of Object.entries(params)) {
+            key = key.replace(`{${param}}`, String(value));
+        }
+        return key;
+    }
+
+    /**
+     * Generate hash for request caching
+     */
+    private generateRequestHash(request: any): string {
+        const crypto = require('crypto');
+        return crypto.createHash('md5').update(JSON.stringify(request)).digest('hex');
+    }
+
+    /**
      * Send OTP to the provided phone number using Authyo service
      */
     async sendOtp(request: SendOtpRequest): Promise<SendOtpResponse> {
         try {
             const { phone } = request;
 
+            // Rate limiting: Check if OTP was sent recently (1 minute cooldown)
+            const rateLimitKey = this.generateCacheKey(OTP_RATE_LIMIT_KEY, { phone });
+            const lastSent = await cache.get(rateLimitKey);
+            if (lastSent) {
+                throw new Error("OTP already sent recently. Please wait before requesting again.");
+            }
+
             // For development/local environment, simulate OTP sending
             if (config.NODE_ENV === 'development' || config.NODE_ENV === 'local') {
                 // Store a dummy maskId for development
-                await cache.set(MASK_ID_REDIS_KEY.replace("{phone}", phone), "dev-mask-id", 10 * 60);
+                const maskIdKey = this.generateCacheKey(MASK_ID_REDIS_KEY, { phone });
+                await cache.set(maskIdKey, "dev-mask-id", 10 * 60);
+
+                // Set rate limit (1 minute)
+                await cache.set(rateLimitKey, Date.now(), 60);
+
                 return {
                     success: true,
                     message: "OTP sent successfully (development mode)"
@@ -93,7 +128,16 @@ export class AuthService {
                 authway: 'SMS'
             };
 
-            const authyoResponse = await this.sendOtpViaAuthyo(authyoRequest);
+            // Check cache for similar requests (cache for 30 seconds to avoid duplicate API calls)
+            const requestHash = this.generateRequestHash(authyoRequest);
+            const cacheKey = this.generateCacheKey(AUTHYO_RESPONSE_CACHE_KEY, { hash: requestHash });
+            let authyoResponse = await cache.get(cacheKey);
+
+            if (!authyoResponse) {
+                authyoResponse = await this.sendOtpViaAuthyo(authyoRequest);
+                // Cache the response for 30 seconds
+                await cache.set(cacheKey, authyoResponse, 30);
+            }
 
             // Check if OTP was sent successfully
             if (!authyoResponse.success || !authyoResponse.data.results.length) {
@@ -108,7 +152,11 @@ export class AuthService {
             }
 
             // Store maskId in cache for verification (10 minutes)
-            await cache.set(MASK_ID_REDIS_KEY.replace("{phone}", phone), result.maskId, 10 * 60);
+            const maskIdKey = this.generateCacheKey(MASK_ID_REDIS_KEY, { phone });
+            await cache.set(maskIdKey, result.maskId, 10 * 60);
+
+            // Set rate limit (1 minute)
+            await cache.set(rateLimitKey, Date.now(), 60);
 
             return {
                 success: true,
@@ -116,6 +164,9 @@ export class AuthService {
             };
         } catch (error) {
             console.error("Error sending OTP:", error);
+            if (error instanceof Error) {
+                throw error;
+            }
             throw new Error("Failed to send OTP");
         }
     }
@@ -129,11 +180,15 @@ export class AuthService {
 
             // For development/local environment, skip OTP verification
             if (config.NODE_ENV === 'development' || config.NODE_ENV === 'local') {
+                // Clear rate limit cache after successful verification
+                const rateLimitKey = this.generateCacheKey(OTP_RATE_LIMIT_KEY, { phone });
+                await cache.delete(rateLimitKey);
                 return true;
             }
 
             // Get maskId from cache
-            const maskId = await cache.get(MASK_ID_REDIS_KEY.replace("{phone}", phone));
+            const maskIdKey = this.generateCacheKey(MASK_ID_REDIS_KEY, { phone });
+            const maskId = await cache.get(maskIdKey);
             if (!maskId) {
                 throw new Error("OTP session expired or invalid");
             }
@@ -148,8 +203,10 @@ export class AuthService {
                 throw new Error(authyoResponse.error || 'Invalid OTP');
             }
 
-            // Clear the maskId from cache after successful verification
-            await cache.delete(MASK_ID_REDIS_KEY.replace("{phone}", phone));
+            // Clear the maskId and rate limit from cache after successful verification
+            await cache.delete(maskIdKey);
+            const rateLimitKey = this.generateCacheKey(OTP_RATE_LIMIT_KEY, { phone });
+            await cache.delete(rateLimitKey);
 
             return true;
         } catch (error) {
@@ -217,8 +274,15 @@ export class AuthService {
      * Generate JWT tokens
      */
     async generateTokens(userId: number, userType: UserTypeEnum, language: Language): Promise<{ accessToken: string; refreshToken: string }> {
-        // TODO: Implement actual JWT token generation
-        // For now, return placeholder tokens
+        // Check cache for existing tokens (cache for 1 hour to avoid regenerating same tokens)
+        const tokenCacheKey = this.generateCacheKey(TOKEN_CACHE_KEY, { userId, userType, language });
+        const cachedTokens = await cache.get(tokenCacheKey);
+
+        if (cachedTokens) {
+            return cachedTokens;
+        }
+
+        // Generate new tokens
         const token = jwt.sign(
             { sub: userId, userType: userType, language: language },
             authConfig.JWT_SECRET,
@@ -229,10 +293,16 @@ export class AuthService {
             authConfig.JWT_SECRET,
             { expiresIn: '7d' }
         );
-        return {
+
+        const tokens = {
             accessToken: token,
             refreshToken: refreshToken
         };
+
+        // Cache tokens for 1 hour (3600 seconds)
+        await cache.set(tokenCacheKey, tokens, 3600);
+
+        return tokens;
     }
 
     /**
@@ -251,8 +321,20 @@ export class AuthService {
         message: string;
     }> {
         try {
-            // Verify the refresh token
-            const decoded = jwt.verify(refreshToken, authConfig.JWT_SECRET) as any;
+            // Check cache for refresh token validation (cache for 5 minutes)
+            const tokenHash = this.generateRequestHash(refreshToken);
+            const refreshTokenCacheKey = this.generateCacheKey(REFRESH_TOKEN_CACHE_KEY, { tokenHash });
+            const cachedValidation = await cache.get(refreshTokenCacheKey);
+
+            let decoded: any;
+            if (cachedValidation) {
+                decoded = cachedValidation;
+            } else {
+                // Verify the refresh token
+                decoded = jwt.verify(refreshToken, authConfig.JWT_SECRET) as any;
+                // Cache the decoded token for 5 minutes
+                await cache.set(refreshTokenCacheKey, decoded, 300);
+            }
 
             // Check if the user type matches
             if (decoded.userType !== userType) {

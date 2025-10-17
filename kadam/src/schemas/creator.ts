@@ -30,6 +30,7 @@ export const CreatorSchema = Type.Object({
 
 export const QualificationSchema = Type.Object({
     id: Type.Number(),
+    creator_id: Type.Number(),
     name: Type.String(),
     institution: Type.String(),
     qualification_type: QualificationTypeSchema,
@@ -41,6 +42,7 @@ export const QualificationSchema = Type.Object({
 
 export const AchievementSchema = Type.Object({
     id: Type.Number(),
+    creator_id: Type.Number(),
     created_at: Type.String({ format: 'date-time' }),
     updated_at: Type.String({ format: 'date-time' }),
     title: Type.String(),

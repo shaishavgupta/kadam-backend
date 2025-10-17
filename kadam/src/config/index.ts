@@ -45,7 +45,7 @@ export interface Config {
     AWS_REGION: string;
     AWS_S3_COURSES_BUCKET: string;
     AWS_S3_CDN_BASE_URL: string;
-
+    AWS_CLOUDFRONT_DISTRIBUTION_ID: string;
     // Authyo OTP Service
     AUTHYO_CLIENT_ID: string;
     AUTHYO_CLIENT_SECRET: string;
@@ -95,6 +95,7 @@ function loadConfig(): Config {
         AWS_REGION: process.env.AWS_REGION!,
         AWS_S3_COURSES_BUCKET: process.env.AWS_S3_COURSES_BUCKET!,
         AWS_S3_CDN_BASE_URL: process.env.AWS_S3_CDN_BASE_URL!,
+        AWS_CLOUDFRONT_DISTRIBUTION_ID: process.env.AWS_CLOUDFRONT_DISTRIBUTION_ID!,
         // Authyo OTP Service
         AUTHYO_CLIENT_ID: process.env.AUTHYO_CLIENT_ID!,
         AUTHYO_CLIENT_SECRET: process.env.AUTHYO_CLIENT_SECRET!,

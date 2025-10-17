@@ -357,16 +357,33 @@ export class InteractionsRepository {
         }
     }
 
-    async deleteSave(id: number): Promise<boolean> {
+    async deleteSave(id: number): Promise<Save | null> {
         try {
-            const result = await db.query(
+            // First get the save info before deleting
+            const getResult = await db.query(
+                `SELECT * FROM saves WHERE id = $1`,
+                [id]
+            );
+
+            if (getResult.rows.length === 0) {
+                return null;
+            }
+
+            const saveToDelete = getResult.rows[0] as Save;
+
+            // Then delete the save
+            const deleteResult = await db.query(
                 `DELETE FROM saves WHERE id = $1`,
                 [id]
             );
-            return (result.rowCount || 0) > 0;
+
+            if ((deleteResult.rowCount || 0) > 0) {
+                return saveToDelete;
+            }
+            return null;
         } catch (error) {
             console.error("Error deleting save:", error);
-            return false;
+            return null;
         }
     }
 
@@ -501,16 +518,33 @@ export class InteractionsRepository {
         }
     }
 
-    async deleteUserEnrollment(id: number): Promise<boolean> {
+    async deleteUserEnrollment(id: number): Promise<UserEnrollment | null> {
         try {
-            const result = await db.query(
+            // First get the enrollment info before deleting
+            const getResult = await db.query(
+                `SELECT * FROM user_enrollments WHERE id = $1`,
+                [id]
+            );
+
+            if (getResult.rows.length === 0) {
+                return null;
+            }
+
+            const enrollmentToDelete = getResult.rows[0] as UserEnrollment;
+
+            // Then delete the enrollment
+            const deleteResult = await db.query(
                 `DELETE FROM user_enrollments WHERE id = $1`,
                 [id]
             );
-            return (result.rowCount || 0) > 0;
+
+            if ((deleteResult.rowCount || 0) > 0) {
+                return enrollmentToDelete;
+            }
+            return null;
         } catch (error) {
             console.error("Error deleting user enrollment:", error);
-            return false;
+            return null;
         }
     }
 

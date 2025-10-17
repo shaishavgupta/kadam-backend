@@ -20,7 +20,7 @@ CREATE TABLE users (
 
 CREATE TABLE user_badges (
   id BIGSERIAL PRIMARY KEY,
-  user_id BIGINT REFERENCES users(id) ON DELETE CASCADE,
+  user_id BIGINT,
   badge_type text NOT NULL,
   earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -40,10 +40,3 @@ CREATE TABLE user_quiz_attempts (
   user_id BIGINT NOT NULL,
   content_id BIGINT NOT NULL
 );
-
--- Create indexes
-CREATE INDEX idx_users_phone ON users(phone);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_user_certificates_user_id ON user_certificates(user_id);
-CREATE INDEX idx_user_badges_user_id ON user_badges(user_id);
-CREATE INDEX idx_user_quiz_attempts_user_id ON user_quiz_attempts(user_id);

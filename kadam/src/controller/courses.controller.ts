@@ -109,6 +109,13 @@ function createErrorResponse(message: string, statusCode: number = 500) {
     };
 }
 
+// Common error response schema for endpoints that return data
+const ErrorResponseWithDataSchema = Type.Object({
+    success: Type.Literal(false),
+    data: Type.Null(),
+    message: Type.String()
+});
+
 export default async function coursesRoutes(fastify: FastifyInstance) {
     const coursesService = new CoursesService();
     const adminService = new AdminService();
@@ -130,16 +137,9 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
                     data: Type.Optional(UserCourseSchema),
                     message: Type.String()
                 }),
-                404: Type.Object({
-                    success: Type.Boolean(),
-                    data: Type.Null(),
-                    message: Type.String()
-                }),
-                500: Type.Object({
-                    success: Type.Boolean(),
-                    data: Type.Null(),
-                    message: Type.String()
-                })
+                400: ErrorResponseWithDataSchema,
+                404: ErrorResponseWithDataSchema,
+                500: ErrorResponseWithDataSchema
             }
         }
     }, async (request: AuthenticatedRequest, reply: FastifyReply): Promise<{ success: boolean; data: UserCourse | null; message: string }> => {
@@ -148,23 +148,21 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             const language = request.user?.language;
 
             if (!language) {
-                reply.status(400);
-                return {
+                return reply.status(400).send({
                     success: false,
                     data: null,
                     message: "Language preference is required"
-                };
+                });
             }
 
             const data = await coursesService.getApprovedCourseWithHierarchy(courseId, language);
 
             if (!data) {
-                reply.status(404);
-                return {
+                return reply.status(404).send({
                     success: false,
                     data: null,
                     message: "Course not found or not approved"
-                };
+                });
             }
 
             const serializedData = serializeDates<UserCourse>(data);
@@ -176,12 +174,11 @@ export default async function coursesRoutes(fastify: FastifyInstance) {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Internal server error";
-            reply.status(500).send(createErrorResponse(errorMessage, 500));
-            return {
+            return reply.status(500).send({
                 success: false,
                 data: null,
                 message: errorMessage
-            };
+            });
         }
     });
 
